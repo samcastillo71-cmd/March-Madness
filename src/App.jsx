@@ -1,4 +1,3 @@
-
 // src/App.jsx
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -1072,7 +1071,5 @@ export default function App() {
         )}
       </main>
     </div>
-  );
-}
   );
 }
