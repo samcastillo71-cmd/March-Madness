@@ -20,7 +20,30 @@ import {
 // ── THEME ─────────────────────────────────────────────────────────────────────
 const ACCENT  = '#16a34a';
 const ACCENT2 = '#4ade80';
+const GOLD    = '#f59e0b';
+const GOLD2   = '#fcd34d';
 const RC = { East: '#60a5fa', West: '#f87171', South: '#4ade80', Midwest: '#fb923c' };
+
+// Round colors — each round has a distinct tint
+const ROUND_COLORS = [
+  'rgba(96,165,250,0.13)',   // R64 — blue tint
+  'rgba(167,139,250,0.13)',  // R32 — purple tint
+  'rgba(251,191,36,0.10)',   // S16 — amber tint
+  'rgba(239,68,68,0.13)',    // E8  — red tint
+];
+const ROUND_BORDER_COLORS = [
+  'rgba(96,165,250,0.35)',
+  'rgba(167,139,250,0.35)',
+  'rgba(251,191,36,0.30)',
+  'rgba(239,68,68,0.35)',
+];
+
+const ROUND_LABELS = [
+  { main: 'Round of 64',  sub: '"First Round"'    },
+  { main: 'Round of 32',  sub: '"Second Round"'   },
+  { main: 'Sweet 16',     sub: '"Sweet Sixteen"'  },
+  { main: 'Elite Eight',  sub: '"Elite Eight"'    },
+];
 
 const S = {
   app:    { minHeight: '100vh', background: '#060d08', color: '#dde8e2', fontFamily: "'Source Sans 3', sans-serif" },
@@ -32,6 +55,16 @@ const S = {
   input:  { background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(22,163,74,0.25)', borderRadius: 8, color: '#fff', padding: '10px 14px', fontSize: 14, fontFamily: 'inherit', outline: 'none', width: '100%' },
   tag:    (color) => ({ fontSize: 10, color, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4, fontWeight: 700 }),
 };
+
+// ── FORMAT NAME: "J. Smith" ───────────────────────────────────────────────────
+function formatName(displayName) {
+  if (!displayName) return 'Anonymous';
+  const parts = displayName.trim().split(/\s+/);
+  if (parts.length === 1) return parts[0];
+  const first = parts[0];
+  const last  = parts[parts.length - 1];
+  return `${first.charAt(0)}. ${last}`;
+}
 
 // ── TEAM LOGO ─────────────────────────────────────────────────────────────────
 function TeamLogo({ espnId, name, size = 22 }) {
@@ -47,9 +80,12 @@ function TeamLogo({ espnId, name, size = 22 }) {
 // ── GAME SLOT ─────────────────────────────────────────────────────────────────
 const scoreInput = { width: 60, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 4, color: '#fff', padding: '2px 6px', fontSize: 11, fontFamily: 'inherit' };
 
-function GameSlot({ game, onPick, locked, isChampionship, onScoreChange, flipped }) {
+function GameSlot({ game, onPick, locked, isChampionship, onScoreChange, flipped, roundIdx = 0 }) {
   if (!game) return null;
   const { top, bottom, winner } = game;
+  const slotBg     = isChampionship ? 'rgba(245,158,11,0.08)' : ROUND_COLORS[roundIdx] || ROUND_COLORS[0];
+  const slotBorder = isChampionship ? 'rgba(245,158,11,0.4)'  : ROUND_BORDER_COLORS[roundIdx] || ROUND_BORDER_COLORS[0];
+
   const Team = ({ team, side }) => {
     if (!team) return (
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 8px', height: 34, color: '#444', fontSize: 11, fontStyle: 'italic', flexDirection: flipped ? 'row-reverse' : 'row' }}>
@@ -58,27 +94,34 @@ function GameSlot({ game, onPick, locked, isChampionship, onScoreChange, flipped
     );
     const isW = winner?.name === team.name;
     const isL = winner && !isW;
+    const isFF = team.isFFPlaceholder;
     return (
-      <div onClick={() => !locked && !team.firstFour && onPick?.(side)}
+      <div onClick={() => !locked && !isFF && onPick?.(side)}
         title={isW && !locked ? 'Click to undo this pick' : ''}
-        style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 8px', height: 34, flexDirection: flipped ? 'row-reverse' : 'row', background: isW ? 'linear-gradient(90deg,rgba(22,163,74,.25),rgba(22,163,74,.05))' : 'transparent', cursor: locked || team.firstFour ? 'default' : 'pointer', borderRadius: 4, opacity: isL ? 0.28 : 1, transition: 'background .12s' }}>
+        style={{
+          display: 'flex', alignItems: 'center', gap: 6, padding: '5px 8px', height: 34,
+          flexDirection: flipped ? 'row-reverse' : 'row',
+          background: isW ? 'linear-gradient(90deg,rgba(22,163,74,.3),rgba(22,163,74,.08))' : 'rgba(0,0,0,0.25)',
+          cursor: locked || isFF ? 'default' : 'pointer',
+          borderRadius: 4, opacity: isL ? 0.3 : 1, transition: 'background .12s',
+        }}>
         <TeamLogo espnId={team.espnId} name={team.name} size={20} />
-        <span style={{ fontSize: 10, color: '#555', fontWeight: 700, minWidth: 14, textDecoration: isL ? 'line-through' : 'none' }}>{team.seed}</span>
-        <span style={{ fontSize: 11, fontWeight: isW ? 700 : 500, color: isW ? ACCENT2 : isL ? '#444' : '#ccc', textDecoration: isL ? 'line-through' : 'none', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 108 }}>
-          {team.firstFour ? 'First Four ->' : team.name}
+        <span style={{ fontSize: 10, color: isW ? ACCENT2 : '#666', fontWeight: 700, minWidth: 14, textDecoration: isL ? 'line-through' : 'none' }}>{team.seed}</span>
+        <span style={{ fontSize: 11, fontWeight: isW ? 700 : 500, color: isW ? ACCENT2 : isL ? '#3a3a3a' : '#d0d0d0', textDecoration: isL ? 'line-through' : 'none', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 108, flex: 1 }}>
+          {isFF ? 'FF Winner →' : team.name}
         </span>
-        {isW && <span style={{ marginLeft: flipped ? 0 : 'auto', marginRight: flipped ? 'auto' : 0, color: ACCENT2, fontSize: 11 }}>checkmark</span>}
-        {isL && !locked && <span style={{ marginLeft: flipped ? 0 : 'auto', marginRight: flipped ? 'auto' : 0, fontSize: 9, color: '#333' }}>x</span>}
+        {isW && <span style={{ marginLeft: flipped ? 0 : 'auto', marginRight: flipped ? 'auto' : 0, color: ACCENT2, fontSize: 11 }}>✓</span>}
       </div>
     );
   };
+
   return (
-    <div style={{ border: '1px solid rgba(255,255,255,0.08)', borderRadius: 6, overflow: 'hidden', background: 'rgba(255,255,255,0.02)', minWidth: 178 }}>
+    <div style={{ border: `1px solid ${slotBorder}`, borderRadius: 6, overflow: 'hidden', background: slotBg, minWidth: 178 }}>
       <Team team={top} side="top" />
-      <div style={{ height: 1, background: 'rgba(255,255,255,0.06)' }} />
+      <div style={{ height: 1, background: 'rgba(255,255,255,0.08)' }} />
       <Team team={bottom} side="bottom" />
       {isChampionship && (
-        <div style={{ display: 'flex', gap: 4, padding: '4px 8px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+        <div style={{ display: 'flex', gap: 4, padding: '4px 8px', borderTop: '1px solid rgba(245,158,11,0.2)' }}>
           <input placeholder="Score 1" value={game.scoreTop || ''} onChange={e => onScoreChange('scoreTop', e.target.value)} style={scoreInput} />
           <span style={{ color: '#555', fontSize: 11, alignSelf: 'center' }}>-</span>
           <input placeholder="Score 2" value={game.scoreBottom || ''} onChange={e => onScoreChange('scoreBottom', e.target.value)} style={scoreInput} />
@@ -89,8 +132,7 @@ function GameSlot({ game, onPick, locked, isChampionship, onScoreChange, flipped
 }
 
 // ── REGION BRACKET ────────────────────────────────────────────────────────────
-const ROUND_LABELS = ['Round of 64', 'Round of 32', 'Sweet 16', 'Elite Eight'];
-const ROW_GAPS     = [4, 42, 116, 248];
+const ROW_GAPS = [4, 42, 116, 248];
 
 function roundTopOffset(logicIdx) {
   const slotH = 69, minGap = ROW_GAPS[0];
@@ -106,19 +148,20 @@ function RegionBracket({ region, rounds, onPick, locked, flipped = false, vflipp
         const theGames = rounds[logicIdx];
         const gapSize  = ROW_GAPS[logicIdx];
         const pad      = roundTopOffset(logicIdx);
+        const label    = ROUND_LABELS[logicIdx];
         return (
           <div key={iter} style={{
-            display: 'flex',
-            flexDirection: vflipped ? 'column-reverse' : 'column',
+            display: 'flex', flexDirection: vflipped ? 'column-reverse' : 'column',
             gap: gapSize,
             paddingTop:    vflipped ? 0   : pad,
             paddingBottom: vflipped ? pad : 0,
           }}>
-            <div style={{ fontSize: 13, color: ACCENT2, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', textAlign: 'center', marginBottom: vflipped ? 0 : 6, marginTop: vflipped ? 6 : 0, whiteSpace: 'nowrap' }}>
-              {ROUND_LABELS[logicIdx]}
+            <div style={{ textAlign: 'center', marginBottom: vflipped ? 0 : 4, marginTop: vflipped ? 4 : 0, whiteSpace: 'nowrap' }}>
+              <div style={{ fontSize: 11, color: ACCENT2, fontWeight: 700, letterSpacing: 1.2, textTransform: 'uppercase' }}>{label?.main}</div>
+              <div style={{ fontSize: 9, color: '#555', fontStyle: 'italic', marginTop: 1 }}>{label?.sub}</div>
             </div>
             {theGames.map((game, gIdx) => (
-              <GameSlot key={gIdx} game={game} locked={locked} flipped={flipped}
+              <GameSlot key={gIdx} game={game} locked={locked} flipped={flipped} roundIdx={logicIdx}
                 onPick={side => onPick(region, logicIdx, gIdx, side)} />
             ))}
           </div>
@@ -233,6 +276,8 @@ function TeamEntryPanel({ onTeamsSaved, onRequestGenerateResearch }) {
   const [activeRegion, setActiveRegion] = useState('East');
   const [saving,       setSaving]       = useState(false);
   const [saved,        setSaved]        = useState(false);
+  const [applying,     setApplying]     = useState(false);
+  const [applied,      setApplied]      = useState(false);
   const [loading,      setLoading]      = useState(true);
 
   useEffect(() => {
@@ -247,64 +292,123 @@ function TeamEntryPanel({ onTeamsSaved, onRequestGenerateResearch }) {
 
   const updateTeam = (region, idx, field, value) => {
     setRoster(prev => { const n = JSON.parse(JSON.stringify(prev)); n[region][idx][field] = value; return n; });
+    setSaved(false); setApplied(false);
+  };
+
+  const addTeamSlot = (region) => {
+    setRoster(prev => {
+      const n = JSON.parse(JSON.stringify(prev));
+      n[region].push({ seed: '', name: '', espnId: '', firstFour: true });
+      return n;
+    });
+  };
+
+  const removeTeamSlot = (region, idx) => {
+    setRoster(prev => {
+      const n = JSON.parse(JSON.stringify(prev));
+      n[region].splice(idx, 1);
+      return n;
+    });
     setSaved(false);
   };
 
-  const handleSave = async () => {
+  // Step 1: Save roster only (fast)
+  const handleSaveRoster = async () => {
     setSaving(true);
     await setDoc(doc(db, 'admin', 'teamRoster'), { ...roster, updatedAt: serverTimestamp() });
-    const { buildInitialBracketFromTeams } = await import('./bracketData');
+    setSaving(false); setSaved(true);
+  };
+
+  // Step 2: Apply to bracket (separate, slower step)
+  const handleApplyToBracket = async () => {
+    setApplying(true);
     const nb = buildInitialBracketFromTeams(roster);
     await saveOfficialBracket(nb);
-    setSaving(false); setSaved(true);
+    setApplying(false); setApplied(true);
     onTeamsSaved(nb, roster);
   };
 
   if (loading) return <div style={{ color: '#666', padding: 20 }}>Loading roster...</div>;
+
+  const regionTeams = roster[activeRegion] || [];
+
   return (
     <div style={{ ...S.card, marginBottom: 16 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
         <div>
           <h3 style={{ color: ACCENT2, marginBottom: 4 }}>Set Up This Year's Teams</h3>
-          <p style={{ color: '#666', fontSize: 13 }}>Enter all 64 teams after Selection Sunday. Check "FF" for First Four play-in slots.</p>
+          <p style={{ color: '#666', fontSize: 13 }}>Enter all 64–68 teams after Selection Sunday. Use "Add FF Slot" for First Four play-in teams — give them the same seed number and check FF on both.</p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <span style={{ fontSize: 12, color: '#888' }}>Year:</span>
             <input type="number" value={roster.year} onChange={e => { setRoster(p => ({ ...p, year: parseInt(e.target.value) })); setSaved(false); }} style={{ ...S.input, width: 82, padding: '6px 10px', fontSize: 13 }} />
           </div>
-          <button style={{ ...S.btn(saved ? '#22c55e' : ACCENT, '#fff'), padding: '8px 20px', fontSize: 13 }} onClick={handleSave} disabled={saving}>
-            {saving ? 'Saving...' : saved ? 'Saved!' : 'Save & Apply to Bracket'}
+          <button style={{ ...S.btn(saved ? '#22c55e' : ACCENT, '#fff'), padding: '8px 20px', fontSize: 13 }} onClick={handleSaveRoster} disabled={saving}>
+            {saving ? 'Saving...' : saved ? '✓ Roster Saved' : 'Save Roster'}
           </button>
           {saved && (
+            <button style={{ ...S.btn(applied ? '#22c55e' : '#f59e0b', '#000'), padding: '8px 20px', fontSize: 13 }} onClick={handleApplyToBracket} disabled={applying}>
+              {applying ? 'Applying...' : applied ? '✓ Applied!' : 'Apply to Bracket'}
+            </button>
+          )}
+          {applied && (
             <button style={{ ...S.btn('#6366f1', '#fff'), padding: '8px 20px', fontSize: 13 }} onClick={() => onRequestGenerateResearch(roster)}>
-              Auto-Generate Research Data
+              Auto-Generate Research
             </button>
           )}
         </div>
       </div>
-      <div style={{ display: 'flex', gap: 4, marginBottom: 16 }}>
-        {['East','West','South','Midwest'].map(r => (
-          <button key={r} style={{ ...S.navBtn(activeRegion === r), borderBottom: activeRegion === r ? `2px solid ${RC[r]}` : '2px solid transparent', borderRadius: '6px 6px 0 0', padding: '8px 18px' }} onClick={() => setActiveRegion(r)}>
-            <span style={{ color: RC[r], marginRight: 6 }}>o</span>{r}
-          </button>
-        ))}
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-        {roster[activeRegion].map((team, idx) => (
-          <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.03)', borderRadius: 8, padding: '8px 12px', border: '1px solid rgba(255,255,255,0.07)' }}>
-            <span style={{ width: 24, height: 24, borderRadius: '50%', background: 'rgba(22,163,74,0.15)', border: '1px solid rgba(22,163,74,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: ACCENT2, flexShrink: 0 }}>{team.seed}</span>
-            <input placeholder={`Seed ${team.seed} team name`} value={team.name} onChange={e => updateTeam(activeRegion, idx, 'name', e.target.value)} style={{ ...S.input, flex: 2, padding: '6px 10px', fontSize: 13 }} />
-            <input placeholder="ESPN ID" value={team.espnId} onChange={e => updateTeam(activeRegion, idx, 'espnId', e.target.value)} style={{ ...S.input, width: 80, padding: '6px 10px', fontSize: 13 }} />
-            <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', flexShrink: 0 }}>
-              <input type="checkbox" checked={team.firstFour} onChange={e => updateTeam(activeRegion, idx, 'firstFour', e.target.checked)} />
-              <span style={{ fontSize: 11, color: '#888', whiteSpace: 'nowrap' }}>FF</span>
-            </label>
+
+      {/* Step indicators */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 16, fontSize: 12 }}>
+        {[['1. Save Roster', saved], ['2. Apply to Bracket', applied], ['3. Generate Research (optional)', false]].map(([label, done], i) => (
+          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 20, background: done ? 'rgba(22,163,74,0.15)' : 'rgba(255,255,255,0.04)', border: `1px solid ${done ? 'rgba(22,163,74,0.4)' : 'rgba(255,255,255,0.08)'}`, color: done ? ACCENT2 : '#555' }}>
+            {done ? '✓' : `${i+1}`} {label}
           </div>
         ))}
       </div>
-      <div style={{ marginTop: 14, padding: '10px 14px', background: 'rgba(96,165,250,0.07)', borderRadius: 8, border: '1px solid rgba(96,165,250,0.2)', fontSize: 13, color: '#93c5fd' }}>
-        ESPN ID tip: Go to espn.com/mens-college-basketball/team/_/id/150/duke - the number after /id/ is the ESPN ID.
+
+      <div style={{ display: 'flex', gap: 4, marginBottom: 16 }}>
+        {['East','West','South','Midwest'].map(r => (
+          <button key={r} style={{ ...S.navBtn(activeRegion === r), borderBottom: activeRegion === r ? `2px solid ${RC[r]}` : '2px solid transparent', borderRadius: '6px 6px 0 0', padding: '8px 18px' }} onClick={() => setActiveRegion(r)}>
+            <span style={{ color: RC[r], marginRight: 6 }}>●</span>{r}
+            <span style={{ marginLeft: 6, fontSize: 11, color: '#555' }}>({roster[r]?.length || 0})</span>
+          </button>
+        ))}
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+        {regionTeams.map((team, idx) => (
+          <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 8, background: team.firstFour ? 'rgba(99,102,241,0.08)' : 'rgba(255,255,255,0.03)', borderRadius: 8, padding: '8px 12px', border: team.firstFour ? '1px solid rgba(99,102,241,0.3)' : '1px solid rgba(255,255,255,0.07)' }}>
+            {/* Editable seed */}
+            <input
+              type="number" min="1" max="16"
+              value={team.seed}
+              onChange={e => updateTeam(activeRegion, idx, 'seed', parseInt(e.target.value) || e.target.value)}
+              style={{ ...S.input, width: 48, padding: '6px 6px', fontSize: 13, textAlign: 'center' }}
+              title="Seed number (two FF teams can share the same seed)"
+            />
+            <input placeholder={`Team name`} value={team.name} onChange={e => updateTeam(activeRegion, idx, 'name', e.target.value)} style={{ ...S.input, flex: 2, padding: '6px 10px', fontSize: 13 }} />
+            <input placeholder="ESPN ID" value={team.espnId} onChange={e => updateTeam(activeRegion, idx, 'espnId', e.target.value)} style={{ ...S.input, width: 80, padding: '6px 10px', fontSize: 13 }} />
+            <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', flexShrink: 0 }}>
+              <input type="checkbox" checked={team.firstFour} onChange={e => updateTeam(activeRegion, idx, 'firstFour', e.target.checked)} />
+              <span style={{ fontSize: 11, color: team.firstFour ? '#818cf8' : '#888', whiteSpace: 'nowrap', fontWeight: team.firstFour ? 700 : 400 }}>FF</span>
+            </label>
+            {regionTeams.length > 16 && (
+              <button onClick={() => removeTeamSlot(activeRegion, idx)} style={{ background: 'none', border: 'none', color: '#444', cursor: 'pointer', fontSize: 14, padding: '0 2px', flexShrink: 0 }} title="Remove slot">×</button>
+            )}
+          </div>
+        ))}
+      </div>
+
+      <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
+        <button onClick={() => addTeamSlot(activeRegion)} style={{ ...S.btn('rgba(99,102,241,0.2)', '#818cf8'), padding: '7px 16px', fontSize: 12, border: '1px solid rgba(99,102,241,0.3)' }}>
+          + Add FF Slot
+        </button>
+        <div style={{ flex: 1, padding: '7px 14px', background: 'rgba(96,165,250,0.07)', borderRadius: 8, border: '1px solid rgba(96,165,250,0.2)', fontSize: 12, color: '#93c5fd' }}>
+          ESPN ID tip: espn.com/mens-college-basketball/team/_/id/<strong>150</strong>/duke — number after /id/
+        </div>
       </div>
     </div>
   );
@@ -329,6 +433,7 @@ Return ONLY valid JSON, no markdown, no explanation. Use this exact structure:
 export default function App() {
   const [user,             setUser]            = useState(null);
   const [isAdmin,          setIsAdmin]         = useState(false);
+  const [isTeacher,        setIsTeacher]       = useState(false);
   const [authLoading,      setAuthLoading]     = useState(true);
   const [tab,              setTab]             = useState('bracket');
   const [bracket,          setBracket]         = useState(() => buildInitialBracket());
@@ -349,9 +454,12 @@ export default function App() {
   const [tournamentYear,   setTournamentYear]  = useState(CURRENT_YEAR);
   const [yearDraft,        setYearDraft]       = useState(String(CURRENT_YEAR));
   const [yearSaving,       setYearSaving]      = useState(false);
-  const saveTimer = useRef(null);
 
-  // Load year before login so login page shows correct year
+  const saveTimer   = useRef(null);
+  const prevBracket = useRef(null);
+  const prevFF      = useRef(null);
+
+  // Load year before login
   useEffect(() => {
     (async () => {
       try {
@@ -370,6 +478,11 @@ export default function App() {
       setUser(fbUser);
       const admin = await checkIsAdmin(fbUser.uid);
       setIsAdmin(admin);
+      // Check teacher role
+      try {
+        const tSnap = await getDoc(doc(db, 'teachers', fbUser.uid));
+        setIsTeacher(tSnap.exists());
+      } catch {}
       const saved = await loadBracket(fbUser.uid);
       if (saved) {
         if (saved._firstFourPicks) {
@@ -378,7 +491,7 @@ export default function App() {
           setBracket(bracketOnly);
         } else { setBracket(saved); }
       }
-    } else { setUser(null); setIsAdmin(false); setBracket(buildInitialBracket()); }
+    } else { setUser(null); setIsAdmin(false); setIsTeacher(false); setBracket(buildInitialBracket()); }
     setAuthLoading(false);
   }), []);
 
@@ -398,20 +511,27 @@ export default function App() {
     return () => { u1(); u2(); u3(); u4(); };
   }, [user, isAdmin]);
 
-  // ── AUTO-SAVE ─────────────────────────────────────────────────────────────
+  // ── SMART AUTO-SAVE (only when changed) ──────────────────────────────────
   useEffect(() => {
     if (!user || (locked && !isAdmin)) return;
+    const bracketStr = JSON.stringify(bracket);
+    const ffStr      = JSON.stringify(firstFourPicks);
+    // Skip if nothing changed
+    if (bracketStr === prevBracket.current && ffStr === prevFF.current) return;
+    prevBracket.current = bracketStr;
+    prevFF.current      = ffStr;
+
     clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(async () => {
       setSaving(true);
       await saveBracket(user.uid, { ...bracket, _firstFourPicks: firstFourPicks }, user.displayName, user.photoURL);
       if (isAdmin) await saveOfficialBracket(bracket);
       const score = calcScore(bracket, officialBracket);
-      await updateLeaderboardEntry(user.uid, user.displayName, user.photoURL, score);
+      await updateLeaderboardEntry(user.uid, user.displayName, user.photoURL, score, isTeacher);
       setSaving(false); setLastSaved(new Date());
-    }, 1500);
+    }, 3000); // 3s debounce
     return () => clearTimeout(saveTimer.current);
-  }, [bracket, firstFourPicks, user, locked, isAdmin, officialBracket]);
+  }, [bracket, firstFourPicks, user, locked, isAdmin, officialBracket, isTeacher]);
 
   // ── PICK HANDLERS ─────────────────────────────────────────────────────────
   const clearTeamDownstream = (next, region, teamName, fromRound) => {
@@ -434,11 +554,11 @@ export default function App() {
   const handlePick = useCallback((region, rIdx, gIdx, side) => {
     if (locked && !isAdmin) return;
     setBracket(prev => {
-      const next    = JSON.parse(JSON.stringify(prev));
-      const game    = next[region].rounds[rIdx][gIdx];
+      const next = JSON.parse(JSON.stringify(prev));
+      const game = next[region].rounds[rIdx][gIdx];
       if (!game) return prev;
       const clicked = side === 'top' ? game.top : game.bottom;
-      if (!clicked || clicked.firstFour) return prev;
+      if (!clicked || clicked.isFFPlaceholder) return prev;
       if (game.winner?.name === clicked.name) {
         game.winner = null;
         clearTeamDownstream(next, region, clicked.name, rIdx + 1);
@@ -466,8 +586,8 @@ export default function App() {
   const handleFFPick = useCallback((idx, side) => {
     if (locked && !isAdmin) return;
     setBracket(prev => {
-      const next    = JSON.parse(JSON.stringify(prev));
-      const ff      = next.finalFour[idx];
+      const next = JSON.parse(JSON.stringify(prev));
+      const ff   = next.finalFour[idx];
       const clicked = ff[side];
       if (!clicked) return prev;
       if (ff.winner?.name === clicked.name) {
@@ -487,7 +607,7 @@ export default function App() {
   const handleChampPick = useCallback(side => {
     if (locked && !isAdmin) return;
     setBracket(prev => {
-      const next    = JSON.parse(JSON.stringify(prev));
+      const next = JSON.parse(JSON.stringify(prev));
       const clicked = next.championship[side];
       if (!clicked) return prev;
       if (next.championship.winner?.name === clicked.name) { next.championship.winner = null; return next; }
@@ -499,11 +619,27 @@ export default function App() {
   const handleChampScore = useCallback((field, val) =>
     setBracket(prev => ({ ...prev, championship: { ...prev.championship, [field]: val } })), []);
 
-  const handleFirstFourPick = useCallback((key, winner) => {
+  // First Four picks: when user picks a FF winner, replace the FF placeholder in R64
+  const handleFirstFourPick = useCallback((key, winner, region, seed) => {
     if (locked && !isAdmin) return;
     setFirstFourPicks(prev => {
-      if (prev[key] === winner) { const n = { ...prev }; delete n[key]; return n; }
-      return { ...prev, [key]: winner };
+      if (prev[key] === winner.name) { const n = { ...prev }; delete n[key]; return n; }
+      return { ...prev, [key]: winner.name };
+    });
+    // Replace FF placeholder in R64 with the actual winner
+    setBracket(prev => {
+      const next = JSON.parse(JSON.stringify(prev));
+      const r64  = next[region]?.rounds[0];
+      if (!r64) return prev;
+      r64.forEach(game => {
+        if (game.top?.isFFPlaceholder && game.top.seed === seed) {
+          game.top = { ...winner, isFFPlaceholder: false };
+        }
+        if (game.bottom?.isFFPlaceholder && game.bottom.seed === seed) {
+          game.bottom = { ...winner, isFFPlaceholder: false };
+        }
+      });
+      return next;
     });
   }, [locked, isAdmin]);
 
@@ -588,6 +724,10 @@ export default function App() {
   const myRank       = leaderboard.findIndex(e => e.uid === user?.uid) + 1;
   const allTeamNames = Object.keys(researchData).sort();
 
+  // Split leaderboard into teachers and students
+  const teacherBoard  = leaderboard.filter(e => e.isTeacher);
+  const studentBoard  = leaderboard.filter(e => !e.isTeacher);
+
   // ── LOGIN ─────────────────────────────────────────────────────────────────
   if (authLoading) return (
     <div style={{ ...S.app, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -606,7 +746,7 @@ export default function App() {
       </div>
       <div style={{ ...S.card, textAlign: 'center', maxWidth: 380, padding: '36px 40px' }}>
         <p style={{ color: '#888', fontSize: 14, marginBottom: 24, lineHeight: 1.7 }}>
-          Sign in with your school Google account to fill out your bracket and compete with 1,500+ students.
+          Sign in with your school Google account to fill out your bracket and compete with your classmates and teachers.
         </p>
         <button style={S.btn()} onClick={signInWithGoogle}>
           <span style={{ fontWeight: 900, marginRight: 8 }}>G</span> Sign in with Google
@@ -622,6 +762,21 @@ export default function App() {
     ...(isAdmin ? [{ id: 'admin', label: 'Admin' }] : []),
   ];
 
+  // Collect FF games from bracket for the First Four section
+  const ffGamesList = [];
+  ['East','West','South','Midwest'].forEach(region => {
+    (bracket[region]?.rounds[0] || []).forEach(game => {
+      const hasFF = game?.top?.isFFPlaceholder || game?.bottom?.isFFPlaceholder;
+      if (hasFF) {
+        const ffTeam = game.top?.isFFPlaceholder ? game.top : game.bottom;
+        const key = `${region}-${ffTeam.seed}`;
+        if (!ffGamesList.find(f => f.key === key) && ffTeam.ffTeams) {
+          ffGamesList.push({ region, seed: ffTeam.seed, ffTeams: ffTeam.ffTeams, key });
+        }
+      }
+    });
+  });
+
   return (
     <div style={S.app}>
       <style>{`
@@ -630,6 +785,7 @@ export default function App() {
         .bscroll::-webkit-scrollbar-track { background: rgba(255,255,255,0.04); border-radius: 5px; }
         .bscroll::-webkit-scrollbar-thumb { background: rgba(22,163,74,0.5); border-radius: 5px; }
         .bscroll::-webkit-scrollbar-thumb:hover { background: rgba(22,163,74,0.8); }
+        @keyframes champGlow { 0%,100%{box-shadow:0 0 24px rgba(245,158,11,0.3)} 50%{box-shadow:0 0 40px rgba(245,158,11,0.6)} }
       `}</style>
 
       <header style={S.header}>
@@ -640,6 +796,7 @@ export default function App() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           {user.photoURL && <img src={user.photoURL} alt="" width={28} height={28} style={{ borderRadius: '50%' }} />}
           <span style={{ fontSize: 13, color: '#888' }}>{user.displayName?.split(' ')[0]}</span>
+          {isTeacher && <span style={{ fontSize: 10, background: 'rgba(245,158,11,0.15)', color: GOLD, border: '1px solid rgba(245,158,11,0.3)', borderRadius: 4, padding: '2px 6px', fontWeight: 700 }}>TEACHER</span>}
           {saving && <span style={{ fontSize: 11, color: '#555' }}>Saving...</span>}
           {!saving && lastSaved && <span style={{ fontSize: 11, color: '#166534' }}>Saved</span>}
           <button onClick={logOut} style={{ background: 'none', border: 'none', color: '#444', cursor: 'pointer', fontSize: 12 }}>Sign out</button>
@@ -651,6 +808,7 @@ export default function App() {
         {/* ══════════════════ BRACKET TAB ══════════════════ */}
         {tab === 'bracket' && (
           <div style={{ padding: 20 }}>
+            {/* Score bar */}
             <div style={{ ...S.card, display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 14 }}>
               <div>
                 <div style={{ fontSize: 11, color: '#555', letterSpacing: 1, textTransform: 'uppercase' }}>Your Score</div>
@@ -661,7 +819,7 @@ export default function App() {
               </div>
               <div style={{ textAlign: 'center' }}>
                 <div style={{ fontSize: 13, color: locked ? '#e74c3c' : '#22c55e', marginBottom: 6 }}>
-                  {locked ? 'Brackets Locked' : 'Picks Open'}
+                  {locked ? '🔒 Brackets Locked' : '🟢 Picks Open'}
                 </div>
                 {isAdmin && (
                   <button style={{ ...S.btn(locked ? '#22c55e' : '#e74c3c', '#fff'), fontSize: 12, padding: '6px 16px' }}
@@ -680,123 +838,122 @@ export default function App() {
             </div>
 
             {/* First Four */}
-            {(() => {
-              const ffGames = [];
-              ['East','West','South','Midwest'].forEach(region => {
-                (bracket[region]?.rounds[0] || []).forEach(game => {
-                  if (game?.top?.firstFour || game?.bottom?.firstFour) {
-                    const seed = (game?.top?.firstFour ? game.top : game.bottom)?.seed;
-                    const key  = `${region}-${seed}`;
-                    if (!ffGames.find(f => f.key === key)) ffGames.push({ region, seed, game, key });
-                  }
-                });
-              });
-              if (!ffGames.length) return null;
-              return (
-                <div style={{ marginBottom: 20, padding: '16px 18px', background: 'rgba(22,163,74,0.06)', border: '1px solid rgba(22,163,74,0.2)', borderRadius: 12 }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: ACCENT2, letterSpacing: 2, marginBottom: 2 }}>FIRST FOUR - PLAY-IN GAMES</div>
-                  <div style={{ fontSize: 11, color: '#555', marginBottom: 14 }}>Pick who wins each play-in game and advances into the main bracket</div>
-                  <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                    {ffGames.map(({ region, seed, game, key }) => {
-                      const teams   = [game.top, game.bottom].filter(t => t?.name && !t.name.startsWith('Seed '));
-                      if (teams.length < 2) return null;
-                      const pick    = firstFourPicks[key];
-                      const isLockd = locked && !isAdmin;
-                      return (
-                        <div key={key} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 10, padding: '12px 14px', minWidth: 210 }}>
-                          <div style={{ fontSize: 10, color: RC[region], fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 8 }}>{region} - #{seed} seed play-in</div>
-                          {teams.map(team => {
-                            const isPick = pick === team.name;
-                            return (
-                              <div key={team.name} onClick={() => !isLockd && handleFirstFourPick(key, team.name)}
-                                style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', borderRadius: 7, marginBottom: 5, cursor: isLockd ? 'default' : 'pointer', background: isPick ? 'rgba(22,163,74,0.18)' : 'rgba(255,255,255,0.03)', border: isPick ? '1px solid rgba(22,163,74,0.5)' : '1px solid rgba(255,255,255,0.07)', transition: 'all .12s' }}>
-                                <TeamLogo espnId={team.espnId} name={team.name} size={20} />
-                                <span style={{ fontSize: 10, color: '#555', fontWeight: 700, minWidth: 14 }}>{team.seed}</span>
-                                <span style={{ fontSize: 12, fontWeight: isPick ? 700 : 400, color: isPick ? ACCENT2 : '#bbb', flex: 1 }}>{team.name}</span>
-                                {isPick && <span style={{ color: ACCENT2, fontSize: 13 }}>ok</span>}
-                              </div>
-                            );
-                          })}
-                          {pick ? <div style={{ fontSize: 10, color: '#555', textAlign: 'center', marginTop: 4 }}>{pick} advances as #{seed} seed</div>
-                                : <div style={{ fontSize: 10, color: '#444', textAlign: 'center', marginTop: 4 }}>pick a winner</div>}
+            {ffGamesList.length > 0 && (
+              <div style={{ marginBottom: 20, padding: '16px 18px', background: 'rgba(99,102,241,0.07)', border: '1px solid rgba(99,102,241,0.25)', borderRadius: 12 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: '#818cf8', letterSpacing: 2, marginBottom: 2 }}>FIRST FOUR — PLAY-IN GAMES</div>
+                <div style={{ fontSize: 11, color: '#555', marginBottom: 14 }}>Pick who wins each play-in game and advances into the main bracket</div>
+                <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                  {ffGamesList.map(({ region, seed, ffTeams, key }) => {
+                    const pick    = firstFourPicks[key];
+                    const isLockd = locked && !isAdmin;
+                    return (
+                      <div key={key} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: 10, padding: '12px 14px', minWidth: 210 }}>
+                        <div style={{ fontSize: 10, color: RC[region], fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 8 }}>
+                          {region} — #{seed} seed play-in
                         </div>
-                      );
-                    })}
-                  </div>
+                        {ffTeams.map(team => {
+                          const isPick = pick === team.name;
+                          return (
+                            <div key={team.name} onClick={() => !isLockd && handleFirstFourPick(key, team, region, seed)}
+                              style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', borderRadius: 7, marginBottom: 5, cursor: isLockd ? 'default' : 'pointer', background: isPick ? 'rgba(99,102,241,0.2)' : 'rgba(255,255,255,0.03)', border: isPick ? '1px solid rgba(99,102,241,0.5)' : '1px solid rgba(255,255,255,0.07)', transition: 'all .12s' }}>
+                              <TeamLogo espnId={team.espnId} name={team.name} size={20} />
+                              <span style={{ fontSize: 10, color: '#555', fontWeight: 700, minWidth: 14 }}>{team.seed}</span>
+                              <span style={{ fontSize: 12, fontWeight: isPick ? 700 : 400, color: isPick ? '#a5b4fc' : '#bbb', flex: 1 }}>{team.name}</span>
+                              {isPick && <span style={{ color: '#818cf8', fontSize: 13 }}>✓</span>}
+                            </div>
+                          );
+                        })}
+                        {pick
+                          ? <div style={{ fontSize: 10, color: '#555', textAlign: 'center', marginTop: 4 }}>{pick} advances as #{seed} seed</div>
+                          : <div style={{ fontSize: 10, color: '#444', textAlign: 'center', marginTop: 4 }}>pick a winner</div>}
+                      </div>
+                    );
+                  })}
                 </div>
-              );
-            })()}
+              </div>
+            )}
 
             {/* ── MAIN BRACKET ── */}
             <div className="bscroll" style={{ overflowX: 'auto', overflowY: 'visible', paddingBottom: 16 }}>
               <div style={{ minWidth: 1960, paddingBottom: 8 }}>
-                <div style={{ display: 'flex', alignItems: 'stretch', gap: 8 }}>
 
-                  {/* LEFT: East (top) + South (bottom, grows upward) */}
+                {/* Championship — raised above, centered */}
+                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 0, position: 'relative', zIndex: 10 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: '18px 28px', background: 'linear-gradient(135deg, rgba(245,158,11,0.12), rgba(245,158,11,0.04))', border: '2px solid rgba(245,158,11,0.45)', borderRadius: 16, animation: 'champGlow 3s ease-in-out infinite', minWidth: 260 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ fontSize: 20 }}>🏆</span>
+                      <span style={{ fontSize: 16, fontWeight: 800, color: GOLD2, letterSpacing: 2, textTransform: 'uppercase', fontFamily: "'Playfair Display', serif" }}>National Championship</span>
+                      <span style={{ fontSize: 20 }}>🏆</span>
+                    </div>
+                    <GameSlot game={bracket.championship} onPick={handleChampPick} locked={locked && !isAdmin} isChampionship onScoreChange={handleChampScore} roundIdx={-1} />
+                    {bracket.championship?.winner && (
+                      <div style={{ textAlign: 'center', padding: '10px 20px', background: 'linear-gradient(135deg,rgba(245,158,11,.2),rgba(245,158,11,.05))', borderRadius: 10, border: '1px solid rgba(245,158,11,.5)', marginTop: 2 }}>
+                        <div style={{ fontSize: 11, color: GOLD2, letterSpacing: 2 }}>🎉 CHAMPION 🎉</div>
+                        <div style={{ fontSize: 18, fontWeight: 700, color: '#fff', marginTop: 4, fontFamily: "'Playfair Display', serif" }}>{bracket.championship.winner.name}</div>
+                        {bracket.championship.scoreTop && (
+                          <div style={{ fontSize: 12, color: '#888', marginTop: 4 }}>
+                            {bracket.championship.top?.name} {bracket.championship.scoreTop} — {bracket.championship.scoreBottom} {bracket.championship.bottom?.name}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Connector line from championship down to Final Four */}
+                <div style={{ display: 'flex', justifyContent: 'center', height: 28 }}>
+                  <div style={{ width: 2, background: 'linear-gradient(to bottom, rgba(245,158,11,0.5), rgba(74,222,128,0.3))', borderRadius: 1 }} />
+                </div>
+
+                {/* Final Four + Regions row */}
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+
+                  {/* LEFT: East (top) + South (bottom) */}
                   <div style={{ display: 'flex', flexDirection: 'column' }}>
                     <div>
-                      <div style={{ textAlign: 'center', fontSize: 20, fontWeight: 800, color: RC.East, letterSpacing: 3, marginBottom: 12, textTransform: 'uppercase' }}>
-                        EAST
-                      </div>
+                      <div style={{ textAlign: 'center', fontSize: 20, fontWeight: 800, color: RC.East, letterSpacing: 3, marginBottom: 12, textTransform: 'uppercase' }}>EAST</div>
                       <RegionBracket region="East" rounds={bracket.East.rounds} onPick={handlePick} locked={locked && !isAdmin} flipped={false} vflipped={false} />
                     </div>
                     <div style={{ flex: 1, minHeight: 80 }} />
                     <div>
                       <RegionBracket region="South" rounds={bracket.South.rounds} onPick={handlePick} locked={locked && !isAdmin} flipped={false} vflipped={true} />
-                      <div style={{ textAlign: 'center', fontSize: 20, fontWeight: 800, color: RC.South, letterSpacing: 3, marginTop: 12, textTransform: 'uppercase' }}>
-                        SOUTH
-                      </div>
+                      <div style={{ textAlign: 'center', fontSize: 20, fontWeight: 800, color: RC.South, letterSpacing: 3, marginTop: 12, textTransform: 'uppercase' }}>SOUTH</div>
                     </div>
                   </div>
 
-                  {/* CENTER: Final Four top + Championship + Final Four bottom */}
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 240, justifyContent: 'space-between', paddingTop: 48, paddingBottom: 48 }}>
-                    {/* East vs West */}
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: ACCENT2, letterSpacing: 2, textTransform: 'uppercase' }}>Final Four</div>
-                      <GameSlot game={bracket.finalFour[0]} onPick={s => handleFFPick(0, s)} locked={locked && !isAdmin} />
-                      <div style={{ fontSize: 12, color: '#555' }}>East vs West</div>
+                  {/* CENTER: Final Four hugging Elite Eight */}
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 220, justifyContent: 'space-between', paddingTop: 60, paddingBottom: 60, gap: 0 }}>
+
+                    {/* Final Four Top (East vs West) — hugs Elite Eight */}
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: ACCENT2, letterSpacing: 2, textTransform: 'uppercase' }}>Final Four</div>
+                      <div style={{ fontSize: 10, fontStyle: 'italic', color: '#555', marginBottom: 4 }}>"The Final Four"</div>
+                      <GameSlot game={bracket.finalFour[0]} onPick={s => handleFFPick(0, s)} locked={locked && !isAdmin} roundIdx={-1} />
+                      <div style={{ fontSize: 11, color: '#444' }}>East vs West</div>
                     </div>
 
-                    {/* Championship */}
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-                      <div style={{ fontSize: 15, fontWeight: 800, color: ACCENT2, letterSpacing: 2, textTransform: 'uppercase' }}>Championship</div>
-                      <GameSlot game={bracket.championship} onPick={handleChampPick} locked={locked && !isAdmin} isChampionship onScoreChange={handleChampScore} />
-                      {bracket.championship?.winner && (
-                        <div style={{ textAlign: 'center', padding: '12px 22px', background: 'linear-gradient(135deg,rgba(22,163,74,.18),rgba(22,163,74,.04))', borderRadius: 10, border: '1px solid rgba(22,163,74,.4)', marginTop: 4 }}>
-                          <div style={{ fontSize: 11, color: ACCENT2, letterSpacing: 2 }}>CHAMPION</div>
-                          <div style={{ fontSize: 18, fontWeight: 700, color: '#fff', marginTop: 4, fontFamily: "'Playfair Display', serif" }}>{bracket.championship.winner.name}</div>
-                          {bracket.championship.scoreTop && (
-                            <div style={{ fontSize: 12, color: '#666', marginTop: 4 }}>
-                              {bracket.championship.top?.name} {bracket.championship.scoreTop} - {bracket.championship.scoreBottom} {bracket.championship.bottom?.name}
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
+                    {/* Spacer that stretches to push FF games apart */}
+                    <div style={{ flex: 1 }} />
 
-                    {/* South vs Midwest */}
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: ACCENT2, letterSpacing: 2, textTransform: 'uppercase' }}>Final Four</div>
-                      <GameSlot game={bracket.finalFour[1]} onPick={s => handleFFPick(1, s)} locked={locked && !isAdmin} />
-                      <div style={{ fontSize: 12, color: '#555' }}>South vs Midwest</div>
+                    {/* Final Four Bottom (South vs Midwest) — hugs Elite Eight */}
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: ACCENT2, letterSpacing: 2, textTransform: 'uppercase' }}>Final Four</div>
+                      <div style={{ fontSize: 10, fontStyle: 'italic', color: '#555', marginBottom: 4 }}>"The Final Four"</div>
+                      <GameSlot game={bracket.finalFour[1]} onPick={s => handleFFPick(1, s)} locked={locked && !isAdmin} roundIdx={-1} />
+                      <div style={{ fontSize: 11, color: '#444' }}>South vs Midwest</div>
                     </div>
                   </div>
 
-                  {/* RIGHT: West (top, R64 right) + Midwest (bottom, R64 right, grows upward) */}
+                  {/* RIGHT: West (top) + Midwest (bottom) */}
                   <div style={{ display: 'flex', flexDirection: 'column' }}>
                     <div>
-                      <div style={{ textAlign: 'center', fontSize: 20, fontWeight: 800, color: RC.West, letterSpacing: 3, marginBottom: 12, textTransform: 'uppercase' }}>
-                        WEST
-                      </div>
+                      <div style={{ textAlign: 'center', fontSize: 20, fontWeight: 800, color: RC.West, letterSpacing: 3, marginBottom: 12, textTransform: 'uppercase' }}>WEST</div>
                       <RegionBracket region="West" rounds={bracket.West.rounds} onPick={handlePick} locked={locked && !isAdmin} flipped={true} vflipped={false} />
                     </div>
                     <div style={{ flex: 1, minHeight: 80 }} />
                     <div>
                       <RegionBracket region="Midwest" rounds={bracket.Midwest.rounds} onPick={handlePick} locked={locked && !isAdmin} flipped={true} vflipped={true} />
-                      <div style={{ textAlign: 'center', fontSize: 20, fontWeight: 800, color: RC.Midwest, letterSpacing: 3, marginTop: 12, textTransform: 'uppercase' }}>
-                        MIDWEST
-                      </div>
+                      <div style={{ textAlign: 'center', fontSize: 20, fontWeight: 800, color: RC.Midwest, letterSpacing: 3, marginTop: 12, textTransform: 'uppercase' }}>MIDWEST</div>
                     </div>
                   </div>
 
@@ -815,7 +972,7 @@ export default function App() {
               <div style={{ ...S.card, textAlign: 'center', padding: 48, color: '#555' }}>
                 <div style={{ fontSize: 40, marginBottom: 16 }}>📊</div>
                 <div style={{ fontSize: 16, marginBottom: 8 }}>No research data yet</div>
-                <div style={{ fontSize: 13 }}>{isAdmin ? 'Go to Admin > Set Up Teams, save your teams, then click "Auto-Generate Research Data"' : 'Check back after the admin sets up the tournament teams'}</div>
+                <div style={{ fontSize: 13 }}>{isAdmin ? 'Go to Admin > Set Up Teams, save your roster, apply to bracket, then click "Auto-Generate Research"' : 'Check back after the admin sets up the tournament teams'}</div>
               </div>
             ) : (
               <>
@@ -849,22 +1006,42 @@ export default function App() {
         {/* ══════════════════ LEADERBOARD TAB ══════════════════ */}
         {tab === 'leaderboard' && (
           <div style={{ padding: 24, maxWidth: 660, margin: '0 auto' }}>
-            <h2 style={{ fontFamily: "'Playfair Display', serif", color: ACCENT2, marginBottom: 20 }}>School Leaderboard</h2>
+            <h2 style={{ fontFamily: "'Playfair Display', serif", color: ACCENT2, marginBottom: 20 }}>Leaderboard</h2>
+
+            {/* Students */}
             <div style={S.card}>
+              {studentBoard.length > 0 && (
+                <div style={{ fontSize: 11, color: '#444', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 10 }}>Students</div>
+              )}
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#444', padding: '0 12px 10px', letterSpacing: 1, textTransform: 'uppercase' }}>
-                <span>Rank</span><span style={{ flex: 1, marginLeft: 54 }}>Student</span><span>Points</span>
+                <span>Rank</span><span style={{ flex: 1, marginLeft: 54 }}>Name</span><span>Points</span>
               </div>
-              {leaderboard.length === 0
-                ? <div style={{ color: '#444', textAlign: 'center', padding: 24 }}>No entries yet - be the first to submit!</div>
-                : leaderboard.map((e, i) => (
+              {studentBoard.length === 0
+                ? <div style={{ color: '#444', textAlign: 'center', padding: 24 }}>No entries yet — be the first to submit!</div>
+                : studentBoard.map((e, i) => (
                   <div key={e.uid} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '11px 12px', background: e.uid === user?.uid ? 'rgba(22,163,74,0.08)' : 'transparent', borderRadius: 8, marginBottom: 3, border: e.uid === user?.uid ? '1px solid rgba(22,163,74,0.25)' : '1px solid transparent' }}>
                     <span style={{ fontSize: 17, fontWeight: 700, color: i === 0 ? ACCENT2 : i === 1 ? '#aaa' : i === 2 ? '#cd7f32' : '#444', minWidth: 30, fontFamily: "'Playfair Display', serif" }}>#{i+1}</span>
                     {e.photoURL ? <img src={e.photoURL} alt="" width={26} height={26} style={{ borderRadius: '50%' }} /> : <div style={{ width: 26, height: 26, borderRadius: '50%', background: '#111', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: '#555' }}>?</div>}
-                    <span style={{ flex: 1, fontWeight: e.uid === user?.uid ? 700 : 400, color: e.uid === user?.uid ? ACCENT2 : '#bbb', fontSize: 14 }}>{e.displayName || 'Anonymous'}{e.uid === user?.uid ? ' (You)' : ''}</span>
+                    <span style={{ flex: 1, fontWeight: e.uid === user?.uid ? 700 : 400, color: e.uid === user?.uid ? ACCENT2 : '#bbb', fontSize: 14 }}>{formatName(e.displayName)}{e.uid === user?.uid ? ' (You)' : ''}</span>
                     <span style={{ fontSize: 20, fontWeight: 700, color: ACCENT2, fontFamily: "'Playfair Display', serif" }}>{e.score}</span>
                   </div>
                 ))}
             </div>
+
+            {/* Teachers (separate section) */}
+            {teacherBoard.length > 0 && (
+              <div style={{ ...S.card, marginTop: 20, borderColor: 'rgba(245,158,11,0.25)' }}>
+                <div style={{ fontSize: 11, color: GOLD, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 10 }}>🍎 Teachers</div>
+                {teacherBoard.map((e, i) => (
+                  <div key={e.uid} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '11px 12px', background: e.uid === user?.uid ? 'rgba(245,158,11,0.06)' : 'transparent', borderRadius: 8, marginBottom: 3, border: e.uid === user?.uid ? '1px solid rgba(245,158,11,0.2)' : '1px solid transparent' }}>
+                    <span style={{ fontSize: 17, fontWeight: 700, color: i === 0 ? GOLD2 : '#666', minWidth: 30, fontFamily: "'Playfair Display', serif" }}>#{i+1}</span>
+                    {e.photoURL ? <img src={e.photoURL} alt="" width={26} height={26} style={{ borderRadius: '50%' }} /> : <div style={{ width: 26, height: 26, borderRadius: '50%', background: '#111', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: '#555' }}>?</div>}
+                    <span style={{ flex: 1, fontWeight: e.uid === user?.uid ? 700 : 400, color: e.uid === user?.uid ? GOLD2 : '#bbb', fontSize: 14 }}>{formatName(e.displayName)}{e.uid === user?.uid ? ' (You)' : ''}</span>
+                    <span style={{ fontSize: 20, fontWeight: 700, color: GOLD2, fontFamily: "'Playfair Display', serif" }}>{e.score}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -896,7 +1073,7 @@ export default function App() {
                   </div>
                 )}
 
-                {/* Tournament Year Editor */}
+                {/* Tournament Year */}
                 <div style={{ ...S.card, borderColor: 'rgba(22,163,74,0.3)', marginBottom: 16 }}>
                   <h3 style={{ color: ACCENT2, marginBottom: 8, fontSize: 15 }}>Tournament Year</h3>
                   <p style={{ color: '#666', fontSize: 13, marginBottom: 12 }}>Updates the year shown on the login screen and app header for all users.</p>
@@ -905,18 +1082,19 @@ export default function App() {
                     <button style={{ ...S.btn(ACCENT, '#fff'), padding: '8px 20px' }} onClick={handleSaveYear} disabled={yearSaving}>
                       {yearSaving ? 'Saving...' : 'Update Year'}
                     </button>
-                    <span style={{ fontSize: 12, color: '#555' }}>Currently showing: <strong style={{ color: ACCENT2 }}>{tournamentYear}</strong></span>
+                    <span style={{ fontSize: 12, color: '#555' }}>Currently: <strong style={{ color: ACCENT2 }}>{tournamentYear}</strong></span>
                   </div>
                 </div>
 
                 <div style={{ ...S.card, borderColor: 'rgba(231,76,60,0.2)', marginBottom: 16 }}>
                   <p style={{ color: '#999', fontSize: 14, lineHeight: 1.7, margin: 0 }}>
-                    Use the <strong style={{ color: ACCENT2 }}>Bracket tab</strong> to enter official game results - your picks become the school's answer key and update all student scores live.<br /><br />
-                    Use <strong style={{ color: ACCENT2 }}>Set Up Teams</strong> every March after Selection Sunday - no code editing needed.
+                    Use the <strong style={{ color: ACCENT2 }}>Bracket tab</strong> to enter official game results — your picks become the answer key and update all student scores live.<br /><br />
+                    Use <strong style={{ color: ACCENT2 }}>Set Up Teams</strong> every March after Selection Sunday. No code editing needed.
                   </p>
                 </div>
+
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 14 }}>
-                  {[['Total Entries', leaderboard.length],['Avg Score', leaderboard.length ? Math.round(leaderboard.reduce((a,e) => a+(e.score||0),0)/leaderboard.length)+' pts' : '-'],['Status', locked ? 'Locked' : 'Open']].map(([l,v]) => (
+                  {[['Total Entries', leaderboard.length],['Avg Score', leaderboard.length ? Math.round(leaderboard.reduce((a,e) => a+(e.score||0),0)/leaderboard.length)+' pts' : '-'],['Status', locked ? '🔒 Locked' : '🟢 Open']].map(([l,v]) => (
                     <div key={l} style={{ ...S.card, textAlign: 'center' }}>
                       <div style={{ fontSize: 26, fontWeight: 700, color: ACCENT2, fontFamily: "'Playfair Display', serif" }}>{v}</div>
                       <div style={{ fontSize: 11, color: '#555', marginTop: 4 }}>{l}</div>
@@ -931,14 +1109,26 @@ export default function App() {
             )}
 
             {adminSubTab === 'help' && (
-              <div style={S.card}>
-                <h3 style={{ color: ACCENT2, marginBottom: 14 }}>Adding Another Admin</h3>
-                <p style={{ color: '#888', fontSize: 14, lineHeight: 1.75 }}>
-                  1. Have the person sign into the app once with their Google account.<br />
-                  2. Go to Firebase Console - Authentication - Users and copy their User UID.<br />
-                  3. Go to Firestore - admins collection - Add document with that UID as the Document ID.<br />
-                  4. They sign out and back in - Admin tab appears automatically.
-                </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <div style={S.card}>
+                  <h3 style={{ color: ACCENT2, marginBottom: 14 }}>Adding Another Admin</h3>
+                  <p style={{ color: '#888', fontSize: 14, lineHeight: 1.75 }}>
+                    1. Have the person sign into the app once with their Google account.<br />
+                    2. Go to Firebase Console → Authentication → Users and copy their User UID.<br />
+                    3. Go to Firestore → <code style={{ background: 'rgba(255,255,255,0.07)', padding: '1px 5px', borderRadius: 3 }}>admins</code> collection → Add document with that UID as the Document ID.<br />
+                    4. They sign out and back in — Admin tab appears automatically.
+                  </p>
+                </div>
+                <div style={{ ...S.card, borderColor: 'rgba(245,158,11,0.25)' }}>
+                  <h3 style={{ color: GOLD2, marginBottom: 14 }}>Adding a Teacher</h3>
+                  <p style={{ color: '#888', fontSize: 14, lineHeight: 1.75 }}>
+                    Teachers appear in a separate section on the leaderboard with a 🍎 Teacher label.<br /><br />
+                    1. Have the teacher sign into the app once with their Google account.<br />
+                    2. Go to Firebase Console → Authentication → Users and copy their User UID.<br />
+                    3. Go to Firestore → <code style={{ background: 'rgba(255,255,255,0.07)', padding: '1px 5px', borderRadius: 3 }}>teachers</code> collection → Add document with that UID as the Document ID.<br />
+                    4. They sign out and back in — their name shows with the Teacher badge.
+                  </p>
+                </div>
               </div>
             )}
           </div>
