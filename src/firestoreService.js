@@ -3,7 +3,7 @@
 // You never need to edit this file.
 
 import {
-  doc, getDoc, setDoc,
+  doc, getDoc, setDoc, deleteDoc, getDocs,
   collection, query, orderBy, limit,
   serverTimestamp, onSnapshot,
 } from 'firebase/firestore';
@@ -60,10 +60,6 @@ export async function setTournamentLocked(locked) {
 
 // ── LEADERBOARD ───────────────────────────────────────────────────────────────
 
-/**
- * Update a user's leaderboard entry.
- * isTeacher flag is stored so the leaderboard can separate students and teachers.
- */
 export async function updateLeaderboardEntry(uid, displayName, photoURL, score, isTeacher = false) {
   await setDoc(doc(db, 'leaderboard', uid), {
     displayName: displayName || 'Anonymous',
@@ -99,18 +95,61 @@ export async function checkIsTeacher(uid) {
   return snap.exists();
 }
 
-// ── TEAM RESEARCH DATA ────────────────────────────────────────────────────────
-// Research cards for all 64 teams, stored in Firestore.
-// Admin can auto-generate via AI and then manually edit any field.
+// ── USER REGISTRY ─────────────────────────────────────────────────────────────
+// Every user is registered on sign-in so admins can manage roles without
+// ever touching Firebase Console.
 
-/** Load all research data — returns object keyed by team name */
+export async function registerUser(uid, displayName, photoURL, email) {
+  await setDoc(doc(db, 'users', uid), {
+    displayName: displayName || 'Anonymous',
+    photoURL:    photoURL || null,
+    email:       email || null,
+    lastSeen:    serverTimestamp(),
+  }, { merge: true });
+}
+
+export function subscribeToAllUsers(callback) {
+  return onSnapshot(collection(db, 'users'), snap => {
+    callback(snap.docs.map(d => ({ uid: d.id, ...d.data() })));
+  });
+}
+
+// ── ROLE MANAGEMENT ───────────────────────────────────────────────────────────
+
+export async function grantTeacherRole(uid) {
+  await setDoc(doc(db, 'teachers', uid), { grantedAt: serverTimestamp() });
+}
+
+export async function revokeTeacherRole(uid) {
+  await deleteDoc(doc(db, 'teachers', uid));
+}
+
+export async function grantAdminRole(uid) {
+  await setDoc(doc(db, 'admins', uid), { grantedAt: serverTimestamp() });
+}
+
+export async function revokeAdminRole(uid) {
+  await deleteDoc(doc(db, 'admins', uid));
+}
+
+export async function loadTeacherUids() {
+  const snap = await getDocs(collection(db, 'teachers'));
+  return new Set(snap.docs.map(d => d.id));
+}
+
+export async function loadAdminUids() {
+  const snap = await getDocs(collection(db, 'admins'));
+  return new Set(snap.docs.map(d => d.id));
+}
+
+// ── TEAM RESEARCH DATA ────────────────────────────────────────────────────────
+
 export async function loadResearchData() {
   const snap = await getDoc(doc(db, 'admin', 'researchData'));
   if (!snap.exists()) return {};
   return snap.data().teams || {};
 }
 
-/** Save all research data at once */
 export async function saveResearchData(teamsObj) {
   await setDoc(doc(db, 'admin', 'researchData'), {
     teams:     teamsObj,
@@ -118,7 +157,6 @@ export async function saveResearchData(teamsObj) {
   });
 }
 
-/** Save a single team's research card (used when admin edits one team) */
 export async function saveOneTeamResearch(teamName, cardData) {
   const snap = await getDoc(doc(db, 'admin', 'researchData'));
   const existing = snap.exists() ? (snap.data().teams || {}) : {};
@@ -129,7 +167,6 @@ export async function saveOneTeamResearch(teamName, cardData) {
   });
 }
 
-/** Subscribe to live research data updates */
 export function subscribeToResearchData(callback) {
   return onSnapshot(doc(db, 'admin', 'researchData'), snap => {
     if (snap.exists()) callback(snap.data().teams || {});
