@@ -43,8 +43,23 @@ const ROUND_BORDER_COLORS = [
 const ROUND_LABELS = [
   { main: 'Round of 64',  sub: '"First Round"'    },
   { main: 'Round of 32',  sub: '"Second Round"'   },
-  { main: 'Sweet 16',     sub: '"Sweet Sixteen"'  },
-  { main: 'Elite Eight',  sub: '"Elite Eight"'    },
+  { main: 'Round of 16',  sub: '"Sweet Sixteen"'  },
+  { main: 'Round of 8',   sub: '"Elite Eight"'    },
+];
+
+// Spine labels left→right: R64 R32 R16 R8 FF CHAMP FF R8 R16 R32 R64
+const SPINE_LABELS = [
+  { main: 'Round of 64', sub: '"First Round"',    color: ROUND_BORDER_COLORS[0] },
+  { main: 'Round of 32', sub: '"Second Round"',   color: ROUND_BORDER_COLORS[1] },
+  { main: 'Round of 16', sub: '"Sweet Sixteen"',  color: ROUND_BORDER_COLORS[2] },
+  { main: 'Round of 8',  sub: '"Elite Eight"',    color: ROUND_BORDER_COLORS[3] },
+  { main: 'Final Four',  sub: '"The Final Four"', color: 'rgba(74,222,128,0.6)' },
+  { main: 'Championship',sub: '🏆',               color: 'rgba(245,158,11,0.8)' },
+  { main: 'Final Four',  sub: '"The Final Four"', color: 'rgba(74,222,128,0.6)' },
+  { main: 'Round of 8',  sub: '"Elite Eight"',    color: ROUND_BORDER_COLORS[3] },
+  { main: 'Round of 16', sub: '"Sweet Sixteen"',  color: ROUND_BORDER_COLORS[2] },
+  { main: 'Round of 32', sub: '"Second Round"',   color: ROUND_BORDER_COLORS[1] },
+  { main: 'Round of 64', sub: '"First Round"',    color: ROUND_BORDER_COLORS[0] },
 ];
 
 const S = {
@@ -90,7 +105,7 @@ function GameSlot({ game, onPick, locked, isChampionship, onScoreChange, flipped
 
   const Team = ({ team, side }) => {
     if (!team) return (
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 8px', height: 34, color: '#444', fontSize: 11, fontStyle: 'italic', flexDirection: flipped ? 'row-reverse' : 'row' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 10px', height: 44, color: '#444', fontSize: 14, fontStyle: 'italic', flexDirection: flipped ? 'row-reverse' : 'row' }}>
         <div style={{ width: 20, height: 20, borderRadius: '50%', background: '#111', flexShrink: 0 }} />TBD
       </div>
     );
@@ -101,15 +116,15 @@ function GameSlot({ game, onPick, locked, isChampionship, onScoreChange, flipped
       <div onClick={() => !locked && !isFF && onPick?.(side)}
         title={isW && !locked ? 'Click to undo this pick' : ''}
         style={{
-          display: 'flex', alignItems: 'center', gap: 6, padding: '5px 8px', height: 34,
+          display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', height: 44,
           flexDirection: flipped ? 'row-reverse' : 'row',
           background: isW ? 'linear-gradient(90deg,rgba(22,163,74,.3),rgba(22,163,74,.08))' : 'rgba(0,0,0,0.25)',
           cursor: locked || isFF ? 'default' : 'pointer',
           borderRadius: 4, opacity: isL ? 0.3 : 1, transition: 'background .12s',
         }}>
-        <TeamLogo espnId={team.espnId} name={team.name} size={20} />
-        <span style={{ fontSize: 10, color: isW ? ACCENT2 : '#666', fontWeight: 700, minWidth: 14, textDecoration: isL ? 'line-through' : 'none' }}>{team.seed}</span>
-        <span style={{ fontSize: 11, fontWeight: isW ? 700 : 500, color: isW ? ACCENT2 : isL ? '#3a3a3a' : '#d0d0d0', textDecoration: isL ? 'line-through' : 'none', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 108, flex: 1 }}>
+        <TeamLogo espnId={team.espnId} name={team.name} size={28} />
+        <span style={{ fontSize: 14, color: isW ? ACCENT2 : '#666', fontWeight: 700, minWidth: 20, textDecoration: isL ? 'line-through' : 'none' }}>{team.seed}</span>
+        <span style={{ fontSize: 15, fontWeight: isW ? 700 : 500, color: isW ? ACCENT2 : isL ? '#3a3a3a' : '#d0d0d0', textDecoration: isL ? 'line-through' : 'none', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 148, flex: 1 }}>
           {isFF ? 'FF Winner →' : team.name}
         </span>
         {isW && <span style={{ marginLeft: flipped ? 0 : 'auto', marginRight: flipped ? 'auto' : 0, color: ACCENT2, fontSize: 11 }}>✓</span>}
@@ -118,7 +133,7 @@ function GameSlot({ game, onPick, locked, isChampionship, onScoreChange, flipped
   };
 
   return (
-    <div style={{ border: `1px solid ${slotBorder}`, borderRadius: 6, overflow: 'hidden', background: slotBg, minWidth: 178 }}>
+    <div style={{ border: `1px solid ${slotBorder}`, borderRadius: 6, overflow: 'hidden', background: slotBg, minWidth: 220 }}>
       <Team team={top} side="top" />
       <div style={{ height: 1, background: 'rgba(255,255,255,0.08)' }} />
       <Team team={bottom} side="bottom" />
@@ -144,13 +159,12 @@ function roundTopOffset(logicIdx) {
 function RegionBracket({ region, rounds, onPick, locked, flipped = false, vflipped = false }) {
   const numRounds = rounds.length;
   return (
-    <div style={{ display: 'flex', flexDirection: 'row', gap: 14, alignItems: vflipped ? 'flex-end' : 'flex-start' }}>
+    <div style={{ display: 'flex', flexDirection: 'row', gap: 10, alignItems: vflipped ? 'flex-end' : 'flex-start' }}>
       {rounds.map((_, iter) => {
         const logicIdx = flipped ? (numRounds - 1 - iter) : iter;
         const theGames = rounds[logicIdx];
         const gapSize  = ROW_GAPS[logicIdx];
         const pad      = roundTopOffset(logicIdx);
-        const label    = ROUND_LABELS[logicIdx];
         return (
           <div key={iter} style={{
             display: 'flex', flexDirection: vflipped ? 'column-reverse' : 'column',
@@ -158,10 +172,6 @@ function RegionBracket({ region, rounds, onPick, locked, flipped = false, vflipp
             paddingTop:    vflipped ? 0   : pad,
             paddingBottom: vflipped ? pad : 0,
           }}>
-            <div style={{ textAlign: 'center', marginBottom: vflipped ? 0 : 4, marginTop: vflipped ? 4 : 0, whiteSpace: 'nowrap' }}>
-              <div style={{ fontSize: 11, color: ACCENT2, fontWeight: 700, letterSpacing: 1.2, textTransform: 'uppercase' }}>{label?.main}</div>
-              <div style={{ fontSize: 9, color: '#555', fontStyle: 'italic', marginTop: 1 }}>{label?.sub}</div>
-            </div>
             {theGames.map((game, gIdx) => (
               <GameSlot key={gIdx} game={game} locked={locked} flipped={flipped} roundIdx={logicIdx}
                 onPick={side => onPick(region, logicIdx, gIdx, side)} />
@@ -974,7 +984,7 @@ export default function App() {
                           return (
                             <div key={team.name} onClick={() => !isLockd && handleFirstFourPick(key, team, region, seed)}
                               style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', borderRadius: 7, marginBottom: 5, cursor: isLockd ? 'default' : 'pointer', background: isPick ? 'rgba(99,102,241,0.2)' : 'rgba(255,255,255,0.03)', border: isPick ? '1px solid rgba(99,102,241,0.5)' : '1px solid rgba(255,255,255,0.07)', transition: 'all .12s' }}>
-                              <TeamLogo espnId={team.espnId} name={team.name} size={20} />
+                              <TeamLogo espnId={team.espnId} name={team.name} size={28} />
                               <span style={{ fontSize: 10, color: '#555', fontWeight: 700, minWidth: 14 }}>{team.seed}</span>
                               <span style={{ fontSize: 12, fontWeight: isPick ? 700 : 400, color: isPick ? '#a5b4fc' : '#bbb', flex: 1 }}>{team.name}</span>
                               {isPick && <span style={{ color: '#818cf8', fontSize: 13 }}>✓</span>}
@@ -991,91 +1001,253 @@ export default function App() {
               </div>
             )}
 
-            {/* ── MAIN BRACKET ── */}
+            {/* ── MAIN BRACKET — horizontal spine layout ── */}
             <div className="bscroll" style={{ overflowX: 'auto', overflowY: 'visible', paddingBottom: 16 }}>
-              <div style={{ minWidth: 1960, paddingBottom: 8 }}>
+              <div style={{ minWidth: 2800, paddingBottom: 8 }}>
 
-                {/* Championship — raised above, centered */}
-                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 0, position: 'relative', zIndex: 10 }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: '18px 28px', background: 'linear-gradient(135deg, rgba(245,158,11,0.12), rgba(245,158,11,0.04))', border: '2px solid rgba(245,158,11,0.45)', borderRadius: 16, animation: 'champGlow 3s ease-in-out infinite', minWidth: 260 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ fontSize: 20 }}>🏆</span>
-                      <span style={{ fontSize: 16, fontWeight: 800, color: GOLD2, letterSpacing: 2, textTransform: 'uppercase', fontFamily: "'Playfair Display', serif" }}>National Championship</span>
-                      <span style={{ fontSize: 20 }}>🏆</span>
+                {/*
+                  Layout (left→right columns):
+                  [East R64] [East R32] [East R16] [East R8] | [FF] [CHAMP] [FF] | [West R8] [West R16] [West R32] [West R64]
+                  ──────────────────── HORIZONTAL SPINE ────────────────────────────────────────────────────────────────────
+                  [South R64][South R32][South R16][South R8]                     [Midwest R8][Midwest R16][Midwest R32][Midwest R64]
+
+                  East  grows UP   from spine (top-left)
+                  South grows DOWN from spine (bottom-left)
+                  West  grows UP   from spine (top-right)
+                  Midwest grows DOWN from spine (bottom-right)
+                */}
+
+                <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'stretch' }}>
+
+                  {/* ── LEFT HALF: East (up) + South (down) sharing columns ── */}
+                  <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    {/* Region labels */}
+                    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}>
+                      <span style={{ fontSize: 22, fontWeight: 800, color: RC.East, letterSpacing: 3, textTransform: 'uppercase' }}>EAST ↑</span>
                     </div>
-                    <GameSlot game={bracket.championship} onPick={handleChampPick} locked={locked && !isAdmin} isChampionship onScoreChange={handleChampScore} roundIdx={-1} />
-                    {bracket.championship?.winner && (
-                      <div style={{ textAlign: 'center', padding: '10px 20px', background: 'linear-gradient(135deg,rgba(245,158,11,.2),rgba(245,158,11,.05))', borderRadius: 10, border: '1px solid rgba(245,158,11,.5)', marginTop: 2 }}>
-                        <div style={{ fontSize: 11, color: GOLD2, letterSpacing: 2 }}>🎉 CHAMPION 🎉</div>
-                        <div style={{ fontSize: 18, fontWeight: 700, color: '#fff', marginTop: 4, fontFamily: "'Playfair Display', serif" }}>{bracket.championship.winner.name}</div>
-                        {bracket.championship.scoreTop && (
-                          <div style={{ fontSize: 12, color: '#888', marginTop: 4 }}>
-                            {bracket.championship.top?.name} {bracket.championship.scoreTop} — {bracket.championship.scoreBottom} {bracket.championship.bottom?.name}
+                  <div style={{ display: 'flex', flexDirection: 'row', gap: 10, flex: 1 }}>
+                    {/* FF column — far left, shows play-in games */}
+                    {ffGamesList.filter(f => f.region === 'East' || f.region === 'South').length > 0 && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', flex: 1, gap: 8, paddingBottom: 4 }}>
+                          {ffGamesList.filter(f => f.region === 'East').map(({ region, seed, ffTeams, key }) => {
+                            const pick = firstFourPicks[key];
+                            const isLockd = locked && !isAdmin;
+                            return (
+                              <div key={key} style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.25)', borderRadius: 8, padding: '8px 10px', minWidth: 220 }}>
+                                <div style={{ fontSize: 11, color: '#818cf8', fontWeight: 700, marginBottom: 6, textAlign: 'center' }}>#{seed} Play-In</div>
+                                {ffTeams.map(team => {
+                                  const isPick = pick === team.name;
+                                  return (
+                                    <div key={team.name} onClick={() => !isLockd && handleFirstFourPick(key, team, region, seed)}
+                                      style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', borderRadius: 6, marginBottom: 4, cursor: isLockd ? 'default' : 'pointer', background: isPick ? 'rgba(99,102,241,0.2)' : 'rgba(0,0,0,0.2)', border: isPick ? '1px solid rgba(99,102,241,0.5)' : '1px solid rgba(255,255,255,0.06)', transition: 'all .12s' }}>
+                                      <TeamLogo espnId={team.espnId} name={team.name} size={24} />
+                                      <span style={{ fontSize: 13, color: '#666', fontWeight: 700, minWidth: 18 }}>{team.seed}</span>
+                                      <span style={{ fontSize: 14, fontWeight: isPick ? 700 : 400, color: isPick ? '#a5b4fc' : '#bbb', flex: 1 }}>{team.name}</span>
+                                      {isPick && <span style={{ color: '#818cf8' }}>✓</span>}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            );
+                          })}
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', flex: 1, gap: 8, paddingTop: 4 }}>
+                          {ffGamesList.filter(f => f.region === 'South').map(({ region, seed, ffTeams, key }) => {
+                            const pick = firstFourPicks[key];
+                            const isLockd = locked && !isAdmin;
+                            return (
+                              <div key={key} style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.25)', borderRadius: 8, padding: '8px 10px', minWidth: 220 }}>
+                                <div style={{ fontSize: 11, color: '#818cf8', fontWeight: 700, marginBottom: 6, textAlign: 'center' }}>#{seed} Play-In</div>
+                                {ffTeams.map(team => {
+                                  const isPick = pick === team.name;
+                                  return (
+                                    <div key={team.name} onClick={() => !isLockd && handleFirstFourPick(key, team, region, seed)}
+                                      style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', borderRadius: 6, marginBottom: 4, cursor: isLockd ? 'default' : 'pointer', background: isPick ? 'rgba(99,102,241,0.2)' : 'rgba(0,0,0,0.2)', border: isPick ? '1px solid rgba(99,102,241,0.5)' : '1px solid rgba(255,255,255,0.06)', transition: 'all .12s' }}>
+                                      <TeamLogo espnId={team.espnId} name={team.name} size={24} />
+                                      <span style={{ fontSize: 13, color: '#666', fontWeight: 700, minWidth: 18 }}>{team.seed}</span>
+                                      <span style={{ fontSize: 14, fontWeight: isPick ? 700 : 400, color: isPick ? '#a5b4fc' : '#bbb', flex: 1 }}>{team.name}</span>
+                                      {isPick && <span style={{ color: '#818cf8' }}>✓</span>}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                    {[0,1,2,3].map(rIdx => {
+                      const eastGames    = bracket.East.rounds[rIdx]    || [];
+                      const southGames   = bracket.South.rounds[rIdx]   || [];
+                      const gapSize      = ROW_GAPS[rIdx];
+                      const pad          = roundTopOffset(rIdx);
+                      return (
+                        <div key={rIdx} style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                          {/* East games — grow upward from spine (rendered top, flex-end) */}
+                          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', gap: gapSize, paddingTop: pad, flex: 1 }}>
+                            {eastGames.map((game, gIdx) => (
+                              <GameSlot key={gIdx} game={game} locked={locked && !isAdmin} flipped={false} roundIdx={rIdx}
+                                onPick={side => handlePick('East', rIdx, gIdx, side)} />
+                            ))}
+                          </div>
+                          {/* South games — grow downward from spine */}
+                          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', gap: gapSize, paddingBottom: pad, flex: 1 }}>
+                            {southGames.map((game, gIdx) => (
+                              <GameSlot key={gIdx} game={game} locked={locked && !isAdmin} flipped={false} roundIdx={rIdx}
+                                onPick={side => handlePick('South', rIdx, gIdx, side)} />
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                    <div style={{ display: 'flex', justifyContent: 'center', marginTop: 8 }}>
+                      <span style={{ fontSize: 22, fontWeight: 800, color: RC.South, letterSpacing: 3, textTransform: 'uppercase' }}>SOUTH ↓</span>
+                    </div>
+                  </div>
+
+                  {/* ── CENTER SPINE + FINAL FOUR + CHAMPIONSHIP ── */}
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', minWidth: 280 }}>
+
+                    {/* Top half: East FF game (above spine) */}
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', flex: 1, paddingBottom: 8, gap: 6 }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: ACCENT2, letterSpacing: 2, textTransform: 'uppercase' }}>Final Four</div>
+                      <div style={{ fontSize: 11, fontStyle: 'italic', color: '#555' }}>"The Final Four"</div>
+                      <GameSlot game={bracket.finalFour[0]} onPick={s => handleFFPick(0, s)} locked={locked && !isAdmin} roundIdx={3} />
+                      <div style={{ fontSize: 12, color: '#555' }}>East vs West</div>
+                    </div>
+
+                    {/* HORIZONTAL SPINE */}
+                    <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', background: 'rgba(0,0,0,0.4)', borderTop: '1px solid rgba(255,255,255,0.06)', borderBottom: '1px solid rgba(255,255,255,0.06)', padding: '10px 0', zIndex: 10, position: 'relative' }}>
+
+                      {/* Championship at center of spine */}
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, flex: 1, padding: '8px 16px', background: 'linear-gradient(135deg,rgba(245,158,11,0.12),rgba(245,158,11,0.04))', border: '2px solid rgba(245,158,11,0.45)', borderRadius: 14, animation: 'champGlow 3s ease-in-out infinite', margin: '0 8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span style={{ fontSize: 18 }}>🏆</span>
+                          <span style={{ fontSize: 15, fontWeight: 800, color: GOLD2, letterSpacing: 1.5, fontFamily: "'Playfair Display', serif" }}>National Championship</span>
+                          <span style={{ fontSize: 18 }}>🏆</span>
+                        </div>
+                        <GameSlot game={bracket.championship} onPick={handleChampPick} locked={locked && !isAdmin} isChampionship onScoreChange={handleChampScore} roundIdx={-1} />
+                        {bracket.championship?.winner && (
+                          <div style={{ textAlign: 'center', padding: '8px 16px', background: 'linear-gradient(135deg,rgba(245,158,11,.2),rgba(245,158,11,.05))', borderRadius: 8, border: '1px solid rgba(245,158,11,.5)' }}>
+                            <div style={{ fontSize: 12, color: GOLD2, letterSpacing: 2 }}>🎉 CHAMPION 🎉</div>
+                            <div style={{ fontSize: 18, fontWeight: 700, color: '#fff', fontFamily: "'Playfair Display', serif" }}>{bracket.championship.winner.name}</div>
                           </div>
                         )}
                       </div>
+                    </div>
+
+                    {/* Bottom half: South FF game (below spine) */}
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start', flex: 1, paddingTop: 8, gap: 6 }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: ACCENT2, letterSpacing: 2, textTransform: 'uppercase' }}>Final Four</div>
+                      <div style={{ fontSize: 11, fontStyle: 'italic', color: '#555' }}>"The Final Four"</div>
+                      <GameSlot game={bracket.finalFour[1]} onPick={s => handleFFPick(1, s)} locked={locked && !isAdmin} roundIdx={3} />
+                      <div style={{ fontSize: 12, color: '#555' }}>South vs Midwest</div>
+                    </div>
+                  </div>
+
+                  {/* ── RIGHT HALF: West (up) + Midwest (down) sharing columns ── */}
+                  <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}>
+                      <span style={{ fontSize: 22, fontWeight: 800, color: RC.West, letterSpacing: 3, textTransform: 'uppercase' }}>WEST ↑</span>
+                    </div>
+                  <div style={{ display: 'flex', flexDirection: 'row', gap: 10, flex: 1 }}>
+                    {[3,2,1,0].map(rIdx => {
+                      const westGames    = bracket.West.rounds[rIdx]    || [];
+                      const midwestGames = bracket.Midwest.rounds[rIdx] || [];
+                      const gapSize      = ROW_GAPS[rIdx];
+                      const pad          = roundTopOffset(rIdx);
+                      return (
+                        <div key={rIdx} style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                          {/* West games — grow upward */}
+                          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', gap: gapSize, paddingTop: pad, flex: 1 }}>
+                            {westGames.map((game, gIdx) => (
+                              <GameSlot key={gIdx} game={game} locked={locked && !isAdmin} flipped={true} roundIdx={rIdx}
+                                onPick={side => handlePick('West', rIdx, gIdx, side)} />
+                            ))}
+                          </div>
+                          {/* Midwest games — grow downward */}
+                          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', gap: gapSize, paddingBottom: pad, flex: 1 }}>
+                            {midwestGames.map((game, gIdx) => (
+                              <GameSlot key={gIdx} game={game} locked={locked && !isAdmin} flipped={true} roundIdx={rIdx}
+                                onPick={side => handlePick('Midwest', rIdx, gIdx, side)} />
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                    {/* FF column — far right */}
+                    {ffGamesList.filter(f => f.region === 'West' || f.region === 'Midwest').length > 0 && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', flex: 1, gap: 8, paddingBottom: 4 }}>
+                          {ffGamesList.filter(f => f.region === 'West').map(({ region, seed, ffTeams, key }) => {
+                            const pick = firstFourPicks[key];
+                            const isLockd = locked && !isAdmin;
+                            return (
+                              <div key={key} style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.25)', borderRadius: 8, padding: '8px 10px', minWidth: 220 }}>
+                                <div style={{ fontSize: 11, color: '#818cf8', fontWeight: 700, marginBottom: 6, textAlign: 'center' }}>#{seed} Play-In</div>
+                                {ffTeams.map(team => {
+                                  const isPick = pick === team.name;
+                                  return (
+                                    <div key={team.name} onClick={() => !isLockd && handleFirstFourPick(key, team, region, seed)}
+                                      style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', borderRadius: 6, marginBottom: 4, cursor: isLockd ? 'default' : 'pointer', background: isPick ? 'rgba(99,102,241,0.2)' : 'rgba(0,0,0,0.2)', border: isPick ? '1px solid rgba(99,102,241,0.5)' : '1px solid rgba(255,255,255,0.06)', transition: 'all .12s' }}>
+                                      <TeamLogo espnId={team.espnId} name={team.name} size={24} />
+                                      <span style={{ fontSize: 13, color: '#666', fontWeight: 700, minWidth: 18 }}>{team.seed}</span>
+                                      <span style={{ fontSize: 14, fontWeight: isPick ? 700 : 400, color: isPick ? '#a5b4fc' : '#bbb', flex: 1 }}>{team.name}</span>
+                                      {isPick && <span style={{ color: '#818cf8' }}>✓</span>}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            );
+                          })}
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', flex: 1, gap: 8, paddingTop: 4 }}>
+                          {ffGamesList.filter(f => f.region === 'Midwest').map(({ region, seed, ffTeams, key }) => {
+                            const pick = firstFourPicks[key];
+                            const isLockd = locked && !isAdmin;
+                            return (
+                              <div key={key} style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.25)', borderRadius: 8, padding: '8px 10px', minWidth: 220 }}>
+                                <div style={{ fontSize: 11, color: '#818cf8', fontWeight: 700, marginBottom: 6, textAlign: 'center' }}>#{seed} Play-In</div>
+                                {ffTeams.map(team => {
+                                  const isPick = pick === team.name;
+                                  return (
+                                    <div key={team.name} onClick={() => !isLockd && handleFirstFourPick(key, team, region, seed)}
+                                      style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', borderRadius: 6, marginBottom: 4, cursor: isLockd ? 'default' : 'pointer', background: isPick ? 'rgba(99,102,241,0.2)' : 'rgba(0,0,0,0.2)', border: isPick ? '1px solid rgba(99,102,241,0.5)' : '1px solid rgba(255,255,255,0.06)', transition: 'all .12s' }}>
+                                      <TeamLogo espnId={team.espnId} name={team.name} size={24} />
+                                      <span style={{ fontSize: 13, color: '#666', fontWeight: 700, minWidth: 18 }}>{team.seed}</span>
+                                      <span style={{ fontSize: 14, fontWeight: isPick ? 700 : 400, color: isPick ? '#a5b4fc' : '#bbb', flex: 1 }}>{team.name}</span>
+                                      {isPick && <span style={{ color: '#818cf8' }}>✓</span>}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
                     )}
                   </div>
-                </div>
-
-                {/* Connector line from championship down to Final Four */}
-                <div style={{ display: 'flex', justifyContent: 'center', height: 28 }}>
-                  <div style={{ width: 2, background: 'linear-gradient(to bottom, rgba(245,158,11,0.5), rgba(74,222,128,0.3))', borderRadius: 1 }} />
-                </div>
-
-                {/* Final Four + Regions row */}
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-
-                  {/* LEFT: East (top) + South (bottom) */}
-                  <div style={{ display: 'flex', flexDirection: 'column' }}>
-                    <div>
-                      <div style={{ textAlign: 'center', fontSize: 20, fontWeight: 800, color: RC.East, letterSpacing: 3, marginBottom: 12, textTransform: 'uppercase' }}>EAST</div>
-                      <RegionBracket region="East" rounds={bracket.East.rounds} onPick={handlePick} locked={locked && !isAdmin} flipped={false} vflipped={false} />
-                    </div>
-                    <div style={{ flex: 1, minHeight: 80 }} />
-                    <div>
-                      <RegionBracket region="South" rounds={bracket.South.rounds} onPick={handlePick} locked={locked && !isAdmin} flipped={false} vflipped={true} />
-                      <div style={{ textAlign: 'center', fontSize: 20, fontWeight: 800, color: RC.South, letterSpacing: 3, marginTop: 12, textTransform: 'uppercase' }}>SOUTH</div>
+                    <div style={{ display: 'flex', justifyContent: 'center', marginTop: 8 }}>
+                      <span style={{ fontSize: 22, fontWeight: 800, color: RC.Midwest, letterSpacing: 3, textTransform: 'uppercase' }}>MIDWEST ↓</span>
                     </div>
                   </div>
-
-                  {/* CENTER: Final Four hugging Elite Eight */}
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 220, justifyContent: 'space-between', paddingTop: 60, paddingBottom: 60, gap: 0 }}>
-
-                    {/* Final Four Top (East vs West) — hugs Elite Eight */}
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-                      <div style={{ fontSize: 12, fontWeight: 700, color: ACCENT2, letterSpacing: 2, textTransform: 'uppercase' }}>Final Four</div>
-                      <div style={{ fontSize: 10, fontStyle: 'italic', color: '#555', marginBottom: 4 }}>"The Final Four"</div>
-                      <GameSlot game={bracket.finalFour[0]} onPick={s => handleFFPick(0, s)} locked={locked && !isAdmin} roundIdx={-1} />
-                      <div style={{ fontSize: 11, color: '#444' }}>East vs West</div>
-                    </div>
-
-                    {/* Spacer that stretches to push FF games apart */}
-                    <div style={{ flex: 1 }} />
-
-                    {/* Final Four Bottom (South vs Midwest) — hugs Elite Eight */}
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-                      <div style={{ fontSize: 12, fontWeight: 700, color: ACCENT2, letterSpacing: 2, textTransform: 'uppercase' }}>Final Four</div>
-                      <div style={{ fontSize: 10, fontStyle: 'italic', color: '#555', marginBottom: 4 }}>"The Final Four"</div>
-                      <GameSlot game={bracket.finalFour[1]} onPick={s => handleFFPick(1, s)} locked={locked && !isAdmin} roundIdx={-1} />
-                      <div style={{ fontSize: 11, color: '#444' }}>South vs Midwest</div>
-                    </div>
-                  </div>
-
-                  {/* RIGHT: West (top) + Midwest (bottom) */}
-                  <div style={{ display: 'flex', flexDirection: 'column' }}>
-                    <div>
-                      <div style={{ textAlign: 'center', fontSize: 20, fontWeight: 800, color: RC.West, letterSpacing: 3, marginBottom: 12, textTransform: 'uppercase' }}>WEST</div>
-                      <RegionBracket region="West" rounds={bracket.West.rounds} onPick={handlePick} locked={locked && !isAdmin} flipped={true} vflipped={false} />
-                    </div>
-                    <div style={{ flex: 1, minHeight: 80 }} />
-                    <div>
-                      <RegionBracket region="Midwest" rounds={bracket.Midwest.rounds} onPick={handlePick} locked={locked && !isAdmin} flipped={true} vflipped={true} />
-                      <div style={{ textAlign: 'center', fontSize: 20, fontWeight: 800, color: RC.Midwest, letterSpacing: 3, marginTop: 12, textTransform: 'uppercase' }}>MIDWEST</div>
-                    </div>
-                  </div>
-
                 </div>
+
+                {/* ── HORIZONTAL SPINE LABEL BAR ── */}
+                {/* Sits visually behind the bracket — shows round names L→R */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 12, padding: '6px 0', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                  {SPINE_LABELS.map((lbl, i) => (
+                    <div key={i} style={{ flex: 1, textAlign: 'center', padding: '4px 2px', borderLeft: i > 0 ? '1px solid rgba(255,255,255,0.05)' : 'none' }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: lbl.color, letterSpacing: 1, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{lbl.main}</div>
+                      <div style={{ fontSize: 9, color: '#444', fontStyle: 'italic' }}>{lbl.sub}</div>
+                    </div>
+                  ))}
+                </div>
+
               </div>
             </div>
           </div>
