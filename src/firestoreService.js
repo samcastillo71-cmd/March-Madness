@@ -1,0 +1,88 @@
+// src/firestoreService.js
+// All Firestore read/write operations in one place.
+// You never need to edit this file.
+
+import {
+  doc, getDoc, setDoc,
+  collection, query, orderBy, limit,
+  serverTimestamp, onSnapshot,
+} from 'firebase/firestore';
+import { db } from './firebase';
+
+// ── USER BRACKET ──────────────────────────────────────────────────────────────
+
+export async function saveBracket(uid, bracketData, displayName, photoURL) {
+  await setDoc(doc(db, 'brackets', uid), {
+    bracket:     JSON.stringify(bracketData),
+    displayName: displayName || 'Anonymous',
+    photoURL:    photoURL || null,
+    updatedAt:   serverTimestamp(),
+  }, { merge: true });
+}
+
+export async function loadBracket(uid) {
+  const snap = await getDoc(doc(db, 'brackets', uid));
+  if (!snap.exists()) return null;
+  const raw = snap.data().bracket;
+  return raw ? JSON.parse(raw) : null;
+}
+
+// ── OFFICIAL RESULTS BRACKET (admin writes, everyone reads) ───────────────────
+
+export async function saveOfficialBracket(bracketData) {
+  await setDoc(doc(db, 'admin', 'officialBracket'), {
+    bracket:   JSON.stringify(bracketData),
+    updatedAt: serverTimestamp(),
+  });
+}
+
+export function subscribeToOfficialBracket(callback) {
+  return onSnapshot(doc(db, 'admin', 'officialBracket'), snap => {
+    if (snap.exists()) callback(JSON.parse(snap.data().bracket));
+  });
+}
+
+// ── TOURNAMENT CONFIG (locked status) ─────────────────────────────────────────
+
+export function subscribeToConfig(callback) {
+  return onSnapshot(doc(db, 'tournament', 'config'), snap => {
+    if (snap.exists()) callback(snap.data());
+    else callback({ locked: false });
+  });
+}
+
+export async function setTournamentLocked(locked) {
+  await setDoc(doc(db, 'tournament', 'config'), {
+    locked,
+    updatedAt: serverTimestamp(),
+  }, { merge: true });
+}
+
+// ── LEADERBOARD ───────────────────────────────────────────────────────────────
+
+export async function updateLeaderboardEntry(uid, displayName, photoURL, score) {
+  await setDoc(doc(db, 'leaderboard', uid), {
+    displayName: displayName || 'Anonymous',
+    photoURL:    photoURL || null,
+    score,
+    updatedAt:   serverTimestamp(),
+  }, { merge: true });
+}
+
+export function subscribeToLeaderboard(callback, n = 100) {
+  const q = query(
+    collection(db, 'leaderboard'),
+    orderBy('score', 'desc'),
+    limit(n)
+  );
+  return onSnapshot(q, snap => {
+    callback(snap.docs.map((d, i) => ({ uid: d.id, rank: i + 1, ...d.data() })));
+  });
+}
+
+// ── ADMIN CHECK ───────────────────────────────────────────────────────────────
+
+export async function checkIsAdmin(uid) {
+  const snap = await getDoc(doc(db, 'admins', uid));
+  return snap.exists();
+}
