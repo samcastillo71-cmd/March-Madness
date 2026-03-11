@@ -60,16 +60,21 @@ export async function setTournamentLocked(locked) {
 
 // ── LEADERBOARD ───────────────────────────────────────────────────────────────
 
-export async function updateLeaderboardEntry(uid, displayName, photoURL, score) {
+/**
+ * Update a user's leaderboard entry.
+ * isTeacher flag is stored so the leaderboard can separate students and teachers.
+ */
+export async function updateLeaderboardEntry(uid, displayName, photoURL, score, isTeacher = false) {
   await setDoc(doc(db, 'leaderboard', uid), {
     displayName: displayName || 'Anonymous',
     photoURL:    photoURL || null,
     score,
+    isTeacher:   !!isTeacher,
     updatedAt:   serverTimestamp(),
   }, { merge: true });
 }
 
-export function subscribeToLeaderboard(callback, n = 100) {
+export function subscribeToLeaderboard(callback, n = 200) {
   const q = query(
     collection(db, 'leaderboard'),
     orderBy('score', 'desc'),
@@ -84,6 +89,13 @@ export function subscribeToLeaderboard(callback, n = 100) {
 
 export async function checkIsAdmin(uid) {
   const snap = await getDoc(doc(db, 'admins', uid));
+  return snap.exists();
+}
+
+// ── TEACHER CHECK ─────────────────────────────────────────────────────────────
+
+export async function checkIsTeacher(uid) {
+  const snap = await getDoc(doc(db, 'teachers', uid));
   return snap.exists();
 }
 
