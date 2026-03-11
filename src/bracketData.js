@@ -126,7 +126,9 @@ export function buildInitialBracketFromTeams(teamsObj) {
   return bracket;
 }
 
-export const ROUND_POINTS = [1, 2, 4, 8, 16, 32];
+// ESPN Tournament Challenge scoring: 10, 20, 40, 80, 160, 320 per round
+// (same doubling ratio as 1,2,4,8,16,32 but matches ESPN's exact point values)
+export const ROUND_POINTS = [10, 20, 40, 80, 160, 320];
 
 export function calcScore(userBracket, officialBracket) {
   if (!officialBracket) return 0;
@@ -168,3 +170,19 @@ export function emptyResearchCard(teamName, seed, region) {
     analystNote: '—',
   };
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
