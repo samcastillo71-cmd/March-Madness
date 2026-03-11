@@ -98,30 +98,35 @@ function roundTopOffset(logicIdx) {
   return logicIdx === 0 ? 0 : ((Math.pow(2, logicIdx) - 1) * (slotH + minGap)) / 2;
 }
 
-function RegionBracket({ region, rounds, onPick, locked, flipped = false }) {
-  // For flipped regions (West, Midwest):
-  //   - Display order is REVERSED so R64 is on the outside (right) and E8 is innermost (left)
-  //   - We map displayIndex → logicIndex correctly for gaps/offsets
+// flipped = true  → West/Midwest: R64 on right, E8 on left (horizontal mirror)
+// vflipped = true → South/Midwest: games grow upward, E8 at top nearest center
+function RegionBracket({ region, rounds, onPick, locked, flipped = false, vflipped = false }) {
   const numRounds = rounds.length; // always 4
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'row', gap: 14, alignItems: 'flex-start' }}>
-      {rounds.map((games, logicIdx) => {
-        // For flipped: display slot 0 = logic slot 3 (E8 on left), display slot 3 = logic slot 0 (R64 on right)
-        // For normal: display slot = logic slot
-        const displayIdx = flipped ? (numRounds - 1 - logicIdx) : logicIdx;
-        const theGames   = flipped ? rounds[numRounds - 1 - logicIdx] : rounds[logicIdx];
-        const topPad     = roundTopOffset(flipped ? (numRounds - 1 - logicIdx) : logicIdx);
-        const gapIdx     = flipped ? (numRounds - 1 - logicIdx) : logicIdx;
+    <div style={{ display: 'flex', flexDirection: 'row', gap: 14, alignItems: vflipped ? 'flex-end' : 'flex-start' }}>
+      {rounds.map((_, iter) => {
+        // Horizontal flip: West & Midwest show E8 leftmost, R64 rightmost
+        const logicIdx = flipped ? (numRounds - 1 - iter) : iter;
+        const theGames = rounds[logicIdx];
+        const gapSize  = ROW_GAPS[logicIdx];
+        const topPad   = roundTopOffset(logicIdx);
 
         return (
-          <div key={displayIdx} style={{ display: 'flex', flexDirection: 'column', gap: ROW_GAPS[gapIdx], paddingTop: topPad }}>
-            <div style={{ fontSize: 9, color: '#d4af37', fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', textAlign: 'center', marginBottom: 4, whiteSpace: 'nowrap' }}>
-              {ROUND_LABELS[flipped ? (numRounds - 1 - logicIdx) : logicIdx]}
+          <div key={iter} style={{
+            display: 'flex',
+            flexDirection: vflipped ? 'column-reverse' : 'column',
+            gap: gapSize,
+            // For vflipped: use paddingBottom instead of paddingTop so games anchor to bottom
+            paddingTop:    vflipped ? 0      : topPad,
+            paddingBottom: vflipped ? topPad : 0,
+          }}>
+            <div style={{ fontSize: 9, color: '#d4af37', fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', textAlign: 'center', marginBottom: vflipped ? 0 : 4, marginTop: vflipped ? 4 : 0, whiteSpace: 'nowrap' }}>
+              {ROUND_LABELS[logicIdx]}
             </div>
             {theGames.map((game, gIdx) => (
               <GameSlot key={gIdx} game={game} locked={locked} flipped={flipped}
-                onPick={side => onPick(region, flipped ? (numRounds - 1 - logicIdx) : logicIdx, gIdx, side)} />
+                onPick={side => onPick(region, logicIdx, gIdx, side)} />
             ))}
           </div>
         );
@@ -891,17 +896,17 @@ export default function App() {
 
                 <div style={{ height: 44 }} />
 
-                {/* BOTTOM ROW: South (normal, left) ←→ Midwest (flipped, right) */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
-                  <div>
-                    <div style={{ textAlign: 'center', fontSize: 14, fontWeight: 700, color: RC.South, letterSpacing: 2, marginBottom: 10 }}>◈ SOUTH</div>
-                    <RegionBracket region="South" rounds={bracket.South.rounds} onPick={handlePick} locked={locked && !isAdmin} flipped={false} />
+                {/* BOTTOM ROW: South (normal, left) ←→ Midwest (flipped, right) — both grow upward */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 8 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                    <div style={{ textAlign: 'center', fontSize: 14, fontWeight: 700, color: RC.South, letterSpacing: 2, marginBottom: 10, width: '100%' }}>◈ SOUTH</div>
+                    <RegionBracket region="South" rounds={bracket.South.rounds} onPick={handlePick} locked={locked && !isAdmin} flipped={false} vflipped={true} />
                   </div>
                   <div style={{ minWidth: 230 }} />
-                  {/* Midwest: flipped so R64 is on the far right, E8 nearest center */}
-                  <div>
-                    <div style={{ textAlign: 'center', fontSize: 14, fontWeight: 700, color: RC.Midwest, letterSpacing: 2, marginBottom: 10 }}>◈ MIDWEST</div>
-                    <RegionBracket region="Midwest" rounds={bracket.Midwest.rounds} onPick={handlePick} locked={locked && !isAdmin} flipped={true} />
+                  {/* Midwest: hflipped (R64 right) + vflipped (grows upward) */}
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                    <div style={{ textAlign: 'center', fontSize: 14, fontWeight: 700, color: RC.Midwest, letterSpacing: 2, marginBottom: 10, width: '100%' }}>◈ MIDWEST</div>
+                    <RegionBracket region="Midwest" rounds={bracket.Midwest.rounds} onPick={handlePick} locked={locked && !isAdmin} flipped={true} vflipped={true} />
                   </div>
                 </div>
 
