@@ -9,7 +9,7 @@ import {
   saveOfficialBracket, subscribeToOfficialBracket,
   subscribeToConfig, setTournamentLocked,
   subscribeToLeaderboard, updateLeaderboardEntry,
-  checkIsAdmin, saveResearchData,
+  checkIsAdmin, checkIsTeacher, saveResearchData,
   saveOneTeamResearch, subscribeToResearchData,
 } from './firestoreService';
 import {
@@ -480,8 +480,8 @@ export default function App() {
       setIsAdmin(admin);
       // Check teacher role
       try {
-        const tSnap = await getDoc(doc(db, 'teachers', fbUser.uid));
-        setIsTeacher(tSnap.exists());
+        const teacher = await checkIsTeacher(fbUser.uid);
+        setIsTeacher(teacher);
       } catch {}
       const saved = await loadBracket(fbUser.uid);
       if (saved) {
