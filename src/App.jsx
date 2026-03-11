@@ -1,3 +1,4 @@
+
 // src/App.jsx
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -30,6 +31,19 @@ const S = {
   input:  { background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, color: '#fff', padding: '10px 14px', fontSize: 14, fontFamily: 'inherit', outline: 'none', width: '100%' },
   tag:    (color) => ({ fontSize: 10, color, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4, fontWeight: 700 }),
 };
+
+
+// ── SCROLLBAR STYLE INJECT ─────────────────────────────────────────────────────
+if (typeof document !== 'undefined') {
+  const _style = document.createElement('style');
+  _style.textContent = \`
+    .bracket-scroll::-webkit-scrollbar { height: 10px; }
+    .bracket-scroll::-webkit-scrollbar-track { background: rgba(255,255,255,0.04); border-radius: 5px; }
+    .bracket-scroll::-webkit-scrollbar-thumb { background: rgba(212,175,55,0.45); border-radius: 5px; }
+    .bracket-scroll::-webkit-scrollbar-thumb:hover { background: rgba(212,175,55,0.7); }
+  \`;
+  document.head.appendChild(_style);
+}
 
 // ── TEAM LOGO ─────────────────────────────────────────────────────────────────
 function TeamLogo({ espnId, name, size = 22 }) {
@@ -90,14 +104,25 @@ function GameSlot({ game, onPick, locked, isChampionship, onScoreChange, flipped
 const ROUND_LABELS = ['Round of 64', 'Round of 32', 'Sweet 16', 'Elite Eight'];
 const ROW_GAPS     = [4, 42, 116, 248];
 
+// Each round has half as many games, visually centered against the round before it.
+// paddingTop offset = (2^r - 1) * (slotHeight + minGap) / 2  keeps games aligned.
+function roundTopOffset(r) {
+  const slotH = 69, minGap = ROW_GAPS[0]; // slotH = 34+1+34
+  return r === 0 ? 0 : ((Math.pow(2, r) - 1) * (slotH + minGap)) / 2;
+}
+
 function RegionBracket({ region, rounds, onPick, locked, flipped = false }) {
+  // flipped=true for West & Midwest (right side).
+  // Reverse round order so E8 is leftmost column, R64 is rightmost (outer edge).
+  // This makes the bracket "open" outward correctly on the right side.
   const displayRounds = flipped ? [...rounds].reverse() : rounds;
   return (
-    <div style={{ display: 'flex', flexDirection: flipped ? 'row-reverse' : 'row', gap: 14, alignItems: 'flex-start' }}>
+    <div style={{ display: 'flex', flexDirection: 'row', gap: 14, alignItems: 'flex-start' }}>
       {displayRounds.map((games, dIdx) => {
         const logicIdx = flipped ? (rounds.length - 1 - dIdx) : dIdx;
+        const topPad   = roundTopOffset(logicIdx);
         return (
-          <div key={dIdx} style={{ display: 'flex', flexDirection: 'column', gap: ROW_GAPS[logicIdx] }}>
+          <div key={dIdx} style={{ display: 'flex', flexDirection: 'column', gap: ROW_GAPS[logicIdx], paddingTop: topPad }}>
             <div style={{ fontSize: 9, color: '#d4af37', fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', textAlign: 'center', marginBottom: 4, whiteSpace: 'nowrap' }}>
               {ROUND_LABELS[logicIdx]}
             </div>
@@ -111,6 +136,7 @@ function RegionBracket({ region, rounds, onPick, locked, flipped = false }) {
     </div>
   );
 }
+
 
 // ── EDITABLE FIELD ────────────────────────────────────────────────────────────
 function EditableField({ label, value, onSave, color = '#ccc', large = false, multiline = false }) {
@@ -427,6 +453,7 @@ export default function App() {
   const [adminSubTab,      setAdminSubTab]     = useState('dashboard');
   const [generating,       setGenerating]      = useState(false);
   const [genProgress,      setGenProgress]     = useState({ done: 0, total: 0, current: '' });
+  const [firstFourPicks,   setFirstFourPicks]  = useState({}); // { 'East-11': 'TeamName', ... }
   const saveTimer = useRef(null);
 
   // ── AUTH ──────────────────────────────────────────────────────────────────
@@ -436,7 +463,15 @@ export default function App() {
       const admin = await checkIsAdmin(fbUser.uid);
       setIsAdmin(admin);
       const saved = await loadBracket(fbUser.uid);
-      if (saved) setBracket(saved);
+      if (saved) {
+        if (saved._firstFourPicks) {
+          setFirstFourPicks(saved._firstFourPicks);
+          const { _firstFourPicks, ...bracketOnly } = saved;
+          setBracket(bracketOnly);
+        } else {
+          setBracket(saved);
+        }
+      }
     } else {
       setUser(null); setIsAdmin(false); setBracket(buildInitialBracket());
     }
@@ -463,7 +498,7 @@ export default function App() {
     clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(async () => {
       setSaving(true);
-      await saveBracket(user.uid, bracket, user.displayName, user.photoURL);
+      await saveBracket(user.uid, { ...bracket, _firstFourPicks: firstFourPicks }, user.displayName, user.photoURL);
       if (isAdmin) await saveOfficialBracket(bracket);
       const score = calcScore(bracket, officialBracket);
       await updateLeaderboardEntry(user.uid, user.displayName, user.photoURL, score);
@@ -471,7 +506,7 @@ export default function App() {
       setLastSaved(new Date());
     }, 1500);
     return () => clearTimeout(saveTimer.current);
-  }, [bracket, user, locked, isAdmin, officialBracket]);
+  }, [bracket, firstFourPicks, user, locked, isAdmin, officialBracket]);
 
   // ── PICK HANDLERS ─────────────────────────────────────────────────────────
   // Clicking the current winner clears it (and all downstream picks).
@@ -583,6 +618,20 @@ export default function App() {
   const handleChampScore = useCallback((field, val) =>
     setBracket(prev => ({ ...prev, championship: { ...prev.championship, [field]: val } }))
   , []);
+
+  // ── FIRST FOUR PICK HANDLER ───────────────────────────────────────────────
+  // key = `${region}-${seed}` e.g. "East-11", winner = team name string
+  const handleFirstFourPick = useCallback((key, winner) => {
+    if (locked && !isAdmin) return;
+    setFirstFourPicks(prev => {
+      if (prev[key] === winner) {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      }
+      return { ...prev, [key]: winner };
+    });
+  }, [locked, isAdmin]);
 
   // ── TEAM SAVED HANDLER ────────────────────────────────────────────────────
   const handleTeamsSaved = useCallback((newBracket) => {
@@ -737,8 +786,9 @@ export default function App() {
               <div>
                 <div style={{ fontSize: 11, color: '#666', letterSpacing: 1, textTransform: 'uppercase' }}>Your Score</div>
                 <div style={{ fontSize: 38, fontWeight: 700, color: '#d4af37', fontFamily: "'Playfair Display', serif", lineHeight: 1 }}>
-                  {score} <span style={{ fontSize: 14, color: '#555' }}>pts</span>
+                  {score} <span style={{ fontSize: 14, color: '#555' }}>/ 1,920 pts</span>
                 </div>
+                <div style={{ fontSize: 10, color: '#444', marginTop: 2 }}>ESPN scoring (max 1,920)</div>
               </div>
               <div style={{ textAlign: 'center' }}>
                 <div style={{ fontSize: 13, color: locked ? '#e74c3c' : '#22c55e', marginBottom: 6 }}>
@@ -760,8 +810,65 @@ export default function App() {
               </div>
             </div>
 
-            <div style={{ overflowX: 'auto', paddingBottom: 40 }}>
-              <div style={{ minWidth: 1860 }}>
+            {/* ── FIRST FOUR ── */}
+            {(() => {
+              const ffGames = [];
+              ['East','West','South','Midwest'].forEach(region => {
+                (bracket[region]?.rounds[0] || []).forEach(game => {
+                  if (game?.top?.firstFour || game?.bottom?.firstFour) {
+                    const seed = (game?.top?.firstFour ? game.top : game.bottom)?.seed;
+                    const key = `${region}-${seed}`;
+                    if (!ffGames.find(f => f.key === key))
+                      ffGames.push({ region, seed, game, key });
+                  }
+                });
+              });
+              if (!ffGames.length) return null;
+              return (
+                <div style={{ marginBottom: 20, padding: '16px 18px', background: 'rgba(212,175,55,0.06)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: 12 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: '#d4af37', letterSpacing: 2, marginBottom: 2 }}>🎟 FIRST FOUR — PLAY-IN GAMES</div>
+                  <div style={{ fontSize: 11, color: '#555', marginBottom: 14 }}>Pick who wins each play-in game and advances into the main bracket</div>
+                  <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                    {ffGames.map(({ region, seed, game, key }) => {
+                      const teams = [game.top, game.bottom].filter(t => t?.name && !t.name.startsWith('Seed '));
+                      if (teams.length < 2) return null;
+                      const pick = firstFourPicks[key];
+                      const isLockd = locked && !isAdmin;
+                      return (
+                        <div key={key} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 10, padding: '12px 14px', minWidth: 210 }}>
+                          <div style={{ fontSize: 10, color: RC[region], fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 8 }}>
+                            {region} · #{seed} seed play-in
+                          </div>
+                          {teams.map(team => {
+                            const isPick = pick === team.name;
+                            return (
+                              <div key={team.name} onClick={() => !isLockd && handleFirstFourPick(key, team.name)}
+                                style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', borderRadius: 7, marginBottom: 5,
+                                  cursor: isLockd ? 'default' : 'pointer',
+                                  background: isPick ? 'rgba(212,175,55,0.18)' : 'rgba(255,255,255,0.03)',
+                                  border: isPick ? '1px solid rgba(212,175,55,0.5)' : '1px solid rgba(255,255,255,0.07)',
+                                  transition: 'all .12s' }}>
+                                <TeamLogo espnId={team.espnId} name={team.name} size={20} />
+                                <span style={{ fontSize: 10, color: '#666', fontWeight: 700, minWidth: 14 }}>{team.seed}</span>
+                                <span style={{ fontSize: 12, fontWeight: isPick ? 700 : 400, color: isPick ? '#d4af37' : '#bbb', flex: 1 }}>{team.name}</span>
+                                {isPick && <span style={{ color: '#d4af37', fontSize: 13 }}>✓</span>}
+                              </div>
+                            );
+                          })}
+                          {pick
+                            ? <div style={{ fontSize: 10, color: '#666', textAlign: 'center', marginTop: 4 }}>→ {pick} advances as #{seed} seed</div>
+                            : <div style={{ fontSize: 10, color: '#444', textAlign: 'center', marginTop: 4 }}>← pick a winner</div>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
+
+            <style>{`.bscroll::-webkit-scrollbar{height:10px}.bscroll::-webkit-scrollbar-track{background:rgba(255,255,255,0.05);border-radius:5px;margin:0 8px}.bscroll::-webkit-scrollbar-thumb{background:rgba(212,175,55,0.5);border-radius:5px}.bscroll::-webkit-scrollbar-thumb:hover{background:rgba(212,175,55,0.8)}`}</style>
+            <div className="bscroll" style={{ overflowX: 'auto', paddingBottom: 12, scrollbarWidth: 'thin', scrollbarColor: 'rgba(212,175,55,0.5) rgba(255,255,255,0.05)' }}>
+              <div style={{ minWidth: 1860, paddingBottom: 16 }}>
                 {/* TOP: East ←→ West */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
                   <div>
