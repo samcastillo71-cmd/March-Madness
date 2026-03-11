@@ -86,3 +86,41 @@ export async function checkIsAdmin(uid) {
   const snap = await getDoc(doc(db, 'admins', uid));
   return snap.exists();
 }
+
+// ── TEAM RESEARCH DATA ────────────────────────────────────────────────────────
+// Research cards for all 64 teams, stored in Firestore.
+// Admin can auto-generate via AI and then manually edit any field.
+
+/** Load all research data — returns object keyed by team name */
+export async function loadResearchData() {
+  const snap = await getDoc(doc(db, 'admin', 'researchData'));
+  if (!snap.exists()) return {};
+  return snap.data().teams || {};
+}
+
+/** Save all research data at once */
+export async function saveResearchData(teamsObj) {
+  await setDoc(doc(db, 'admin', 'researchData'), {
+    teams:     teamsObj,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+/** Save a single team's research card (used when admin edits one team) */
+export async function saveOneTeamResearch(teamName, cardData) {
+  const snap = await getDoc(doc(db, 'admin', 'researchData'));
+  const existing = snap.exists() ? (snap.data().teams || {}) : {};
+  existing[teamName] = cardData;
+  await setDoc(doc(db, 'admin', 'researchData'), {
+    teams:     existing,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+/** Subscribe to live research data updates */
+export function subscribeToResearchData(callback) {
+  return onSnapshot(doc(db, 'admin', 'researchData'), snap => {
+    if (snap.exists()) callback(snap.data().teams || {});
+    else callback({});
+  });
+}
