@@ -9,8 +9,10 @@ import {
   saveOfficialBracket, subscribeToOfficialBracket,
   subscribeToConfig, setTournamentLocked,
   subscribeToLeaderboard, updateLeaderboardEntry,
-  checkIsAdmin, checkIsTeacher, saveResearchData,
-  saveOneTeamResearch, subscribeToResearchData,
+  checkIsAdmin, checkIsTeacher, registerUser,
+  subscribeToAllUsers, grantTeacherRole, revokeTeacherRole,
+  grantAdminRole, revokeAdminRole, loadTeacherUids, loadAdminUids,
+  saveResearchData, saveOneTeamResearch, subscribeToResearchData,
 } from './firestoreService';
 import {
   CURRENT_YEAR, buildInitialBracket, buildInitialBracketFromTeams,
@@ -429,6 +431,120 @@ Return ONLY valid JSON, no markdown, no explanation. Use this exact structure:
   try { return JSON.parse(text.replace(/```json|```/g, '').trim()); } catch { return null; }
 }
 
+
+// ── MANAGE USERS PANEL ────────────────────────────────────────────────────────
+function ManageUsersPanel({ currentAdminUid }) {
+  const [users,      setUsers]      = useState([]);
+  const [teacherIds, setTeacherIds] = useState(new Set());
+  const [adminIds,   setAdminIds]   = useState(new Set());
+  const [loading,    setLoading]    = useState(true);
+  const [working,    setWorking]    = useState({});
+  const [search,     setSearch]     = useState('');
+
+  useEffect(() => {
+    // Load role sets first, then subscribe to users
+    Promise.all([loadTeacherUids(), loadAdminUids()]).then(([t, a]) => {
+      setTeacherIds(t); setAdminIds(a);
+    });
+    const unsub = subscribeToAllUsers(u => {
+      setUsers(u.sort((a, b) => (a.displayName || '').localeCompare(b.displayName || '')));
+      setLoading(false);
+    });
+    return unsub;
+  }, []);
+
+  const toggle = async (uid, role, hasRole) => {
+    setWorking(w => ({ ...w, [uid + role]: true }));
+    if (role === 'teacher') {
+      if (hasRole) { await revokeTeacherRole(uid); setTeacherIds(p => { const n = new Set(p); n.delete(uid); return n; }); }
+      else         { await grantTeacherRole(uid);  setTeacherIds(p => new Set([...p, uid])); }
+    } else {
+      if (hasRole) { await revokeAdminRole(uid); setAdminIds(p => { const n = new Set(p); n.delete(uid); return n; }); }
+      else         { await grantAdminRole(uid);  setAdminIds(p => new Set([...p, uid])); }
+    }
+    setWorking(w => { const n = { ...w }; delete n[uid + role]; return n; });
+  };
+
+  const filtered = users.filter(u =>
+    !search || (u.displayName || '').toLowerCase().includes(search.toLowerCase()) ||
+    (u.email || '').toLowerCase().includes(search.toLowerCase())
+  );
+
+  if (loading) return <div style={{ color: '#666', padding: 20 }}>Loading users...</div>;
+
+  return (
+    <div style={{ ...S.card }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
+        <div>
+          <h3 style={{ color: ACCENT2, marginBottom: 4 }}>Manage Users</h3>
+          <p style={{ color: '#666', fontSize: 13 }}>{users.length} users have signed in. Toggle Teacher or Admin role with one click.</p>
+        </div>
+        <input
+          placeholder="Search by name or email..."
+          value={search} onChange={e => setSearch(e.target.value)}
+          style={{ ...S.input, width: 240, padding: '8px 12px', fontSize: 13 }}
+        />
+      </div>
+
+      {/* Column headers */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 180px 120px 120px', gap: 8, padding: '6px 12px', fontSize: 10, color: '#444', letterSpacing: 1, textTransform: 'uppercase', borderBottom: '1px solid rgba(255,255,255,0.06)', marginBottom: 6 }}>
+        <span>User</span><span>Email</span><span style={{ textAlign: 'center' }}>Teacher</span><span style={{ textAlign: 'center' }}>Admin</span>
+      </div>
+
+      <div style={{ maxHeight: 480, overflowY: 'auto' }}>
+        {filtered.map(u => {
+          const isT = teacherIds.has(u.uid);
+          const isA = adminIds.has(u.uid);
+          const isSelf = u.uid === currentAdminUid;
+          return (
+            <div key={u.uid} style={{ display: 'grid', gridTemplateColumns: '1fr 180px 120px 120px', gap: 8, alignItems: 'center', padding: '8px 12px', borderRadius: 8, marginBottom: 2, background: isA ? 'rgba(231,76,60,0.05)' : isT ? 'rgba(245,158,11,0.05)' : 'transparent', border: '1px solid rgba(255,255,255,0.04)' }}>
+              {/* Name + avatar */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                {u.photoURL
+                  ? <img src={u.photoURL} alt="" width={26} height={26} style={{ borderRadius: '50%', flexShrink: 0 }} />
+                  : <div style={{ width: 26, height: 26, borderRadius: '50%', background: '#111', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: '#555', flexShrink: 0 }}>?</div>
+                }
+                <span style={{ fontSize: 13, color: isA ? '#f87171' : isT ? GOLD2 : '#bbb', fontWeight: isA || isT ? 700 : 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {u.displayName || 'Anonymous'}
+                  {isSelf && <span style={{ fontSize: 10, color: '#555', marginLeft: 6 }}>(you)</span>}
+                </span>
+              </div>
+              {/* Email */}
+              <span style={{ fontSize: 11, color: '#444', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.email || '—'}</span>
+              {/* Teacher toggle */}
+              <div style={{ textAlign: 'center' }}>
+                <button
+                  onClick={() => toggle(u.uid, 'teacher', isT)}
+                  disabled={!!working[u.uid + 'teacher']}
+                  style={{ ...S.btn(isT ? 'rgba(245,158,11,0.2)' : 'rgba(255,255,255,0.05)', isT ? GOLD2 : '#555'), padding: '4px 12px', fontSize: 11, border: `1px solid ${isT ? 'rgba(245,158,11,0.4)' : 'rgba(255,255,255,0.08)'}` }}>
+                  {working[u.uid + 'teacher'] ? '...' : isT ? '✓ Teacher' : '+ Teacher'}
+                </button>
+              </div>
+              {/* Admin toggle */}
+              <div style={{ textAlign: 'center' }}>
+                <button
+                  onClick={() => !isSelf && toggle(u.uid, 'admin', isA)}
+                  disabled={!!working[u.uid + 'admin'] || isSelf}
+                  title={isSelf ? 'Cannot remove your own admin role' : ''}
+                  style={{ ...S.btn(isA ? 'rgba(231,76,60,0.2)' : 'rgba(255,255,255,0.05)', isA ? '#f87171' : '#555'), padding: '4px 12px', fontSize: 11, border: `1px solid ${isA ? 'rgba(231,76,60,0.4)' : 'rgba(255,255,255,0.08)'}`, opacity: isSelf ? 0.4 : 1 }}>
+                  {working[u.uid + 'admin'] ? '...' : isA ? '✓ Admin' : '+ Admin'}
+                </button>
+              </div>
+            </div>
+          );
+        })}
+        {filtered.length === 0 && (
+          <div style={{ color: '#444', textAlign: 'center', padding: 24 }}>No users found</div>
+        )}
+      </div>
+
+      <div style={{ marginTop: 12, padding: '10px 14px', background: 'rgba(255,255,255,0.02)', borderRadius: 8, fontSize: 12, color: '#444', lineHeight: 1.6 }}>
+        Role changes take effect the next time the user signs out and back in. Teachers appear in their own section on the leaderboard. Admins can access this Admin panel.
+      </div>
+    </div>
+  );
+}
+
 // ── MAIN APP ──────────────────────────────────────────────────────────────────
 export default function App() {
   const [user,             setUser]            = useState(null);
@@ -483,6 +599,8 @@ export default function App() {
         const teacher = await checkIsTeacher(fbUser.uid);
         setIsTeacher(teacher);
       } catch {}
+      // Register user so admin can manage roles in-app
+      await registerUser(fbUser.uid, fbUser.displayName, fbUser.photoURL, fbUser.email);
       const saved = await loadBracket(fbUser.uid);
       if (saved) {
         if (saved._firstFourPicks) {
@@ -1053,7 +1171,7 @@ export default function App() {
               <h2 style={{ fontFamily: "'Playfair Display', serif", color: '#e74c3c', margin: 0 }}>Admin Panel</h2>
             </div>
             <div style={{ display: 'flex', gap: 4, marginBottom: 24, borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-              {[['dashboard','Dashboard'],['teams','Set Up Teams'],['help','Help']].map(([id, label]) => (
+              {[['dashboard','Dashboard'],['teams','Set Up Teams'],['users','Manage Users'],['help','Help']].map(([id, label]) => (
                 <button key={id} style={{ ...S.navBtn(adminSubTab === id), borderBottom: adminSubTab === id ? '2px solid #e74c3c' : '2px solid transparent', borderRadius: '6px 6px 0 0', padding: '8px 18px' }} onClick={() => setAdminSubTab(id)}>{label}</button>
               ))}
             </div>
@@ -1108,6 +1226,10 @@ export default function App() {
               <TeamEntryPanel onTeamsSaved={handleTeamsSaved} onRequestGenerateResearch={handleGenerateResearch} />
             )}
 
+            {adminSubTab === 'users' && (
+              <ManageUsersPanel currentAdminUid={user?.uid} />
+            )}
+
             {adminSubTab === 'help' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                 <div style={S.card}>
@@ -1120,13 +1242,12 @@ export default function App() {
                   </p>
                 </div>
                 <div style={{ ...S.card, borderColor: 'rgba(245,158,11,0.25)' }}>
-                  <h3 style={{ color: GOLD2, marginBottom: 14 }}>Adding a Teacher</h3>
+                  <h3 style={{ color: GOLD2, marginBottom: 14 }}>Adding Teachers or Admins</h3>
                   <p style={{ color: '#888', fontSize: 14, lineHeight: 1.75 }}>
-                    Teachers appear in a separate section on the leaderboard with a 🍎 Teacher label.<br /><br />
-                    1. Have the teacher sign into the app once with their Google account.<br />
-                    2. Go to Firebase Console → Authentication → Users and copy their User UID.<br />
-                    3. Go to Firestore → <code style={{ background: 'rgba(255,255,255,0.07)', padding: '1px 5px', borderRadius: 3 }}>teachers</code> collection → Add document with that UID as the Document ID.<br />
-                    4. They sign out and back in — their name shows with the Teacher badge.
+                    Use the <strong style={{ color: ACCENT2 }}>Manage Users</strong> tab — no Firebase Console needed!<br /><br />
+                    1. Have the person sign in once with their school Google account.<br />
+                    2. Go to Admin tab, click Manage Users, find their name, click + Teacher or + Admin.<br />
+                    3. They sign out and back in — role applies automatically.
                   </p>
                 </div>
               </div>
