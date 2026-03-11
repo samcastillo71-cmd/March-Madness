@@ -1101,11 +1101,11 @@ export default function App() {
                         </div>
                       );
                     })}
-                  </div>
+                  </div>{/* end left inner row */}
                     <div style={{ display: 'flex', justifyContent: 'center', marginTop: 8 }}>
                       <span style={{ fontSize: 22, fontWeight: 800, color: RC.South, letterSpacing: 3, textTransform: 'uppercase' }}>SOUTH ↓</span>
                     </div>
-                  </div>
+                  </div>{/* end left outer column */}
 
                   {/* ── CENTER SPINE + FINAL FOUR + CHAMPIONSHIP ── */}
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', minWidth: 280 }}>
@@ -1230,12 +1230,12 @@ export default function App() {
                         </div>
                       </div>
                     )}
+                  <div style={{ display: 'flex', justifyContent: 'center', marginTop: 8 }}>
+                    <span style={{ fontSize: 22, fontWeight: 800, color: RC.Midwest, letterSpacing: 3, textTransform: 'uppercase' }}>MIDWEST ↓</span>
                   </div>
-                    <div style={{ display: 'flex', justifyContent: 'center', marginTop: 8 }}>
-                      <span style={{ fontSize: 22, fontWeight: 800, color: RC.Midwest, letterSpacing: 3, textTransform: 'uppercase' }}>MIDWEST ↓</span>
-                    </div>
-                  </div>
-                </div>
+                </div>{/* end right outer column */}
+
+                </div>{/* end main bracket row */}
 
                 {/* ── HORIZONTAL SPINE LABEL BAR ── */}
                 {/* Sits visually behind the bracket — shows round names L→R */}
