@@ -32,19 +32,6 @@ const S = {
   tag:    (color) => ({ fontSize: 10, color, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4, fontWeight: 700 }),
 };
 
-
-// ── SCROLLBAR STYLE INJECT ─────────────────────────────────────────────────────
-if (typeof document !== 'undefined') {
-  const _style = document.createElement('style');
-  _style.textContent = \`
-    .bracket-scroll::-webkit-scrollbar { height: 10px; }
-    .bracket-scroll::-webkit-scrollbar-track { background: rgba(255,255,255,0.04); border-radius: 5px; }
-    .bracket-scroll::-webkit-scrollbar-thumb { background: rgba(212,175,55,0.45); border-radius: 5px; }
-    .bracket-scroll::-webkit-scrollbar-thumb:hover { background: rgba(212,175,55,0.7); }
-  \`;
-  document.head.appendChild(_style);
-}
-
 // ── TEAM LOGO ─────────────────────────────────────────────────────────────────
 function TeamLogo({ espnId, name, size = 22 }) {
   const [err, setErr] = useState(false);
@@ -104,31 +91,38 @@ function GameSlot({ game, onPick, locked, isChampionship, onScoreChange, flipped
 const ROUND_LABELS = ['Round of 64', 'Round of 32', 'Sweet 16', 'Elite Eight'];
 const ROW_GAPS     = [4, 42, 116, 248];
 
-// Each round has half as many games, visually centered against the round before it.
-// paddingTop offset = (2^r - 1) * (slotHeight + minGap) / 2  keeps games aligned.
-function roundTopOffset(r) {
-  const slotH = 69, minGap = ROW_GAPS[0]; // slotH = 34+1+34
-  return r === 0 ? 0 : ((Math.pow(2, r) - 1) * (slotH + minGap)) / 2;
+// paddingTop offset keeps games vertically centered against the round before it.
+// For a flipped bracket the DISPLAY order is reversed (E8 first, R64 last),
+// but the logical index (used for gap/offset) still increases left→right normally.
+function roundTopOffset(logicIdx) {
+  const slotH = 69, minGap = ROW_GAPS[0];
+  return logicIdx === 0 ? 0 : ((Math.pow(2, logicIdx) - 1) * (slotH + minGap)) / 2;
 }
 
 function RegionBracket({ region, rounds, onPick, locked, flipped = false }) {
-  // flipped=true for West & Midwest (right side).
-  // Reverse round order so E8 is leftmost column, R64 is rightmost (outer edge).
-  // This makes the bracket "open" outward correctly on the right side.
-  const displayRounds = flipped ? [...rounds].reverse() : rounds;
+  // For flipped regions (West, Midwest):
+  //   - Display order is REVERSED so R64 is on the outside (right) and E8 is innermost (left)
+  //   - We map displayIndex → logicIndex correctly for gaps/offsets
+  const numRounds = rounds.length; // always 4
+
   return (
     <div style={{ display: 'flex', flexDirection: 'row', gap: 14, alignItems: 'flex-start' }}>
-      {displayRounds.map((games, dIdx) => {
-        const logicIdx = flipped ? (rounds.length - 1 - dIdx) : dIdx;
-        const topPad   = roundTopOffset(logicIdx);
+      {rounds.map((games, logicIdx) => {
+        // For flipped: display slot 0 = logic slot 3 (E8 on left), display slot 3 = logic slot 0 (R64 on right)
+        // For normal: display slot = logic slot
+        const displayIdx = flipped ? (numRounds - 1 - logicIdx) : logicIdx;
+        const theGames   = flipped ? rounds[numRounds - 1 - logicIdx] : rounds[logicIdx];
+        const topPad     = roundTopOffset(flipped ? (numRounds - 1 - logicIdx) : logicIdx);
+        const gapIdx     = flipped ? (numRounds - 1 - logicIdx) : logicIdx;
+
         return (
-          <div key={dIdx} style={{ display: 'flex', flexDirection: 'column', gap: ROW_GAPS[logicIdx], paddingTop: topPad }}>
+          <div key={displayIdx} style={{ display: 'flex', flexDirection: 'column', gap: ROW_GAPS[gapIdx], paddingTop: topPad }}>
             <div style={{ fontSize: 9, color: '#d4af37', fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', textAlign: 'center', marginBottom: 4, whiteSpace: 'nowrap' }}>
-              {ROUND_LABELS[logicIdx]}
+              {ROUND_LABELS[flipped ? (numRounds - 1 - logicIdx) : logicIdx]}
             </div>
-            {games.map((game, gIdx) => (
+            {theGames.map((game, gIdx) => (
               <GameSlot key={gIdx} game={game} locked={locked} flipped={flipped}
-                onPick={side => onPick(region, logicIdx, gIdx, side)} />
+                onPick={side => onPick(region, flipped ? (numRounds - 1 - logicIdx) : logicIdx, gIdx, side)} />
             ))}
           </div>
         );
@@ -152,7 +146,7 @@ function EditableField({ label, value, onSave, color = '#ccc', large = false, mu
   };
 
   if (!editing) return (
-    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6, cursor: 'pointer', group: true }}
+    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6, cursor: 'pointer' }}
       onClick={() => { setDraft(value); setEditing(true); }}>
       <span style={{ color, fontSize: large ? 38 : 13, fontWeight: large ? 700 : 400, lineHeight: 1.5, flex: 1 }}>{value || '—'}</span>
       <span style={{ fontSize: 10, color: '#444', marginTop: large ? 6 : 2, flexShrink: 0 }}>✏️</span>
@@ -453,7 +447,7 @@ export default function App() {
   const [adminSubTab,      setAdminSubTab]     = useState('dashboard');
   const [generating,       setGenerating]      = useState(false);
   const [genProgress,      setGenProgress]     = useState({ done: 0, total: 0, current: '' });
-  const [firstFourPicks,   setFirstFourPicks]  = useState({}); // { 'East-11': 'TeamName', ... }
+  const [firstFourPicks,   setFirstFourPicks]  = useState({});
   const saveTimer = useRef(null);
 
   // ── AUTH ──────────────────────────────────────────────────────────────────
@@ -509,12 +503,7 @@ export default function App() {
   }, [bracket, firstFourPicks, user, locked, isAdmin, officialBracket]);
 
   // ── PICK HANDLERS ─────────────────────────────────────────────────────────
-  // Clicking the current winner clears it (and all downstream picks).
-  // Clicking the other team sets them as winner (and clears any conflicting downstream).
-
-  // Helper: recursively clear a team from all downstream rounds/slots
   const clearTeamDownstream = (next, region, teamName, fromRound, fromGameIdx) => {
-    // Clear from region rounds
     for (let r = fromRound; r < 4; r++) {
       next[region].rounds[r].forEach((g, gi) => {
         if (g.top?.name    === teamName) { g.top    = null; g.winner = null; }
@@ -522,12 +511,10 @@ export default function App() {
         if (g.winner?.name === teamName)   g.winner = null;
       });
     }
-    // Clear from Final Four
     const fi    = { East: 0, West: 0, South: 1, Midwest: 1 }[region];
     const fSide = { East: 'top', West: 'bottom', South: 'top', Midwest: 'bottom' }[region];
     if (next.finalFour[fi][fSide]?.name  === teamName) next.finalFour[fi][fSide]  = null;
     if (next.finalFour[fi].winner?.name  === teamName) next.finalFour[fi].winner  = null;
-    // Clear from Championship
     const cSide = fi === 0 ? 'top' : 'bottom';
     if (next.championship[cSide]?.name   === teamName) next.championship[cSide]   = null;
     if (next.championship.winner?.name   === teamName) next.championship.winner   = null;
@@ -542,21 +529,16 @@ export default function App() {
       const clicked = side === 'top' ? game.top : game.bottom;
       if (!clicked || clicked.firstFour) return prev;
 
-      // Toggle: clicking current winner clears it
       if (game.winner?.name === clicked.name) {
         game.winner = null;
         clearTeamDownstream(next, region, clicked.name, rIdx + 1, Math.floor(gIdx / 2));
         return next;
       }
 
-      // Set new winner
       game.winner = clicked;
-
-      // Clear the loser from all downstream slots
       const loser = side === 'top' ? game.bottom : game.top;
       if (loser) clearTeamDownstream(next, region, loser.name, rIdx + 1, Math.floor(gIdx / 2));
 
-      // Advance winner to next round
       if (rIdx < 3) {
         const ng    = next[region].rounds[rIdx + 1][Math.floor(gIdx / 2)];
         const nSide = gIdx % 2 === 0 ? 'top' : 'bottom';
@@ -581,7 +563,6 @@ export default function App() {
       const clicked = ff[side];
       if (!clicked) return prev;
 
-      // Toggle: clicking current winner clears it + championship slot
       if (ff.winner?.name === clicked.name) {
         ff.winner = null;
         const cSide = idx === 0 ? 'top' : 'bottom';
@@ -590,7 +571,6 @@ export default function App() {
         return next;
       }
 
-      // Set winner, clear loser from championship
       ff.winner = clicked;
       const cSide = idx === 0 ? 'top' : 'bottom';
       next.championship[cSide] = clicked;
@@ -605,7 +585,6 @@ export default function App() {
       const next    = JSON.parse(JSON.stringify(prev));
       const clicked = next.championship[side];
       if (!clicked) return prev;
-      // Toggle: clicking current champion clears them
       if (next.championship.winner?.name === clicked.name) {
         next.championship.winner = null;
         return next;
@@ -619,8 +598,6 @@ export default function App() {
     setBracket(prev => ({ ...prev, championship: { ...prev.championship, [field]: val } }))
   , []);
 
-  // ── FIRST FOUR PICK HANDLER ───────────────────────────────────────────────
-  // key = `${region}-${seed}` e.g. "East-11", winner = team name string
   const handleFirstFourPick = useCallback((key, winner) => {
     if (locked && !isAdmin) return;
     setFirstFourPicks(prev => {
@@ -633,7 +610,6 @@ export default function App() {
     });
   }, [locked, isAdmin]);
 
-  // ── TEAM SAVED HANDLER ────────────────────────────────────────────────────
   const handleTeamsSaved = useCallback((newBracket) => {
     setBracket(newBracket);
     setOfficialBracket(newBracket);
@@ -641,7 +617,6 @@ export default function App() {
 
   // ── GENERATE ALL RESEARCH ─────────────────────────────────────────────────
   const handleGenerateResearch = useCallback(async (roster) => {
-    // Collect all non-firstFour teams
     const teams = [];
     ['East', 'West', 'South', 'Midwest'].forEach(region => {
       (roster[region] || []).forEach(t => {
@@ -664,7 +639,6 @@ export default function App() {
       } catch (e) {
         console.warn('Failed to generate for', name, e);
       }
-      // Small delay to avoid rate limits
       if (i < teams.length - 1) await new Promise(r => setTimeout(r, 400));
     }
 
@@ -681,7 +655,6 @@ export default function App() {
     setResearchData(prev => {
       const next = JSON.parse(JSON.stringify(prev));
       if (!next[teamName]) next[teamName] = {};
-      // Support dot-path like keyPlayers.0.name
       const parts = fieldPath.split('.');
       let obj = next[teamName];
       for (let i = 0; i < parts.length - 1; i++) {
@@ -763,6 +736,15 @@ export default function App() {
 
   return (
     <div style={S.app}>
+      {/* Scrollbar styles injected once */}
+      <style>{`
+        .bscroll { scrollbar-width: thin; scrollbar-color: rgba(212,175,55,0.5) rgba(255,255,255,0.05); }
+        .bscroll::-webkit-scrollbar { height: 10px; }
+        .bscroll::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); border-radius: 5px; margin: 0 8px; }
+        .bscroll::-webkit-scrollbar-thumb { background: rgba(212,175,55,0.5); border-radius: 5px; }
+        .bscroll::-webkit-scrollbar-thumb:hover { background: rgba(212,175,55,0.8); }
+      `}</style>
+
       <header style={S.header}>
         <div style={S.logo}>🏀 MARCH MADNESS {CURRENT_YEAR}</div>
         <nav style={{ display: 'flex', gap: 4 }}>
@@ -866,15 +848,18 @@ export default function App() {
               );
             })()}
 
-            <style>{`.bscroll::-webkit-scrollbar{height:10px}.bscroll::-webkit-scrollbar-track{background:rgba(255,255,255,0.05);border-radius:5px;margin:0 8px}.bscroll::-webkit-scrollbar-thumb{background:rgba(212,175,55,0.5);border-radius:5px}.bscroll::-webkit-scrollbar-thumb:hover{background:rgba(212,175,55,0.8)}`}</style>
-            <div className="bscroll" style={{ overflowX: 'auto', paddingBottom: 12, scrollbarWidth: 'thin', scrollbarColor: 'rgba(212,175,55,0.5) rgba(255,255,255,0.05)' }}>
-              <div style={{ minWidth: 1860, paddingBottom: 16 }}>
-                {/* TOP: East ←→ West */}
+            {/* ── MAIN BRACKET (scrollable) ── */}
+            <div className="bscroll" style={{ overflowX: 'auto', overflowY: 'visible', paddingBottom: 16 }}>
+              <div style={{ minWidth: 1860, paddingBottom: 8 }}>
+
+                {/* TOP ROW: East (normal, left) ←→ West (flipped, right) */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
                   <div>
                     <div style={{ textAlign: 'center', fontSize: 14, fontWeight: 700, color: RC.East, letterSpacing: 2, marginBottom: 10 }}>◈ EAST</div>
                     <RegionBracket region="East" rounds={bracket.East.rounds} onPick={handlePick} locked={locked && !isAdmin} flipped={false} />
                   </div>
+
+                  {/* Center column: Final Four + Championship */}
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, minWidth: 230, paddingTop: 28 }}>
                     <div style={{ fontSize: 11, fontWeight: 700, color: '#d4af37', letterSpacing: 2 }}>🏆 FINAL FOUR</div>
                     <GameSlot game={bracket.finalFour[0]} onPick={s => handleFFPick(0, s)} locked={locked && !isAdmin} />
@@ -897,6 +882,8 @@ export default function App() {
                     <GameSlot game={bracket.finalFour[1]} onPick={s => handleFFPick(1, s)} locked={locked && !isAdmin} />
                     <div style={{ fontSize: 10, color: '#555' }}>South vs Midwest</div>
                   </div>
+
+                  {/* West: flipped so R64 is on the far right, E8 nearest center */}
                   <div>
                     <div style={{ textAlign: 'center', fontSize: 14, fontWeight: 700, color: RC.West, letterSpacing: 2, marginBottom: 10 }}>◈ WEST</div>
                     <RegionBracket region="West" rounds={bracket.West.rounds} onPick={handlePick} locked={locked && !isAdmin} flipped={true} />
@@ -905,18 +892,20 @@ export default function App() {
 
                 <div style={{ height: 44 }} />
 
-                {/* BOTTOM: South ←→ Midwest */}
+                {/* BOTTOM ROW: South (normal, left) ←→ Midwest (flipped, right) */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
                   <div>
                     <div style={{ textAlign: 'center', fontSize: 14, fontWeight: 700, color: RC.South, letterSpacing: 2, marginBottom: 10 }}>◈ SOUTH</div>
                     <RegionBracket region="South" rounds={bracket.South.rounds} onPick={handlePick} locked={locked && !isAdmin} flipped={false} />
                   </div>
                   <div style={{ minWidth: 230 }} />
+                  {/* Midwest: flipped so R64 is on the far right, E8 nearest center */}
                   <div>
                     <div style={{ textAlign: 'center', fontSize: 14, fontWeight: 700, color: RC.Midwest, letterSpacing: 2, marginBottom: 10 }}>◈ MIDWEST</div>
                     <RegionBracket region="Midwest" rounds={bracket.Midwest.rounds} onPick={handlePick} locked={locked && !isAdmin} flipped={true} />
                   </div>
                 </div>
+
               </div>
             </div>
           </div>
@@ -940,7 +929,6 @@ export default function App() {
               </div>
             ) : (
               <>
-                {/* Team selector */}
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 24 }}>
                   {allTeamNames.map(t => (
                     <button key={t}
@@ -948,8 +936,6 @@ export default function App() {
                       onClick={() => setSelectedTeam(t)}>{t}</button>
                   ))}
                 </div>
-
-                {/* Research card */}
                 {selectedTeam && (
                   <ResearchCard
                     teamName={selectedTeam}
@@ -961,7 +947,6 @@ export default function App() {
               </>
             )}
 
-            {/* AI Assistant */}
             <div style={{ ...S.card, border: '1px solid rgba(212,175,55,0.22)', marginTop: 8 }}>
               <h3 style={{ color: '#d4af37', marginBottom: 4, fontFamily: "'Playfair Display', serif" }}>AI Research Assistant</h3>
               <p style={{ color: '#555', fontSize: 13, marginBottom: 14 }}>Ask anything about matchups, history, upsets, or bracket strategy</p>
@@ -1032,7 +1017,6 @@ export default function App() {
 
             {adminSubTab === 'dashboard' && (
               <>
-                {/* AI generation progress bar */}
                 {generating && (
                   <div style={{ ...S.card, marginBottom: 16, borderColor: 'rgba(99,102,241,0.4)' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
@@ -1088,5 +1072,7 @@ export default function App() {
         )}
       </main>
     </div>
+  );
+}
   );
 }
