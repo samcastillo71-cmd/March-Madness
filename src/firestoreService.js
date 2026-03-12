@@ -173,3 +173,86 @@ export function subscribeToResearchData(callback) {
     else callback({});
   });
 }
+
+// ── MAMMALS TOURNAMENT ────────────────────────────────────────────────────────
+
+export async function saveMammalBracket(uid, bracketData, displayName, photoURL) {
+  await setDoc(doc(db, 'brackets_mammals', uid), {
+    bracket: JSON.stringify(bracketData), displayName: displayName || 'Anonymous',
+    photoURL: photoURL || null, updatedAt: serverTimestamp(),
+  }, { merge: true });
+}
+
+export async function loadMammalBracket(uid) {
+  const snap = await getDoc(doc(db, 'brackets_mammals', uid));
+  if (!snap.exists()) return null;
+  const raw = snap.data().bracket;
+  return raw ? JSON.parse(raw) : null;
+}
+
+export async function saveMammalOfficialBracket(bracketData) {
+  await setDoc(doc(db, 'admin', 'officialBracket_mammals'), {
+    bracket: JSON.stringify(bracketData), updatedAt: serverTimestamp(),
+  });
+}
+
+export function subscribeToMammalOfficialBracket(callback) {
+  return onSnapshot(doc(db, 'admin', 'officialBracket_mammals'), snap => {
+    if (snap.exists()) callback(JSON.parse(snap.data().bracket));
+  });
+}
+
+export function subscribeToMammalConfig(callback) {
+  return onSnapshot(doc(db, 'tournament', 'config_mammals'), snap => {
+    if (snap.exists()) callback(snap.data());
+    else callback({ locked: false });
+  });
+}
+
+export async function setMammalTournamentLocked(locked) {
+  await setDoc(doc(db, 'tournament', 'config_mammals'), {
+    locked, updatedAt: serverTimestamp(),
+  }, { merge: true });
+}
+
+export async function updateMammalLeaderboardEntry(uid, displayName, photoURL, score, isTeacher = false) {
+  await setDoc(doc(db, 'leaderboard_mammals', uid), {
+    displayName: displayName || 'Anonymous', photoURL: photoURL || null,
+    score, isTeacher: !!isTeacher, updatedAt: serverTimestamp(),
+  }, { merge: true });
+}
+
+export function subscribeToMammalLeaderboard(callback, n = 200) {
+  const q = query(collection(db, 'leaderboard_mammals'), orderBy('score', 'desc'), limit(n));
+  return onSnapshot(q, snap => {
+    callback(snap.docs.map((d, i) => ({ uid: d.id, rank: i + 1, ...d.data() })));
+  });
+}
+
+export async function saveMammalResearchData(teamsObj) {
+  await setDoc(doc(db, 'admin', 'researchData_mammals'), {
+    teams: teamsObj, updatedAt: serverTimestamp(),
+  });
+}
+
+export async function saveOneMammalResearch(animalName, cardData) {
+  const snap = await getDoc(doc(db, 'admin', 'researchData_mammals'));
+  const existing = snap.exists() ? (snap.data().teams || {}) : {};
+  existing[animalName] = cardData;
+  await setDoc(doc(db, 'admin', 'researchData_mammals'), {
+    teams: existing, updatedAt: serverTimestamp(),
+  });
+}
+
+export function subscribeToMammalResearchData(callback) {
+  return onSnapshot(doc(db, 'admin', 'researchData_mammals'), snap => {
+    if (snap.exists()) callback(snap.data().teams || {});
+    else callback({});
+  });
+}
+
+export async function saveMammalRoster(rosterData) {
+  await setDoc(doc(db, 'admin', 'mammalRoster'), {
+    ...rosterData, updatedAt: serverTimestamp(),
+  });
+}
