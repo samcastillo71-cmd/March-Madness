@@ -1139,6 +1139,30 @@ export default function App() {
     });
   }, [locked, isAdmin]);
 
+  const handleFFPick = useCallback((idx, side) => {
+    if (locked && !isAdmin) return;
+    setBracket(prev => {
+      const next = JSON.parse(JSON.stringify(prev));
+      const ff = next.finalFour[idx];
+      const clicked = ff[side];
+      if (!clicked) return prev;
+      if (ff.winner?.name === clicked.name) {
+        ff.winner = null;
+        const cSide = idx === 0 ? 'top' : 'bottom';
+        next.championship[cSide] = null;
+        next.championship.winner = null;
+        if (isAdmin) saveOfficialBracket(next);
+        return next;
+      }
+      ff.winner = clicked;
+      const cSide = idx === 0 ? 'top' : 'bottom';
+      next.championship[cSide] = clicked;
+      if (next.championship.winner?.name !== clicked.name) next.championship.winner = null;
+      if (isAdmin) saveOfficialBracket(next);
+      return next;
+    });
+  }, [locked, isAdmin]);
+
   const handleChampPick = useCallback(side => {
     if (locked && !isAdmin) return;
     setBracket(prev => {
