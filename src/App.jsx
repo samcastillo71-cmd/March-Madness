@@ -1099,6 +1099,69 @@ export default function App() {
                     );
                   };
 
+                  // ConnectorCol: SVG lines between fromRIdx and toRIdx columns
+                  // flip=true means lines go right→left (West/Midwest side)
+                  // dir='top' means top-half (positions from top), dir='bot' means bottom-half (positions from bottom, so invert)
+                  const ConnectorCol = ({ fromRIdx, dir, flip }) => {
+                    const toRIdx = fromRIdx + 1;
+                    const fromTops = ROUND_TOPS[fromRIdx];
+                    const toTops   = ROUND_TOPS[toRIdx];
+                    const fromColor = ROUND_BORDER_COLORS[fromRIdx];
+                    const toColor   = ROUND_BORDER_COLORS[toRIdx];
+                    const W = CW; // connector column width
+                    const H = TOP_H;
+                    const gradId = `grad-${fromRIdx}-${dir}-${flip ? 'f' : 'n'}`;
+
+                    // For each game in toRound, connect its two feeder games from fromRound
+                    const toGames = ROUND_TOPS[toRIdx];
+                    const lines = toGames.map((toTop, tIdx) => {
+                      const feeder1 = fromTops[tIdx * 2];
+                      const feeder2 = fromTops[tIdx * 2 + 1];
+                      if (feeder1 == null || feeder2 == null) return null;
+
+                      // y positions — for 'top' half, measured from top as-is
+                      // for 'bot' half, measured from bottom so invert: y = H - pos - TEAM_H
+                      const yf = (pos, isDiv=false) => {
+                        if (dir === 'top') return isDiv ? pos + TEAM_H : pos + TEAM_H;
+                        return H - (pos + TEAM_H);
+                      };
+
+                      const y1   = yf(feeder1); // dividing line of feeder game 1
+                      const y2   = yf(feeder2); // dividing line of feeder game 2
+                      const yMid = yf(toTop);   // dividing line of receiving game
+                      const stubLen = W * 0.35;  // horizontal stub from game edge
+                      const x1 = flip ? W - stubLen : stubLen; // end of stub (meeting point)
+                      const x0 = flip ? W : 0;                 // game edge
+
+                      return (
+                        <g key={tIdx}>
+                          {/* stub from feeder 1 */}
+                          <line x1={x0} y1={y1} x2={x1} y2={y1} stroke={`url(#${gradId})`} strokeWidth="1.5" />
+                          {/* stub from feeder 2 */}
+                          <line x1={x0} y1={y2} x2={x1} y2={y2} stroke={`url(#${gradId})`} strokeWidth="1.5" />
+                          {/* vertical joining line */}
+                          <line x1={x1} y1={y1} x2={x1} y2={y2} stroke={`url(#${gradId})`} strokeWidth="1.5" />
+                          {/* horizontal to receiving game */}
+                          <line x1={x1} y1={yMid} x2={flip ? 0 : W} y2={yMid} stroke={`url(#${gradId})`} strokeWidth="1.5" />
+                        </g>
+                      );
+                    });
+
+                    return (
+                      <div style={{ width: W, flexShrink: 0, height: H, position: 'relative', pointerEvents: 'none' }}>
+                        <svg width={W} height={H} style={{ position: 'absolute', top: 0, left: 0, overflow: 'visible' }}>
+                          <defs>
+                            <linearGradient id={gradId} x1={flip ? '100%' : '0%'} y1="0%" x2={flip ? '0%' : '100%'} y2="0%">
+                              <stop offset="0%" stopColor={fromColor} />
+                              <stop offset="100%" stopColor={toColor} />
+                            </linearGradient>
+                          </defs>
+                          {lines}
+                        </svg>
+                      </div>
+                    );
+                  };
+
                   const FFCol = ({ regionTop, regionBot }) => {
                     const topGames = ffGamesList.filter(f => f.region === regionTop);
                     const botGames = ffGamesList.filter(f => f.region === regionBot);
@@ -1159,11 +1222,22 @@ export default function App() {
                           <span style={{ fontSize: 130, fontWeight: 900, color: RC.West, opacity: 0.18, letterSpacing: 4, textTransform: 'uppercase', userSelect: 'none', lineHeight: 1, display: 'block', whiteSpace: 'nowrap' }}>WEST</span>
                         </div>
                         {hasLeftFF && <FFCol regionTop="East" regionBot="South" />}
-                        {[0,1,2,3].map(rIdx => <RoundCol key={rIdx} region="East" rIdx={rIdx} flip={false} dir="top" />)}
+                        <RoundCol region="East" rIdx={0} flip={false} dir="top" />
+                        <ConnectorCol fromRIdx={0} dir="top" flip={false} />
+                        <RoundCol region="East" rIdx={1} flip={false} dir="top" />
+                        <ConnectorCol fromRIdx={1} dir="top" flip={false} />
+                        <RoundCol region="East" rIdx={2} flip={false} dir="top" />
+                        <ConnectorCol fromRIdx={2} dir="top" flip={false} />
+                        <RoundCol region="East" rIdx={3} flip={false} dir="top" />
                         <div style={{ width: CW * 3, flexShrink: 0, height: TOP_H }} />
-                        {[3,2,1,0].map(rIdx => <RoundCol key={rIdx} region="West" rIdx={rIdx} flip={true} dir="top" />)}
-                        {hasRightFF && <FFCol regionTop="West" regionBot="Midwest" />}
-                      </div>
+                        <RoundCol region="West" rIdx={3} flip={true} dir="top" />
+                        <ConnectorCol fromRIdx={2} dir="top" flip={true} />
+                        <RoundCol region="West" rIdx={2} flip={true} dir="top" />
+                        <ConnectorCol fromRIdx={1} dir="top" flip={true} />
+                        <RoundCol region="West" rIdx={1} flip={true} dir="top" />
+                        <ConnectorCol fromRIdx={0} dir="top" flip={true} />
+                        <RoundCol region="West" rIdx={0} flip={true} dir="top" />
+                        {hasRightFF && <FFCol regionTop="West" regionBot="Midwest" />}                      </div>
 
                       {/* ── SPINE + floating FF games ── */}
                       <div style={{ position: 'relative' }}>
@@ -1225,9 +1299,21 @@ export default function App() {
                           <span style={{ fontSize: 130, fontWeight: 900, color: RC.Midwest, opacity: 0.18, letterSpacing: 4, textTransform: 'uppercase', userSelect: 'none', lineHeight: 1, display: 'block', whiteSpace: 'nowrap' }}>MIDWEST</span>
                         </div>
                         {hasLeftFF && <FFCol regionTop="East" regionBot="South" />}
-                        {[0,1,2,3].map(rIdx => <RoundCol key={rIdx} region="South" rIdx={rIdx} flip={false} dir="bot" />)}
+                        <RoundCol region="South" rIdx={0} flip={false} dir="bot" />
+                        <ConnectorCol fromRIdx={0} dir="bot" flip={false} />
+                        <RoundCol region="South" rIdx={1} flip={false} dir="bot" />
+                        <ConnectorCol fromRIdx={1} dir="bot" flip={false} />
+                        <RoundCol region="South" rIdx={2} flip={false} dir="bot" />
+                        <ConnectorCol fromRIdx={2} dir="bot" flip={false} />
+                        <RoundCol region="South" rIdx={3} flip={false} dir="bot" />
                         <div style={{ width: CW * 3, flexShrink: 0, height: BOT_H }} />
-                        {[3,2,1,0].map(rIdx => <RoundCol key={rIdx} region="Midwest" rIdx={rIdx} flip={true} dir="bot" />)}
+                        <RoundCol region="Midwest" rIdx={3} flip={true} dir="bot" />
+                        <ConnectorCol fromRIdx={2} dir="bot" flip={true} />
+                        <RoundCol region="Midwest" rIdx={2} flip={true} dir="bot" />
+                        <ConnectorCol fromRIdx={1} dir="bot" flip={true} />
+                        <RoundCol region="Midwest" rIdx={1} flip={true} dir="bot" />
+                        <ConnectorCol fromRIdx={0} dir="bot" flip={true} />
+                        <RoundCol region="Midwest" rIdx={0} flip={true} dir="bot" />
                         {hasRightFF && <FFCol regionTop="West" regionBot="Midwest" />}
                       </div>
 
