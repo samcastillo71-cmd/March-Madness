@@ -1173,8 +1173,8 @@ export default function App() {
                         <defs>
                           {[0,1,2].map(rIdx => (
                             <linearGradient key={rIdx} id={`cg-${dir}-${flip?'f':'n'}-${rIdx}`} x1={flip?'100%':'0%'} y1="0%" x2={flip?'0%':'100%'} y2="0%">
-                              <stop offset="0%" stopColor={ROUND_BORDER_COLORS[rIdx]} />
-                              <stop offset="100%" stopColor={ROUND_BORDER_COLORS[rIdx+1]} />
+                              <stop offset="0%" stopColor={['#60a5fa','#a78bfa','#fbbf24','#ef4444'][rIdx]} stopOpacity="0.6" />
+                              <stop offset="100%" stopColor={['#60a5fa','#a78bfa','#fbbf24','#ef4444'][rIdx+1]} stopOpacity="0.6" />
                             </linearGradient>
                           ))}
                         </defs>
