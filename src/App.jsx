@@ -157,7 +157,7 @@ function GameSlot({ game, onPick, locked, isChampionship, onScoreChange, flipped
       <div onClick={() => !locked && !isFF && onPick?.(side)}
         title={isW && !locked ? 'Click to undo this pick' : ''}
         style={{
-          display: 'flex', alignItems: 'center', gap: 6, padding: '3px 8px', height: 36,
+          display: 'flex', alignItems: 'center', gap: 6, padding: '3px 8px', height: 36, boxSizing: 'border-box',
           flexDirection: flipped ? 'row-reverse' : 'row',
           background: isW ? 'linear-gradient(90deg,rgba(22,163,74,.3),rgba(22,163,74,.08))' : 'rgba(0,0,0,0.25)',
           cursor: locked || isFF ? 'default' : 'pointer',
@@ -1687,10 +1687,10 @@ export default function App() {
                   const LABEL_TOP = TOP_H / 2;   // vertical midpoint = center of the big S16 gap
 
                   return (
-                    <div style={{ width: TOTAL_W }}>
+                    <div style={{ width: TOTAL_W, overflow: 'hidden' }}>
 
                       {/* TOP HALF — East (left) + West (right), bottom-aligned to spine */}
-                      <div style={{ display: 'flex', alignItems: 'flex-end', position: 'relative' }}>
+                      <div style={{ display: 'flex', alignItems: 'flex-end', position: 'relative', overflow: 'hidden' }}>
                         {/* EAST watermark — centered in S16 gap */}
                         <div style={{ position: 'absolute', top: LABEL_TOP + SH, left: (hasLeftFF ? CW : 0) + S16_CENTER_X + CW, transform: 'translate(-50%, -50%)', pointerEvents: 'none', zIndex: 0 }}>
                           <span style={{ fontSize: 130, fontWeight: 900, color: RC.East, opacity: 0.18, letterSpacing: 4, textTransform: 'uppercase', userSelect: 'none', lineHeight: 1, display: 'block', whiteSpace: 'nowrap' }}>EAST</span>
@@ -1760,7 +1760,7 @@ export default function App() {
                       </div>
 
                       {/* BOTTOM HALF — South (left) + Midwest (right), top-aligned from spine */}
-                      <div style={{ display: 'flex', alignItems: 'flex-start', position: 'relative' }}>
+                      <div style={{ display: 'flex', alignItems: 'flex-start', position: 'relative', overflow: 'hidden' }}>
                         {/* SOUTH watermark */}
                         <div style={{ position: 'absolute', top: LABEL_TOP - SH, left: (hasLeftFF ? CW : 0) + S16_CENTER_X + CW, transform: 'translate(-50%, -50%)', pointerEvents: 'none', zIndex: 0 }}>
                           <span style={{ fontSize: 130, fontWeight: 900, color: RC.South, opacity: 0.18, letterSpacing: 4, textTransform: 'uppercase', userSelect: 'none', lineHeight: 1, display: 'block', whiteSpace: 'nowrap' }}>SOUTH</span>
