@@ -686,11 +686,12 @@ function MammalResearchCard({ animalName, card, isAdmin, onFieldSave, onGenerate
 // ── REVEAL MODE PANEL ─────────────────────────────────────────────────────────
 const ROUND_NAMES = ['Round of 64', 'Round of 32', 'Sweet 16', 'Elite Eight'];
 
-function RevealModePanel({ bracket, mammalBracket, onRevealWinner, onRevealMammalWinner, locked, mammalLocked, onLockToggle, onMammalLockToggle }) {
+function RevealModePanel({ bracket, mammalBracket, onRevealWinner, onRevealMammalWinner, onRevealFF, onRevealChamp, locked, mammalLocked, onLockToggle, onMammalLockToggle }) {
   const [revealRound,      setRevealRound]      = useState(0);
   const [revealRegion,     setRevealRegion]      = useState('East');
   const [revealOpen,       setRevealOpen]        = useState(false);
   const [revealTournament, setRevealTournament]  = useState('basketball');
+  const [revealSection,    setRevealSection]     = useState('regions'); // 'regions' | 'finalfour' | 'championship'
 
   const activeBracket  = revealTournament === 'mammals' ? mammalBracket : bracket;
   const activeOnReveal = revealTournament === 'mammals' ? onRevealMammalWinner : onRevealWinner;
@@ -700,6 +701,18 @@ function RevealModePanel({ bracket, mammalBracket, onRevealWinner, onRevealMamma
   if (!activeBracket) return null;
 
   const regions = ['East', 'West', 'South', 'Midwest'];
+
+  const RevealTeamRow = ({ team, isWinner, onClick, undoFn }) => (
+    <div style={{ marginBottom: 4 }}>
+      <div onClick={() => !isWinner && onClick()}
+        style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 7, cursor: isWinner ? 'default' : 'pointer', background: isWinner ? 'rgba(22,163,74,0.2)' : 'rgba(255,255,255,0.04)', border: isWinner ? '1px solid rgba(22,163,74,0.5)' : '1px solid rgba(255,255,255,0.07)', transition: 'all .12s' }}>
+        <span style={{ fontSize: 11, color: '#777', fontWeight: 700, minWidth: 20 }}>#{team?.seed}</span>
+        <span style={{ flex: 1, fontSize: 15, fontWeight: isWinner ? 700 : 400, color: isWinner ? ACCENT2 : '#ccc' }}>{team?.name || 'TBD'}</span>
+        {isWinner ? <span style={{ color: ACCENT2, fontSize: 16 }}>✓</span> : <span style={{ color: '#555', fontSize: 12 }}>click to reveal</span>}
+      </div>
+      {isWinner && undoFn && <button onClick={undoFn} style={{ fontSize: 11, color: '#e74c3c', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 0', fontFamily: 'inherit' }}>↩ undo</button>}
+    </div>
+  );
 
   return (
     <div style={{ ...S.card, borderColor: 'rgba(250,204,21,0.3)', marginBottom: 16 }}>
@@ -717,71 +730,97 @@ function RevealModePanel({ bracket, mammalBracket, onRevealWinner, onRevealMamma
         <>
           {/* Tournament switcher */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 16, background: 'rgba(255,255,255,0.04)', borderRadius: 10, padding: 3, width: 'fit-content', border: '1px solid rgba(255,255,255,0.08)' }}>
-            <button onClick={() => setRevealTournament('basketball')} style={{ padding: '6px 16px', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 700, background: revealTournament === 'basketball' ? ACCENT : 'transparent', color: revealTournament === 'basketball' ? '#fff' : '#888', transition: 'all .15s' }}>
-              🏀 Basketball
-            </button>
-            <button onClick={() => setRevealTournament('mammals')} style={{ padding: '6px 16px', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 700, background: revealTournament === 'mammals' ? '#16a34a' : 'transparent', color: revealTournament === 'mammals' ? '#fff' : '#888', transition: 'all .15s' }}>
-              🦁 Mammal Madness
-            </button>
+            <button onClick={() => setRevealTournament('basketball')} style={{ padding: '6px 16px', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 700, background: revealTournament === 'basketball' ? ACCENT : 'transparent', color: revealTournament === 'basketball' ? '#fff' : '#888', transition: 'all .15s' }}>🏀 Basketball</button>
+            <button onClick={() => setRevealTournament('mammals')} style={{ padding: '6px 16px', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 700, background: revealTournament === 'mammals' ? '#16a34a' : 'transparent', color: revealTournament === 'mammals' ? '#fff' : '#888', transition: 'all .15s' }}>🦁 Mammal Madness</button>
           </div>
 
-          {/* Lock status + toggle for active tournament */}
+          {/* Lock status */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, padding: '8px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: 8, border: '1px solid rgba(255,255,255,0.07)' }}>
-            <span style={{ fontSize: 13, color: activeLocked ? '#e74c3c' : '#22c55e' }}>{activeLocked ? '🔒 Brackets Locked' : '🟢 Brackets Open'}</span>
-            <button onClick={activeOnLock} style={{ ...S.btn(activeLocked ? '#22c55e' : '#e74c3c', '#fff'), fontSize: 11, padding: '5px 12px' }}>
-              {activeLocked ? 'Unlock' : 'Lock Now'}
-            </button>
-            <span style={{ fontSize: 11, color: '#555' }}>Tip: lock before you start revealing</span>
+            <span style={{ fontSize: 13, color: activeLocked ? '#e74c3c' : '#22c55e' }}>{activeLocked ? '🔒 Locked' : '🟢 Open'}</span>
+            <button onClick={activeOnLock} style={{ ...S.btn(activeLocked ? '#22c55e' : '#e74c3c', '#fff'), fontSize: 11, padding: '5px 12px' }}>{activeLocked ? 'Unlock' : 'Lock Now'}</button>
+            <span style={{ fontSize: 11, color: '#555' }}>Lock before revealing</span>
           </div>
 
-          {/* Round selector */}
-          <div style={{ display: 'flex', gap: 4, marginBottom: 16, flexWrap: 'wrap' }}>
-            {ROUND_NAMES.map((name, i) => (
-              <button key={i} onClick={() => setRevealRound(i)} style={{ ...S.navBtn(revealRound === i), borderBottom: revealRound === i ? '2px solid #facc15' : '2px solid transparent', borderRadius: '6px 6px 0 0', padding: '7px 14px', fontSize: 12, color: revealRound === i ? '#facc15' : '#888' }}>
-                {name}
-              </button>
+          {/* Section selector — Regions / Final Four / Championship */}
+          <div style={{ display: 'flex', gap: 4, marginBottom: 16, borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: 0 }}>
+            {[['regions','R64 – E8'],['finalfour','Final Four'],['championship','Championship']].map(([key, label]) => (
+              <button key={key} onClick={() => setRevealSection(key)} style={{ ...S.navBtn(revealSection === key), borderBottom: revealSection === key ? '2px solid #facc15' : '2px solid transparent', borderRadius: '6px 6px 0 0', padding: '7px 16px', fontSize: 12, color: revealSection === key ? '#facc15' : '#888' }}>{label}</button>
             ))}
           </div>
 
-          {/* Region tabs */}
-          <div style={{ display: 'flex', gap: 4, marginBottom: 16 }}>
-            {regions.map(r => (
-              <button key={r} onClick={() => setRevealRegion(r)} style={{ ...S.navBtn(revealRegion === r), borderBottom: revealRegion === r ? `2px solid ${RC[r]}` : '2px solid transparent', borderRadius: '6px 6px 0 0', padding: '7px 14px', fontSize: 12 }}>
-                <span style={{ color: RC[r], marginRight: 4 }}>●</span>{r}
-              </button>
-            ))}
-          </div>
+          {/* ── REGIONS section ── */}
+          {revealSection === 'regions' && (<>
+            <div style={{ display: 'flex', gap: 4, marginBottom: 12, flexWrap: 'wrap' }}>
+              {ROUND_NAMES.map((name, i) => (
+                <button key={i} onClick={() => setRevealRound(i)} style={{ ...S.navBtn(revealRound === i), borderBottom: revealRound === i ? '2px solid #facc15' : '2px solid transparent', borderRadius: '6px 6px 0 0', padding: '6px 12px', fontSize: 11, color: revealRound === i ? '#facc15' : '#888' }}>{name}</button>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: 4, marginBottom: 16 }}>
+              {regions.map(r => (
+                <button key={r} onClick={() => setRevealRegion(r)} style={{ ...S.navBtn(revealRegion === r), borderBottom: revealRegion === r ? `2px solid ${RC[r]}` : '2px solid transparent', borderRadius: '6px 6px 0 0', padding: '6px 12px', fontSize: 11 }}>
+                  <span style={{ color: RC[r], marginRight: 4 }}>●</span>{r}
+                </button>
+              ))}
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 10 }}>
+              {(activeBracket[revealRegion]?.rounds?.[revealRound] || []).map((game, gIdx) => {
+                if (!game?.top && !game?.bottom) return null;
+                const hasWinner = !!game.winner;
+                return (
+                  <div key={gIdx} style={{ background: hasWinner ? 'rgba(22,163,74,0.07)' : 'rgba(255,255,255,0.03)', border: `1px solid ${hasWinner ? 'rgba(22,163,74,0.3)' : 'rgba(255,255,255,0.08)'}`, borderRadius: 10, padding: 12 }}>
+                    <div style={{ fontSize: 10, color: '#666', letterSpacing: 1, marginBottom: 8, textTransform: 'uppercase' }}>Game {gIdx + 1}{hasWinner ? ` → ${game.winner.name}` : ''}</div>
+                    {[['top', game.top], ['bottom', game.bottom]].map(([side, team]) => team && (
+                      <RevealTeamRow key={side} team={team} isWinner={game.winner?.name === team.name}
+                        onClick={() => activeOnReveal(revealRegion, revealRound, gIdx, side)}
+                        undoFn={() => activeOnReveal(revealRegion, revealRound, gIdx, null)} />
+                    ))}
+                  </div>
+                );
+              })}
+            </div>
+          </>)}
 
-          {/* Games for selected region/round */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 10 }}>
-            {(activeBracket[revealRegion]?.rounds?.[revealRound] || []).map((game, gIdx) => {
-              if (!game?.top && !game?.bottom) return null;
-              const hasWinner = !!game.winner;
-              return (
-                <div key={gIdx} style={{ background: hasWinner ? 'rgba(22,163,74,0.07)' : 'rgba(255,255,255,0.03)', border: `1px solid ${hasWinner ? 'rgba(22,163,74,0.3)' : 'rgba(255,255,255,0.08)'}`, borderRadius: 10, padding: 12 }}>
-                  <div style={{ fontSize: 10, color: '#666', letterSpacing: 1, marginBottom: 8, textTransform: 'uppercase' }}>Game {gIdx + 1} {hasWinner ? `→ ${game.winner.name}` : '— pick winner'}</div>
-                  {[['top', game.top], ['bottom', game.bottom]].map(([side, team]) => {
-                    if (!team) return null;
-                    const isWinner = game.winner?.name === team.name;
-                    return (
-                      <div key={side} onClick={() => !isWinner && activeOnReveal(revealRegion, revealRound, gIdx, side)}
-                        style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 7, marginBottom: 4, cursor: isWinner ? 'default' : 'pointer', background: isWinner ? 'rgba(22,163,74,0.2)' : 'rgba(255,255,255,0.04)', border: isWinner ? '1px solid rgba(22,163,74,0.5)' : '1px solid rgba(255,255,255,0.07)', transition: 'all .12s' }}>
-                        <span style={{ fontSize: 11, color: '#777', fontWeight: 700, minWidth: 20 }}>#{team.seed}</span>
-                        <span style={{ flex: 1, fontSize: 15, fontWeight: isWinner ? 700 : 400, color: isWinner ? ACCENT2 : '#ccc' }}>{team.name}</span>
-                        {isWinner ? <span style={{ color: ACCENT2, fontSize: 16 }}>✓</span> : <span style={{ color: '#555', fontSize: 12 }}>click to reveal</span>}
-                      </div>
-                    );
-                  })}
-                  {hasWinner && (
-                    <button onClick={() => activeOnReveal(revealRegion, revealRound, gIdx, null)}
-                      style={{ fontSize: 11, color: '#e74c3c', background: 'none', border: 'none', cursor: 'pointer', padding: '4px 0', fontFamily: 'inherit' }}>
-                      ↩ undo
-                    </button>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+          {/* ── FINAL FOUR section ── */}
+          {revealSection === 'finalfour' && (<>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+              {(activeBracket.finalFour || []).map((game, idx) => {
+                const label = idx === 0 ? 'East vs West' : 'South vs Midwest';
+                const hasWinner = !!game?.winner;
+                return (
+                  <div key={idx} style={{ background: hasWinner ? 'rgba(22,163,74,0.07)' : 'rgba(255,255,255,0.03)', border: `1px solid ${hasWinner ? 'rgba(22,163,74,0.3)' : 'rgba(255,255,255,0.08)'}`, borderRadius: 10, padding: 14 }}>
+                    <div style={{ fontSize: 11, color: '#34d399', fontWeight: 700, letterSpacing: 1, marginBottom: 10, textTransform: 'uppercase' }}>Final Four — {label}</div>
+                    {game && [['top', game.top], ['bottom', game.bottom]].map(([side, team]) => team && (
+                      <RevealTeamRow key={side} team={team} isWinner={game.winner?.name === team.name}
+                        onClick={() => onRevealFF(idx, side)}
+                        undoFn={() => onRevealFF(idx, side)} />
+                    ))}
+                    {(!game?.top && !game?.bottom) && <div style={{ color: '#555', fontSize: 13 }}>Teams not yet set — reveal Elite Eight first</div>}
+                  </div>
+                );
+              })}
+            </div>
+          </>)}
+
+          {/* ── CHAMPIONSHIP section ── */}
+          {revealSection === 'championship' && (<>
+            <div style={{ maxWidth: 400 }}>
+              <div style={{ background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: 10, padding: 14 }}>
+                <div style={{ fontSize: 11, color: GOLD2, fontWeight: 700, letterSpacing: 1, marginBottom: 10, textTransform: 'uppercase' }}>🏆 Championship Game</div>
+                {activeBracket.championship && [['top', activeBracket.championship.top], ['bottom', activeBracket.championship.bottom]].map(([side, team]) => team && (
+                  <RevealTeamRow key={side} team={team} isWinner={activeBracket.championship.winner?.name === team.name}
+                    onClick={() => onRevealChamp(side)}
+                    undoFn={() => onRevealChamp(side)} />
+                ))}
+                {(!activeBracket.championship?.top && !activeBracket.championship?.bottom) && <div style={{ color: '#555', fontSize: 13 }}>Teams not yet set — reveal Final Four first</div>}
+                {activeBracket.championship?.winner && (
+                  <div style={{ marginTop: 12, padding: '8px 12px', background: 'rgba(245,158,11,0.15)', borderRadius: 8, border: '1px solid rgba(245,158,11,0.4)', textAlign: 'center' }}>
+                    <div style={{ fontSize: 10, color: GOLD2, letterSpacing: 1.5, marginBottom: 2 }}>🎉 CHAMPION</div>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: '#fff', fontFamily: "'Playfair Display', serif" }}>{activeBracket.championship.winner.name}</div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </>)}
         </>
       )}
     </div>
@@ -1478,7 +1517,7 @@ export default function App() {
             {/* Top scrollbar mirror */}
             <div className="bscroll-top" style={{ overflowX: 'auto', overflowY: 'hidden', height: 12, marginBottom: 2 }}
               onScroll={e => { const b = document.querySelector('.bscroll'); if (b) b.scrollLeft = e.currentTarget.scrollLeft; }}>
-              <div style={{ minWidth: `${240 * 11 + (ffGamesList.length > 0 ? 240 : 0)}px`, height: 1 }} />
+              <div style={{ minWidth: `${240 * 11}px`, height: 1 }} />
             </div>
             <div className="bscroll" style={{ overflowX: 'auto', overflowY: 'visible', paddingBottom: 4, cursor: 'grab' }}
               onScroll={e => { const t = document.querySelector('.bscroll-top'); if (t) t.scrollLeft = e.currentTarget.scrollLeft; }}
@@ -1492,17 +1531,18 @@ export default function App() {
                 window.addEventListener('mousemove', onMove);
                 window.addEventListener('mouseup', onUp);
               }}>
-              <div style={{ width: 'fit-content', paddingBottom: 8 }}>
+              <div style={{ display: 'inline-block', paddingBottom: 8 }}>
                 {(() => {
                   const CW = 240;
                   const SH = 89;
                   const SPINE_H = 56;
                   const TOP_H = 8 * SH;
                   const BOT_H = TOP_H;
-                  const ROUND_GAP_PX = [0, SH, SH * 3, SH * 7];
 
                   const hasLeftFF  = ffGamesList.some(f => f.region === 'East' || f.region === 'South');
                   const hasRightFF = ffGamesList.some(f => f.region === 'West' || f.region === 'Midwest');
+                  // Total width: FF? + 4 East + 3 center + 4 West + FF?
+                  const TOTAL_W = (hasLeftFF ? CW : 0) + CW * 4 + CW * 3 + CW * 4 + (hasRightFF ? CW : 0);
 
                   // Absolute top positions for each round (from col edge toward spine)
                   // SH=89: slot=36px, divider=1px, game=73px, spacing~16px => ~89px per game slot
@@ -1647,7 +1687,7 @@ export default function App() {
                   const LABEL_TOP = TOP_H / 2;   // vertical midpoint = center of the big S16 gap
 
                   return (
-                    <div>
+                    <div style={{ width: TOTAL_W }}>
 
                       {/* TOP HALF — East (left) + West (right), bottom-aligned to spine */}
                       <div style={{ display: 'flex', alignItems: 'flex-end', position: 'relative' }}>
@@ -1937,6 +1977,8 @@ export default function App() {
                   mammalBracket={mammalOfficialBracket || mammalBracket}
                   onRevealWinner={handlePick}
                   onRevealMammalWinner={handleMammalPick}
+                  onRevealFF={handleFFPick}
+                  onRevealChamp={handleChampPick}
                   locked={locked}
                   mammalLocked={mammalLocked}
                   onLockToggle={async () => { const nl = !locked; setLocked(nl); await setTournamentLocked(nl); }}
