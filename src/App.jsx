@@ -1114,18 +1114,6 @@ export default function App() {
                       {/* ── SPINE + floating FF games ── */}
                       <div style={{ position: 'relative' }}>
 
-                        {/* Final Four — East vs West — floats above spine */}
-                        <div style={{ position: 'absolute', bottom: '100%', left: '50%', transform: `translateX(calc(-50% - ${CW * 0.9}px))`, zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, paddingBottom: 6 }}>
-                          <div style={{ fontSize: 10, fontWeight: 800, color: '#34d399', letterSpacing: 1.5, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Final Four — East vs West</div>
-                          <GameSlot game={bracket.finalFour[0]} onPick={s => handleFFPick(0, s)} locked={locked && !isAdmin} roundIdx={4} liveScores={liveScores} />
-                        </div>
-
-                        {/* Final Four — South vs Midwest — floats below spine */}
-                        <div style={{ position: 'absolute', top: '100%', left: '50%', transform: `translateX(calc(-50% - ${CW * 0.9}px))`, zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, paddingTop: 6 }}>
-                          <GameSlot game={bracket.finalFour[1]} onPick={s => handleFFPick(1, s)} locked={locked && !isAdmin} roundIdx={4} liveScores={liveScores} />
-                          <div style={{ fontSize: 10, fontWeight: 800, color: '#34d399', letterSpacing: 1.5, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Final Four — South vs Midwest</div>
-                        </div>
-
                         {/* Spine row */}
                         <div style={{ display: 'flex', alignItems: 'stretch', borderTop: '2px solid rgba(255,255,255,0.15)', borderBottom: '2px solid rgba(255,255,255,0.15)', background: 'rgba(0,0,0,0.35)' }}>
                           {hasLeftFF  && <SpineCell label="First Four"  sub='"Play-In"'      color="#818cf8" borderLeft={false} />}
@@ -1134,9 +1122,22 @@ export default function App() {
                           <SpineCell label="Sweet 16"     sub='"Sweet Sixteen"'  color={ROUND_BORDER_COLORS[2]} />
                           <SpineCell label="Elite Eight"  sub='"Elite Eight"'    color={ROUND_BORDER_COLORS[3]} />
 
-                          {/* Center — Championship only */}
+                          {/* Center — Championship + FF games anchored to it */}
                           <div style={{ width: CW * 3, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px 10px', borderLeft: '1px solid rgba(255,255,255,0.08)' }}>
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, padding: '6px 10px', background: 'linear-gradient(135deg,rgba(245,158,11,0.18),rgba(124,58,237,0.14))', border: '2px solid rgba(245,158,11,0.65)', borderRadius: 10, animation: 'champGlow 3s ease-in-out infinite' }}>
+                            <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, padding: '6px 10px', background: 'linear-gradient(135deg,rgba(245,158,11,0.18),rgba(124,58,237,0.14))', border: '2px solid rgba(245,158,11,0.65)', borderRadius: 10, animation: 'champGlow 3s ease-in-out infinite' }}>
+
+                              {/* Final Four — East vs West — floats above champ box */}
+                              <div style={{ position: 'absolute', bottom: 'calc(100% + 6px)', left: '50%', transform: 'translateX(-50%)', zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                                <div style={{ fontSize: 10, fontWeight: 800, color: '#34d399', letterSpacing: 1.5, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Final Four — East vs West</div>
+                                <GameSlot game={bracket.finalFour[0]} onPick={s => handleFFPick(0, s)} locked={locked && !isAdmin} roundIdx={4} liveScores={liveScores} />
+                              </div>
+
+                              {/* Final Four — South vs Midwest — floats below champ box */}
+                              <div style={{ position: 'absolute', top: 'calc(100% + 6px)', left: '50%', transform: 'translateX(-50%)', zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                                <GameSlot game={bracket.finalFour[1]} onPick={s => handleFFPick(1, s)} locked={locked && !isAdmin} roundIdx={4} liveScores={liveScores} />
+                                <div style={{ fontSize: 10, fontWeight: 800, color: '#34d399', letterSpacing: 1.5, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Final Four — South vs Midwest</div>
+                              </div>
+
                               <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                                 <span style={{ fontSize: 14 }}>🏆</span>
                                 <span style={{ fontSize: 11, fontWeight: 800, color: GOLD2, letterSpacing: 1, fontFamily: "'Playfair Display', serif", whiteSpace: 'nowrap' }}>Championship</span>
