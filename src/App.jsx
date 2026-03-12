@@ -1081,7 +1081,7 @@ export default function App() {
                   };
 
                   const SpineCell = ({ label, sub, color, borderLeft = true, width = CW }) => (
-                    <div style={{ width, flexShrink: 0, height: SPINE_H, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', paddingBottom: 10, borderLeft: borderLeft ? '1px solid rgba(255,255,255,0.08)' : 'none', background: 'rgba(0,0,0,0.4)' }}>
+                    <div style={{ width, flexShrink: 0, height: SPINE_H, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', borderLeft: borderLeft ? '1px solid rgba(255,255,255,0.08)' : 'none', background: 'rgba(0,0,0,0.4)' }}>
                       <div style={{ fontSize: 27, fontWeight: 800, color, letterSpacing: 1, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{label}</div>
                       {sub && <div style={{ fontSize: 10, color: '#555', fontStyle: 'italic', marginTop: 2 }}>{sub}</div>}
                     </div>
