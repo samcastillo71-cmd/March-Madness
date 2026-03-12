@@ -1054,21 +1054,30 @@ export default function App() {
 
 
 
-                  // Vertical offset to center each round's games on their feeder midpoints
-                  // R32: -44.5px, S16: -89px, E8: -178px, R64: 0
-                  const ROUND_OFFSET = [0, -44.5, -89, -178];
+                  // Absolute top positions for each round (from col edge toward spine)
+                  // R64: flush stack. R32/S16/E8: each game centered on feeder pair midpoint
+                  const ROUND_ABS = [
+                    [0, 89, 178, 267, 356, 445, 534, 623],  // R64
+                    [55, 233, 411, 589],                      // R32
+                    [144, 500],                               // S16
+                    [322],                                    // E8
+                  ];
 
                   const RoundCol = ({ region, rIdx, flip, dir }) => {
                     const games = bracket[region]?.rounds[rIdx] || [];
-                    const offset = ROUND_OFFSET[rIdx];
-                    const offsetProp = dir === 'top' ? { top: offset } : { bottom: offset };
+                    const positions = ROUND_ABS[rIdx];
                     return (
-                      <div style={{ width: CW, flexShrink: 0, height: TOP_H, display: 'flex', flexDirection: 'column', justifyContent: dir === 'top' ? 'flex-end' : 'flex-start', gap: ROUND_GAP_PX[rIdx], boxSizing: 'border-box', position: 'relative', ...offsetProp }}>
-                        {games.map((game, gIdx) => (
-                          <GameSlot key={gIdx} game={game} locked={locked && !isAdmin} flipped={flip} roundIdx={rIdx}
-                            liveScores={liveScores}
-                            onPick={side => handlePick(region, rIdx, gIdx, side)} />
-                        ))}
+                      <div style={{ width: CW, flexShrink: 0, height: TOP_H, position: 'relative', boxSizing: 'border-box' }}>
+                        {games.map((game, gIdx) => {
+                          const pos = positions[gIdx] ?? gIdx * SH;
+                          return (
+                            <div key={gIdx} style={{ position: 'absolute', left: 0, right: 0, ...(dir === 'top' ? { top: pos } : { bottom: pos }) }}>
+                              <GameSlot game={game} locked={locked && !isAdmin} flipped={flip} roundIdx={rIdx}
+                                liveScores={liveScores}
+                                onPick={side => handlePick(region, rIdx, gIdx, side)} />
+                            </div>
+                          );
+                        })}
                       </div>
                     );
                   };
