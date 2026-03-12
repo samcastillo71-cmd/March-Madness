@@ -30,12 +30,14 @@ const ROUND_COLORS = [
   'rgba(167,139,250,0.13)',  // R32 — purple tint
   'rgba(251,191,36,0.10)',   // S16 — amber tint
   'rgba(239,68,68,0.13)',    // E8  — red tint
+  'rgba(16,185,129,0.15)',   // FF  — teal
 ];
 const ROUND_BORDER_COLORS = [
   'rgba(96,165,250,0.35)',
   'rgba(167,139,250,0.35)',
   'rgba(251,191,36,0.30)',
   'rgba(239,68,68,0.35)',
+  'rgba(52,211,153,0.45)',   // FF  — teal
 ];
 
 const ROUND_LABELS = [
@@ -592,6 +594,20 @@ export default function App() {
     return () => clearInterval(interval);
   }, [user]);
 
+  // ── HORIZONTAL SCROLL ON BRACKET (non-passive so preventDefault works) ────
+  useEffect(() => {
+    const el = document.querySelector('.bscroll');
+    if (!el) return;
+    const onWheel = e => {
+      if (Math.abs(e.deltaX) < Math.abs(e.deltaY)) {
+        el.scrollLeft += e.deltaY;
+        e.preventDefault();
+      }
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, [tab]); // re-attach when switching to bracket tab
+
   // ── SMART AUTO-SAVE (only when changed) ──────────────────────────────────
   useEffect(() => {
     if (!user || (locked && !isAdmin)) return;
@@ -956,8 +972,7 @@ export default function App() {
             )}
 
             {/* ── MAIN BRACKET ── */}
-            <div className="bscroll" style={{ overflowX: 'auto', overflowY: 'visible', paddingBottom: 16 }}
-              onWheel={e => { if (Math.abs(e.deltaX) < Math.abs(e.deltaY)) { e.currentTarget.scrollLeft += e.deltaY; e.preventDefault(); } }}>
+            <div className="bscroll" style={{ overflowX: 'auto', overflowY: 'visible', paddingBottom: 16 }}>
               <div style={{ minWidth: 3000, paddingBottom: 8 }}>
                 {(() => {
                   const CW = 240;
@@ -1057,7 +1072,7 @@ export default function App() {
                           {/* Final Four — East vs West */}
                           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
                             <div style={{ fontSize: 10, fontWeight: 800, color: '#34d399', letterSpacing: 1.5, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Final Four</div>
-                            <GameSlot game={bracket.finalFour[0]} onPick={s => handleFFPick(0, s)} locked={locked && !isAdmin} roundIdx={3} liveScores={liveScores} />
+                            <GameSlot game={bracket.finalFour[0]} onPick={s => handleFFPick(0, s)} locked={locked && !isAdmin} roundIdx={4} liveScores={liveScores} />
                             <div style={{ fontSize: 9, color: '#555' }}>East vs West</div>
                           </div>
 
@@ -1080,7 +1095,7 @@ export default function App() {
                           {/* Final Four — South vs Midwest */}
                           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
                             <div style={{ fontSize: 10, fontWeight: 800, color: '#34d399', letterSpacing: 1.5, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Final Four</div>
-                            <GameSlot game={bracket.finalFour[1]} onPick={s => handleFFPick(1, s)} locked={locked && !isAdmin} roundIdx={3} liveScores={liveScores} />
+                            <GameSlot game={bracket.finalFour[1]} onPick={s => handleFFPick(1, s)} locked={locked && !isAdmin} roundIdx={4} liveScores={liveScores} />
                             <div style={{ fontSize: 9, color: '#555' }}>South vs Midwest</div>
                           </div>
                         </div>
