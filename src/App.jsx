@@ -1209,15 +1209,15 @@ export default function App() {
                         <div style={{ position: 'absolute', top: LABEL_TOP + SH, right: (hasRightFF ? CW : 0) + S16_CENTER_X + CW * 2, transform: 'translate(50%, -50%)', pointerEvents: 'none', zIndex: 0 }}>
                           <span style={{ fontSize: 130, fontWeight: 900, color: RC.West, opacity: 0.18, letterSpacing: 4, textTransform: 'uppercase', userSelect: 'none', lineHeight: 1, display: 'block', whiteSpace: 'nowrap' }}>WEST</span>
                         </div>
-                        {/* East connector lines */}
-                        <BracketLines xOffset={hasLeftFF ? CW : 0} flip={false} dir="top" />
-                        {/* West connector lines */}
-                        <BracketLines xOffset={hasRightFF ? CW : 0} flip={true} dir="top" />
                         {hasLeftFF && <FFCol regionTop="East" regionBot="South" />}
                         {[0,1,2,3].map(rIdx => <RoundCol key={rIdx} region="East" rIdx={rIdx} flip={false} dir="top" />)}
                         <div style={{ width: CW * 3, flexShrink: 0, height: TOP_H }} />
                         {[3,2,1,0].map(rIdx => <RoundCol key={rIdx} region="West" rIdx={rIdx} flip={true} dir="top" />)}
-                        {hasRightFF && <FFCol regionTop="West" regionBot="Midwest" />}                      </div>
+                        {hasRightFF && <FFCol regionTop="West" regionBot="Midwest" />}
+                        {/* Connector lines — rendered last so they paint over game cards */}
+                        <BracketLines xOffset={hasLeftFF ? CW : 0} flip={false} dir="top" />
+                        <BracketLines xOffset={hasRightFF ? CW : 0} flip={true} dir="top" />
+                      </div>
 
                       {/* ── SPINE + floating FF games ── */}
                       <div style={{ position: 'relative' }}>
@@ -1279,14 +1279,14 @@ export default function App() {
                           <span style={{ fontSize: 130, fontWeight: 900, color: RC.Midwest, opacity: 0.18, letterSpacing: 4, textTransform: 'uppercase', userSelect: 'none', lineHeight: 1, display: 'block', whiteSpace: 'nowrap' }}>MIDWEST</span>
                         </div>
                         {/* South connector lines */}
-                        <BracketLines xOffset={hasLeftFF ? CW : 0} flip={false} dir="bot" />
-                        {/* Midwest connector lines */}
-                        <BracketLines xOffset={hasRightFF ? CW : 0} flip={true} dir="bot" />
                         {hasLeftFF && <FFCol regionTop="East" regionBot="South" />}
                         {[0,1,2,3].map(rIdx => <RoundCol key={rIdx} region="South" rIdx={rIdx} flip={false} dir="bot" />)}
                         <div style={{ width: CW * 3, flexShrink: 0, height: BOT_H }} />
                         {[3,2,1,0].map(rIdx => <RoundCol key={rIdx} region="Midwest" rIdx={rIdx} flip={true} dir="bot" />)}
                         {hasRightFF && <FFCol regionTop="West" regionBot="Midwest" />}
+                        {/* Connector lines — rendered last so they paint over game cards */}
+                        <BracketLines xOffset={hasLeftFF ? CW : 0} flip={false} dir="bot" />
+                        <BracketLines xOffset={hasRightFF ? CW : 0} flip={true} dir="bot" />
                       </div>
 
                     </div>
