@@ -1032,23 +1032,28 @@ export default function App() {
                   };
 
                   const SpineCell = ({ label, sub, color, borderLeft = true, width = CW }) => (
-                    <div style={{ width, flexShrink: 0, height: SPINE_H, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', borderLeft: borderLeft ? '1px solid rgba(255,255,255,0.08)' : 'none', background: 'rgba(0,0,0,0.4)' }}>
-                      <div style={{ fontSize: 15, fontWeight: 800, color, letterSpacing: 1, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{label}</div>
+                    <div style={{ width, flexShrink: 0, height: SPINE_H, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', paddingBottom: 10, borderLeft: borderLeft ? '1px solid rgba(255,255,255,0.08)' : 'none', background: 'rgba(0,0,0,0.4)' }}>
+                      <div style={{ fontSize: 18, fontWeight: 800, color, letterSpacing: 1, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{label}</div>
                       {sub && <div style={{ fontSize: 10, color: '#555', fontStyle: 'italic', marginTop: 2 }}>{sub}</div>}
                     </div>
                   );
+
+                  // S16 gap center: vertically at TOP_H/2, horizontally centered on the S16 column (index 2, so offset = CW*2 + CW/2)
+                  const S16_CENTER_X = CW * 2.5; // center of S16 column within a 4-col region
+                  const LABEL_TOP = TOP_H / 2;   // vertical midpoint = center of the big S16 gap
 
                   return (
                     <div>
 
                       {/* TOP HALF — East (left) + West (right), bottom-aligned to spine */}
                       <div style={{ display: 'flex', alignItems: 'flex-end', position: 'relative' }}>
-                        {/* Region watermarks — overlaid inside the bracket rows */}
-                        <div style={{ position: 'absolute', top: 0, left: hasLeftFF ? CW : 0, width: CW * 4, height: TOP_H, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', zIndex: 0 }}>
-                          <span style={{ fontSize: 140, fontWeight: 900, color: RC.East, opacity: 0.07, letterSpacing: 8, textTransform: 'uppercase', userSelect: 'none', lineHeight: 1 }}>EAST</span>
+                        {/* EAST watermark — centered in S16 gap */}
+                        <div style={{ position: 'absolute', top: LABEL_TOP, left: (hasLeftFF ? CW : 0) + S16_CENTER_X, transform: 'translate(-50%, -50%)', pointerEvents: 'none', zIndex: 0 }}>
+                          <span style={{ fontSize: 130, fontWeight: 900, color: RC.East, opacity: 0.08, letterSpacing: 4, textTransform: 'uppercase', userSelect: 'none', lineHeight: 1, display: 'block', whiteSpace: 'nowrap' }}>EAST</span>
                         </div>
-                        <div style={{ position: 'absolute', top: 0, right: hasRightFF ? CW : 0, width: CW * 4, height: TOP_H, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', zIndex: 0 }}>
-                          <span style={{ fontSize: 140, fontWeight: 900, color: RC.West, opacity: 0.07, letterSpacing: 8, textTransform: 'uppercase', userSelect: 'none', lineHeight: 1 }}>WEST</span>
+                        {/* WEST watermark — mirrored, S16 col from right edge of right region */}
+                        <div style={{ position: 'absolute', top: LABEL_TOP, right: (hasRightFF ? CW : 0) + S16_CENTER_X, transform: 'translate(50%, -50%)', pointerEvents: 'none', zIndex: 0 }}>
+                          <span style={{ fontSize: 130, fontWeight: 900, color: RC.West, opacity: 0.08, letterSpacing: 4, textTransform: 'uppercase', userSelect: 'none', lineHeight: 1, display: 'block', whiteSpace: 'nowrap' }}>WEST</span>
                         </div>
                         {hasLeftFF && <FFCol regionTop="East" regionBot="South" />}
                         {[0,1,2,3].map(rIdx => <RoundCol key={rIdx} region="East" rIdx={rIdx} flip={false} dir="top" />)}
@@ -1107,12 +1112,12 @@ export default function App() {
 
                       {/* BOTTOM HALF — South (left) + Midwest (right), top-aligned from spine */}
                       <div style={{ display: 'flex', alignItems: 'flex-start', position: 'relative' }}>
-                        {/* Region watermarks */}
-                        <div style={{ position: 'absolute', top: 0, left: hasLeftFF ? CW : 0, width: CW * 4, height: BOT_H, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', zIndex: 0 }}>
-                          <span style={{ fontSize: 140, fontWeight: 900, color: RC.South, opacity: 0.07, letterSpacing: 8, textTransform: 'uppercase', userSelect: 'none', lineHeight: 1 }}>SOUTH</span>
+                        {/* SOUTH watermark — S16 gap is also at TOP_H/2 from top (bottom half mirrors top) */}
+                        <div style={{ position: 'absolute', top: LABEL_TOP, left: (hasLeftFF ? CW : 0) + S16_CENTER_X, transform: 'translate(-50%, -50%)', pointerEvents: 'none', zIndex: 0 }}>
+                          <span style={{ fontSize: 130, fontWeight: 900, color: RC.South, opacity: 0.08, letterSpacing: 4, textTransform: 'uppercase', userSelect: 'none', lineHeight: 1, display: 'block', whiteSpace: 'nowrap' }}>SOUTH</span>
                         </div>
-                        <div style={{ position: 'absolute', top: 0, right: hasRightFF ? CW : 0, width: CW * 4, height: BOT_H, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', zIndex: 0 }}>
-                          <span style={{ fontSize: 140, fontWeight: 900, color: RC.Midwest, opacity: 0.07, letterSpacing: 8, textTransform: 'uppercase', userSelect: 'none', lineHeight: 1 }}>MIDWEST</span>
+                        <div style={{ position: 'absolute', top: LABEL_TOP, right: (hasRightFF ? CW : 0) + S16_CENTER_X, transform: 'translate(50%, -50%)', pointerEvents: 'none', zIndex: 0 }}>
+                          <span style={{ fontSize: 130, fontWeight: 900, color: RC.Midwest, opacity: 0.08, letterSpacing: 4, textTransform: 'uppercase', userSelect: 'none', lineHeight: 1, display: 'block', whiteSpace: 'nowrap' }}>MIDWEST</span>
                         </div>
                         {hasLeftFF && <FFCol regionTop="East" regionBot="South" />}
                         {[0,1,2,3].map(rIdx => <RoundCol key={rIdx} region="South" rIdx={rIdx} flip={false} dir="bot" />)}
