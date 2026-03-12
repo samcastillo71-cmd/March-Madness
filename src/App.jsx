@@ -119,7 +119,7 @@ function GameSlot({ game, onPick, locked, isChampionship, onScoreChange, flipped
 
   const Team = ({ team, side }) => {
     if (!team) return (
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 8px', height: 44, color: '#888', fontSize: 11, fontStyle: 'italic', flexDirection: flipped ? 'row-reverse' : 'row' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '3px 8px', height: 36, color: '#888', fontSize: 11, fontStyle: 'italic', flexDirection: flipped ? 'row-reverse' : 'row' }}>
         <div style={{ width: 20, height: 20, borderRadius: '50%', background: '#111', flexShrink: 0 }} />TBD
       </div>
     );
@@ -157,7 +157,7 @@ function GameSlot({ game, onPick, locked, isChampionship, onScoreChange, flipped
       <div onClick={() => !locked && !isFF && onPick?.(side)}
         title={isW && !locked ? 'Click to undo this pick' : ''}
         style={{
-          display: 'flex', alignItems: 'center', gap: 6, padding: '5px 8px', height: 44,
+          display: 'flex', alignItems: 'center', gap: 6, padding: '3px 8px', height: 36,
           flexDirection: flipped ? 'row-reverse' : 'row',
           background: isW ? 'linear-gradient(90deg,rgba(22,163,74,.3),rgba(22,163,74,.08))' : 'rgba(0,0,0,0.25)',
           cursor: locked || isFF ? 'default' : 'pointer',
@@ -684,23 +684,22 @@ function MammalResearchCard({ animalName, card, isAdmin, onFieldSave, onGenerate
 }
 
 // ── REVEAL MODE PANEL ─────────────────────────────────────────────────────────
-const ROUND_NAMES = ['Round of 64', 'Round of 32', 'Sweet 16', 'Elite Eight', 'Final Four', 'Championship'];
+const ROUND_NAMES = ['Round of 64', 'Round of 32', 'Sweet 16', 'Elite Eight'];
 
-function RevealModePanel({ bracket, onRevealWinner, locked, onLockToggle }) {
-  const [revealRound,   setRevealRound]   = useState(0);
-  const [revealRegion,  setRevealRegion]  = useState('East');
-  const [revealOpen,    setRevealOpen]    = useState(false);
+function RevealModePanel({ bracket, mammalBracket, onRevealWinner, onRevealMammalWinner, locked, mammalLocked, onLockToggle, onMammalLockToggle }) {
+  const [revealRound,      setRevealRound]      = useState(0);
+  const [revealRegion,     setRevealRegion]      = useState('East');
+  const [revealOpen,       setRevealOpen]        = useState(false);
+  const [revealTournament, setRevealTournament]  = useState('basketball');
 
-  if (!bracket) return null;
+  const activeBracket  = revealTournament === 'mammals' ? mammalBracket : bracket;
+  const activeOnReveal = revealTournament === 'mammals' ? onRevealMammalWinner : onRevealWinner;
+  const activeLocked   = revealTournament === 'mammals' ? mammalLocked : locked;
+  const activeOnLock   = revealTournament === 'mammals' ? onMammalLockToggle : onLockToggle;
 
-  // Collect all games for current round across all regions (or FF/champ)
+  if (!activeBracket) return null;
+
   const regions = ['East', 'West', 'South', 'Midwest'];
-
-  // Build flat list of { region, rIdx, gIdx, game } for selected round
-  const regionGames = regions.flatMap(region => {
-    const games = bracket[region]?.rounds?.[revealRound] || [];
-    return games.map((game, gIdx) => ({ region, rIdx: revealRound, gIdx, game }));
-  });
 
   return (
     <div style={{ ...S.card, borderColor: 'rgba(250,204,21,0.3)', marginBottom: 16 }}>
@@ -716,9 +715,28 @@ function RevealModePanel({ bracket, onRevealWinner, locked, onLockToggle }) {
 
       {revealOpen && (
         <>
+          {/* Tournament switcher */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 16, background: 'rgba(255,255,255,0.04)', borderRadius: 10, padding: 3, width: 'fit-content', border: '1px solid rgba(255,255,255,0.08)' }}>
+            <button onClick={() => setRevealTournament('basketball')} style={{ padding: '6px 16px', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 700, background: revealTournament === 'basketball' ? ACCENT : 'transparent', color: revealTournament === 'basketball' ? '#fff' : '#888', transition: 'all .15s' }}>
+              🏀 Basketball
+            </button>
+            <button onClick={() => setRevealTournament('mammals')} style={{ padding: '6px 16px', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 700, background: revealTournament === 'mammals' ? '#16a34a' : 'transparent', color: revealTournament === 'mammals' ? '#fff' : '#888', transition: 'all .15s' }}>
+              🦁 Mammal Madness
+            </button>
+          </div>
+
+          {/* Lock status + toggle for active tournament */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, padding: '8px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: 8, border: '1px solid rgba(255,255,255,0.07)' }}>
+            <span style={{ fontSize: 13, color: activeLocked ? '#e74c3c' : '#22c55e' }}>{activeLocked ? '🔒 Brackets Locked' : '🟢 Brackets Open'}</span>
+            <button onClick={activeOnLock} style={{ ...S.btn(activeLocked ? '#22c55e' : '#e74c3c', '#fff'), fontSize: 11, padding: '5px 12px' }}>
+              {activeLocked ? 'Unlock' : 'Lock Now'}
+            </button>
+            <span style={{ fontSize: 11, color: '#555' }}>Tip: lock before you start revealing</span>
+          </div>
+
           {/* Round selector */}
           <div style={{ display: 'flex', gap: 4, marginBottom: 16, flexWrap: 'wrap' }}>
-            {ROUND_NAMES.slice(0, 4).map((name, i) => (
+            {ROUND_NAMES.map((name, i) => (
               <button key={i} onClick={() => setRevealRound(i)} style={{ ...S.navBtn(revealRound === i), borderBottom: revealRound === i ? '2px solid #facc15' : '2px solid transparent', borderRadius: '6px 6px 0 0', padding: '7px 14px', fontSize: 12, color: revealRound === i ? '#facc15' : '#888' }}>
                 {name}
               </button>
@@ -736,7 +754,7 @@ function RevealModePanel({ bracket, onRevealWinner, locked, onLockToggle }) {
 
           {/* Games for selected region/round */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 10 }}>
-            {(bracket[revealRegion]?.rounds?.[revealRound] || []).map((game, gIdx) => {
+            {(activeBracket[revealRegion]?.rounds?.[revealRound] || []).map((game, gIdx) => {
               if (!game?.top && !game?.bottom) return null;
               const hasWinner = !!game.winner;
               return (
@@ -746,7 +764,7 @@ function RevealModePanel({ bracket, onRevealWinner, locked, onLockToggle }) {
                     if (!team) return null;
                     const isWinner = game.winner?.name === team.name;
                     return (
-                      <div key={side} onClick={() => !isWinner && onRevealWinner(revealRegion, revealRound, gIdx, side)}
+                      <div key={side} onClick={() => !isWinner && activeOnReveal(revealRegion, revealRound, gIdx, side)}
                         style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 7, marginBottom: 4, cursor: isWinner ? 'default' : 'pointer', background: isWinner ? 'rgba(22,163,74,0.2)' : 'rgba(255,255,255,0.04)', border: isWinner ? '1px solid rgba(22,163,74,0.5)' : '1px solid rgba(255,255,255,0.07)', transition: 'all .12s' }}>
                         <span style={{ fontSize: 11, color: '#777', fontWeight: 700, minWidth: 20 }}>#{team.seed}</span>
                         <span style={{ flex: 1, fontSize: 15, fontWeight: isWinner ? 700 : 400, color: isWinner ? ACCENT2 : '#ccc' }}>{team.name}</span>
@@ -755,7 +773,7 @@ function RevealModePanel({ bracket, onRevealWinner, locked, onLockToggle }) {
                     );
                   })}
                   {hasWinner && (
-                    <button onClick={() => onRevealWinner(revealRegion, revealRound, gIdx, null)}
+                    <button onClick={() => activeOnReveal(revealRegion, revealRound, gIdx, null)}
                       style={{ fontSize: 11, color: '#e74c3c', background: 'none', border: 'none', cursor: 'pointer', padding: '4px 0', fontFamily: 'inherit' }}>
                       ↩ undo
                     </button>
@@ -764,10 +782,6 @@ function RevealModePanel({ bracket, onRevealWinner, locked, onLockToggle }) {
               );
             })}
           </div>
-
-          <p style={{ color: '#666', fontSize: 12, marginTop: 14, marginBottom: 0 }}>
-            💡 Tip: Lock brackets before you start revealing so no one can change their picks while you reveal.
-          </p>
         </>
       )}
     </div>
@@ -1026,7 +1040,46 @@ export default function App() {
     });
   }, [locked, isAdmin]);
 
-  const handleFFPick = useCallback((idx, side) => {
+  const handleMammalPick = useCallback((region, rIdx, gIdx, side) => {
+    if (mammalLocked && !isAdmin) return;
+    setMammalBracket(prev => {
+      const next = JSON.parse(JSON.stringify(prev));
+      const game = next[region]?.rounds?.[rIdx]?.[gIdx];
+      if (!game) return prev;
+      if (side === null) {
+        if (game.winner) {
+          const clearDownstream = (b, reg, name, fromR) => {
+            for (let r = fromR; r < 4; r++) {
+              b[reg].rounds[r].forEach(g => {
+                if (g.top?.name === name) g.top = null;
+                if (g.bottom?.name === name) g.bottom = null;
+                if (g.winner?.name === name) { clearDownstream(b, reg, name, r + 1); g.winner = null; }
+              });
+            }
+          };
+          clearDownstream(next, region, game.winner.name, rIdx + 1);
+        }
+        game.winner = null;
+        if (isAdmin) saveMammalOfficialBracket(next);
+        return next;
+      }
+      const clicked = side === 'top' ? game.top : game.bottom;
+      if (!clicked) return prev;
+      if (game.winner?.name === clicked.name) { game.winner = null; if (isAdmin) saveMammalOfficialBracket(next); return next; }
+      game.winner = clicked;
+      if (rIdx < 3) {
+        const ng = next[region].rounds[rIdx + 1]?.[Math.floor(gIdx / 2)];
+        if (ng) { const nSide = gIdx % 2 === 0 ? 'top' : 'bottom'; ng[nSide] = clicked; if (ng.winner?.name !== clicked.name) ng.winner = null; }
+      }
+      if (rIdx === 3) {
+        const fi    = { East: 0, West: 0, South: 1, Midwest: 1 }[region];
+        const fSide = { East: 'top', West: 'bottom', South: 'top', Midwest: 'bottom' }[region];
+        if (next.finalFour?.[fi]) { next.finalFour[fi][fSide] = clicked; if (next.finalFour[fi].winner?.name !== clicked.name) next.finalFour[fi].winner = null; }
+      }
+      if (isAdmin) saveMammalOfficialBracket(next);
+      return next;
+    });
+  }, [mammalLocked, isAdmin]);
     if (locked && !isAdmin) return;
     setBracket(prev => {
       const next = JSON.parse(JSON.stringify(prev));
@@ -1425,7 +1478,7 @@ export default function App() {
             {/* Top scrollbar mirror */}
             <div className="bscroll-top" style={{ overflowX: 'auto', overflowY: 'hidden', height: 12, marginBottom: 2 }}
               onScroll={e => { const b = document.querySelector('.bscroll'); if (b) b.scrollLeft = e.currentTarget.scrollLeft; }}>
-              <div style={{ minWidth: 3000, height: 1 }} />
+              <div style={{ minWidth: `${240 * 11 + (ffGamesList.length > 0 ? 240 : 0)}px`, height: 1 }} />
             </div>
             <div className="bscroll" style={{ overflowX: 'auto', overflowY: 'visible', paddingBottom: 4, cursor: 'grab' }}
               onScroll={e => { const t = document.querySelector('.bscroll-top'); if (t) t.scrollLeft = e.currentTarget.scrollLeft; }}
@@ -1439,10 +1492,10 @@ export default function App() {
                 window.addEventListener('mousemove', onMove);
                 window.addEventListener('mouseup', onUp);
               }}>
-              <div style={{ minWidth: 3000, paddingBottom: 8 }}>
+              <div style={{ width: 'fit-content', paddingBottom: 8 }}>
                 {(() => {
                   const CW = 240;
-                  const SH = 101;
+                  const SH = 89;
                   const SPINE_H = 56;
                   const TOP_H = 8 * SH;
                   const BOT_H = TOP_H;
@@ -1452,15 +1505,12 @@ export default function App() {
                   const hasRightFF = ffGamesList.some(f => f.region === 'West' || f.region === 'Midwest');
 
                   // Absolute top positions for each round (from col edge toward spine)
-                  // SH=101: each game slot = 44px, divider = 1px, game height = 44+1+44 = 89, outer padding ~12 => ~101
-                  // R64: 8 games flush
-                  // R32 divLine at midpoint of each pair of R64 divLines (R64 divLine = top + 45)
-                  // S16, E8: same pattern one level up
+                  // SH=89: slot=36px, divider=1px, game=73px, spacing~16px => ~89px per game slot
                   const ROUND_ABS = [
-                    [0, 101, 202, 303, 404, 505, 606, 707],        // R64  (i * SH)
-                    [50.5, 252.5, 454.5, 656.5],                   // R32  (midpoint of R64 pairs - 45)
-                    [151.5, 555.5],                                 // S16
-                    [353.5],                                        // E8
+                    [0, 89, 178, 267, 356, 445, 534, 623],         // R64  (i * SH)
+                    [44.5, 222.5, 400.5, 578.5],                   // R32
+                    [133.5, 489.5],                                 // S16
+                    [311.5],                                        // E8
                   ];
 
                   const RoundCol = ({ region, rIdx, flip, dir }) => {
@@ -1884,9 +1934,13 @@ export default function App() {
                 {/* Reveal Mode */}
                 <RevealModePanel
                   bracket={officialBracket || bracket}
+                  mammalBracket={mammalOfficialBracket || mammalBracket}
                   onRevealWinner={handlePick}
+                  onRevealMammalWinner={handleMammalPick}
                   locked={locked}
+                  mammalLocked={mammalLocked}
                   onLockToggle={async () => { const nl = !locked; setLocked(nl); await setTournamentLocked(nl); }}
+                  onMammalLockToggle={async () => { const nl = !mammalLocked; setMammalLocked(nl); await setMammalTournamentLocked(nl); }}
                 />
 
                 {/* Tournament Year */}
