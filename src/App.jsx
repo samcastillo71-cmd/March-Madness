@@ -1033,7 +1033,7 @@ export default function App() {
 
                   const SpineCell = ({ label, sub, color, borderLeft = true, width = CW }) => (
                     <div style={{ width, flexShrink: 0, height: SPINE_H, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', paddingBottom: 10, borderLeft: borderLeft ? '1px solid rgba(255,255,255,0.08)' : 'none', background: 'rgba(0,0,0,0.4)' }}>
-                      <div style={{ fontSize: 18, fontWeight: 800, color, letterSpacing: 1, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{label}</div>
+                      <div style={{ fontSize: 27, fontWeight: 800, color, letterSpacing: 1, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{label}</div>
                       {sub && <div style={{ fontSize: 10, color: '#555', fontStyle: 'italic', marginTop: 2 }}>{sub}</div>}
                     </div>
                   );
@@ -1062,24 +1062,31 @@ export default function App() {
                         {hasRightFF && <FFCol regionTop="West" regionBot="Midwest" />}
                       </div>
 
-                      {/* ── SPINE: round labels left/right, games in the center ── */}
-                      <div style={{ display: 'flex', alignItems: 'stretch', borderTop: '2px solid rgba(255,255,255,0.15)', borderBottom: '2px solid rgba(255,255,255,0.15)', background: 'rgba(0,0,0,0.35)' }}>
-                        {hasLeftFF  && <SpineCell label="First Four"  sub='"Play-In"'      color="#818cf8" borderLeft={false} />}
-                        <SpineCell label="Round of 64"  sub='"First Round"'    color={ROUND_BORDER_COLORS[0]} borderLeft={!hasLeftFF} />
-                        <SpineCell label="Round of 32"  sub='"Second Round"'   color={ROUND_BORDER_COLORS[1]} />
-                        <SpineCell label="Sweet 16"     sub='"Sweet Sixteen"'  color={ROUND_BORDER_COLORS[2]} />
-                        <SpineCell label="Elite Eight"  sub='"Elite Eight"'    color={ROUND_BORDER_COLORS[3]} />
+                      {/* ── SPINE + floating FF games ── */}
+                      <div style={{ position: 'relative' }}>
 
-                        {/* Center: FF (top) / Championship / FF (bottom) — stacked vertically */}
-                        <div style={{ width: CW * 3, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px 10px', borderLeft: '1px solid rgba(255,255,255,0.08)' }}>
-                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-                            {/* Final Four — East vs West (top) */}
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-                              <div style={{ fontSize: 10, fontWeight: 800, color: '#34d399', letterSpacing: 1.5, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Final Four — East vs West</div>
-                              <GameSlot game={bracket.finalFour[0]} onPick={s => handleFFPick(0, s)} locked={locked && !isAdmin} roundIdx={4} liveScores={liveScores} />
-                            </div>
+                        {/* Final Four — East vs West — floats above spine */}
+                        <div style={{ position: 'absolute', bottom: '100%', left: '50%', transform: 'translateX(-50%)', zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, paddingBottom: 6 }}>
+                          <div style={{ fontSize: 10, fontWeight: 800, color: '#34d399', letterSpacing: 1.5, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Final Four — East vs West</div>
+                          <GameSlot game={bracket.finalFour[0]} onPick={s => handleFFPick(0, s)} locked={locked && !isAdmin} roundIdx={4} liveScores={liveScores} />
+                        </div>
 
-                            {/* Championship — middle */}
+                        {/* Final Four — South vs Midwest — floats below spine */}
+                        <div style={{ position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)', zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, paddingTop: 6 }}>
+                          <GameSlot game={bracket.finalFour[1]} onPick={s => handleFFPick(1, s)} locked={locked && !isAdmin} roundIdx={4} liveScores={liveScores} />
+                          <div style={{ fontSize: 10, fontWeight: 800, color: '#34d399', letterSpacing: 1.5, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Final Four — South vs Midwest</div>
+                        </div>
+
+                        {/* Spine row */}
+                        <div style={{ display: 'flex', alignItems: 'stretch', borderTop: '2px solid rgba(255,255,255,0.15)', borderBottom: '2px solid rgba(255,255,255,0.15)', background: 'rgba(0,0,0,0.35)' }}>
+                          {hasLeftFF  && <SpineCell label="First Four"  sub='"Play-In"'      color="#818cf8" borderLeft={false} />}
+                          <SpineCell label="Round of 64"  sub='"First Round"'    color={ROUND_BORDER_COLORS[0]} borderLeft={!hasLeftFF} />
+                          <SpineCell label="Round of 32"  sub='"Second Round"'   color={ROUND_BORDER_COLORS[1]} />
+                          <SpineCell label="Sweet 16"     sub='"Sweet Sixteen"'  color={ROUND_BORDER_COLORS[2]} />
+                          <SpineCell label="Elite Eight"  sub='"Elite Eight"'    color={ROUND_BORDER_COLORS[3]} />
+
+                          {/* Center — Championship only */}
+                          <div style={{ width: CW * 3, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px 10px', borderLeft: '1px solid rgba(255,255,255,0.08)' }}>
                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, padding: '6px 10px', background: 'linear-gradient(135deg,rgba(245,158,11,0.18),rgba(124,58,237,0.14))', border: '2px solid rgba(245,158,11,0.65)', borderRadius: 10, animation: 'champGlow 3s ease-in-out infinite' }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                                 <span style={{ fontSize: 14 }}>🏆</span>
@@ -1094,20 +1101,14 @@ export default function App() {
                                 </div>
                               )}
                             </div>
-
-                            {/* Final Four — South vs Midwest (bottom) */}
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-                              <GameSlot game={bracket.finalFour[1]} onPick={s => handleFFPick(1, s)} locked={locked && !isAdmin} roundIdx={4} liveScores={liveScores} />
-                              <div style={{ fontSize: 10, fontWeight: 800, color: '#34d399', letterSpacing: 1.5, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Final Four — South vs Midwest</div>
-                            </div>
                           </div>
-                        </div>
 
-                        <SpineCell label="Elite Eight"  sub='"Elite Eight"'    color={ROUND_BORDER_COLORS[3]} />
-                        <SpineCell label="Sweet 16"     sub='"Sweet Sixteen"'  color={ROUND_BORDER_COLORS[2]} />
-                        <SpineCell label="Round of 32"  sub='"Second Round"'   color={ROUND_BORDER_COLORS[1]} />
-                        <SpineCell label="Round of 64"  sub='"First Round"'    color={ROUND_BORDER_COLORS[0]} />
-                        {hasRightFF && <SpineCell label="First Four"  sub='"Play-In"'      color="#818cf8" />}
+                          <SpineCell label="Elite Eight"  sub='"Elite Eight"'    color={ROUND_BORDER_COLORS[3]} />
+                          <SpineCell label="Sweet 16"     sub='"Sweet Sixteen"'  color={ROUND_BORDER_COLORS[2]} />
+                          <SpineCell label="Round of 32"  sub='"Second Round"'   color={ROUND_BORDER_COLORS[1]} />
+                          <SpineCell label="Round of 64"  sub='"First Round"'    color={ROUND_BORDER_COLORS[0]} />
+                          {hasRightFF && <SpineCell label="First Four"  sub='"Play-In"'      color="#818cf8" />}
+                        </div>
                       </div>
 
                       {/* BOTTOM HALF — South (left) + Midwest (right), top-aligned from spine */}
