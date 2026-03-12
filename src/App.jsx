@@ -1055,12 +1055,12 @@ export default function App() {
 
 
                   // Absolute top positions for each round (from col edge toward spine)
-                  // R64: flush stack. R32/S16/E8: each game centered on feeder pair midpoint
+                  // Each game's dividing line (top + 34) sits at the midpoint of its two feeder dividing lines
                   const ROUND_ABS = [
-                    [0, 89, 178, 267, 356, 445, 534, 623],  // R64
-                    [55, 233, 411, 589],                      // R32
-                    [144, 500],                               // S16
-                    [322],                                    // E8
+                    [0, 89, 178, 267, 356, 445, 534, 623],      // R64
+                    [44.5, 222.5, 400.5, 578.5],                 // R32
+                    [133.5, 489.5],                              // S16
+                    [311.5],                                     // E8
                   ];
 
                   const RoundCol = ({ region, rIdx, flip, dir }) => {
