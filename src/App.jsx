@@ -643,20 +643,6 @@ export default function App() {
     return () => clearInterval(interval);
   }, [user]);
 
-  // ── HORIZONTAL SCROLL ON BRACKET (non-passive so preventDefault works) ────
-  useEffect(() => {
-    const el = document.querySelector('.bscroll');
-    if (!el) return;
-    const onWheel = e => {
-      if (Math.abs(e.deltaX) < Math.abs(e.deltaY)) {
-        el.scrollLeft += e.deltaY;
-        e.preventDefault();
-      }
-    };
-    el.addEventListener('wheel', onWheel, { passive: false });
-    return () => el.removeEventListener('wheel', onWheel);
-  }, [tab]); // re-attach when switching to bracket tab
-
   // ── SMART AUTO-SAVE (only when changed) ──────────────────────────────────
   useEffect(() => {
     if (!user || (locked && !isAdmin)) return;
@@ -931,6 +917,11 @@ export default function App() {
         .bscroll::-webkit-scrollbar-track { background: rgba(255,255,255,0.04); border-radius: 5px; }
         .bscroll::-webkit-scrollbar-thumb { background: rgba(22,163,74,0.5); border-radius: 5px; }
         .bscroll::-webkit-scrollbar-thumb:hover { background: rgba(22,163,74,0.8); }
+        .bscroll-top { scrollbar-width: thin; scrollbar-color: rgba(22,163,74,0.5) rgba(255,255,255,0.04); }
+        .bscroll-top::-webkit-scrollbar { height: 10px; }
+        .bscroll-top::-webkit-scrollbar-track { background: rgba(255,255,255,0.04); border-radius: 5px; }
+        .bscroll-top::-webkit-scrollbar-thumb { background: rgba(22,163,74,0.5); border-radius: 5px; }
+        .bscroll-top::-webkit-scrollbar-thumb:hover { background: rgba(22,163,74,0.8); }
         @keyframes champGlow { 0%,100%{box-shadow:0 0 24px rgba(245,158,11,0.3)} 50%{box-shadow:0 0 40px rgba(245,158,11,0.6)} }
         @keyframes livePulse  { 0%,100%{opacity:1} 50%{opacity:0.3} }
       `}</style>
@@ -1021,7 +1012,23 @@ export default function App() {
             )}
 
             {/* ── MAIN BRACKET ── */}
-            <div className="bscroll" style={{ overflowX: 'auto', overflowY: 'visible', paddingBottom: 16 }}>
+            {/* Top scrollbar mirror */}
+            <div className="bscroll-top" style={{ overflowX: 'auto', overflowY: 'hidden', height: 12, marginBottom: 2 }}
+              onScroll={e => { const b = document.querySelector('.bscroll'); if (b) b.scrollLeft = e.currentTarget.scrollLeft; }}>
+              <div style={{ minWidth: 3000, height: 1 }} />
+            </div>
+            <div className="bscroll" style={{ overflowX: 'auto', overflowY: 'visible', paddingBottom: 4, cursor: 'grab' }}
+              onScroll={e => { const t = document.querySelector('.bscroll-top'); if (t) t.scrollLeft = e.currentTarget.scrollLeft; }}
+              onMouseDown={e => {
+                const el = e.currentTarget;
+                el.style.cursor = 'grabbing';
+                const startX = e.pageX - el.offsetLeft;
+                const startScroll = el.scrollLeft;
+                const onMove = mv => { el.scrollLeft = startScroll - (mv.pageX - el.offsetLeft - startX); };
+                const onUp = () => { el.style.cursor = 'grab'; window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
+                window.addEventListener('mousemove', onMove);
+                window.addEventListener('mouseup', onUp);
+              }}>
               <div style={{ minWidth: 3000, paddingBottom: 8 }}>
                 {(() => {
                   const CW = 240;
@@ -1034,15 +1041,60 @@ export default function App() {
                   const hasLeftFF  = ffGamesList.some(f => f.region === 'East' || f.region === 'South');
                   const hasRightFF = ffGamesList.some(f => f.region === 'West' || f.region === 'Midwest');
 
+                  // Bracket alignment: each game's dividing line (at SH/2 from game top... 
+                  // actually dividing line is at 34px from game top, i.e. one team row height)
+                  // For top half (bottom-aligned to spine): positions measured from TOP of the column (distance from top)
+                  // R64: 8 games flush, game i top = i * SH
+                  // R32: game dividing line at gap N midpoint. Gap N midpoint (from col top) = N * SH
+                  //   game top = N*SH - 34  where N = 1,3,5,7 for games 0,1,2,3
+                  // S16: game dividing line at midpoint between R32 games i*2 and i*2+1
+                  //   R32 game i dividing line = R32_TOPS[i] + 34
+                  //   midpoint = (R32_divLine[i*2] + R32_divLine[i*2+1]) / 2
+                  // E8: same logic one more level up
+
+                  const TEAM_H = 34; // height of one team row = where dividing line is from game top
+                  // R64 tops (from col top, bottom-aligned means we measure from top of full TOP_H)
+                  const r64Tops = Array.from({length:8}, (_,i) => i * SH);
+                  // dividing lines = top + TEAM_H
+                  const r64Divs = r64Tops.map(t => t + TEAM_H);
+                  // R32: dividing line at midpoint of gaps 1,3,5,7 → between r64 games (0,1),(2,3),(4,5),(6,7)
+                  const r32Tops = [0,1,2,3].map(i => {
+                    const mid = (r64Divs[i*2] + r64Divs[i*2+1]) / 2;
+                    return mid - TEAM_H;
+                  });
+                  const r32Divs = r32Tops.map(t => t + TEAM_H);
+                  // S16: midpoint between r32 game pairs
+                  const s16Tops = [0,1].map(i => {
+                    const mid = (r32Divs[i*2] + r32Divs[i*2+1]) / 2;
+                    return mid - TEAM_H;
+                  });
+                  const s16Divs = s16Tops.map(t => t + TEAM_H);
+                  // E8: midpoint between s16 game pair
+                  const e8Tops = [0].map(i => {
+                    const mid = (s16Divs[i*2] + s16Divs[i*2+1]) / 2;
+                    return mid - TEAM_H;
+                  });
+
+                  const ROUND_TOPS = [r64Tops, r32Tops, s16Tops, e8Tops];
+
                   const RoundCol = ({ region, rIdx, flip, dir }) => {
                     const games = bracket[region]?.rounds[rIdx] || [];
+                    const tops = ROUND_TOPS[rIdx];
                     return (
-                      <div style={{ width: CW, flexShrink: 0, height: TOP_H, display: 'flex', flexDirection: 'column', justifyContent: dir === 'top' ? 'flex-end' : 'flex-start', gap: ROUND_GAP_PX[rIdx], boxSizing: 'border-box' }}>
-                        {games.map((game, gIdx) => (
-                          <GameSlot key={gIdx} game={game} locked={locked && !isAdmin} flipped={flip} roundIdx={rIdx}
-                            liveScores={liveScores}
-                            onPick={side => handlePick(region, rIdx, gIdx, side)} />
-                        ))}
+                      <div style={{ width: CW, flexShrink: 0, height: TOP_H, position: 'relative', boxSizing: 'border-box' }}>
+                        {games.map((game, gIdx) => {
+                          const fromTop = tops[gIdx] ?? gIdx * SH;
+                          const pos = dir === 'top'
+                            ? { top: fromTop }
+                            : { bottom: fromTop };
+                          return (
+                            <div key={gIdx} style={{ position: 'absolute', left: 0, right: 0, ...pos }}>
+                              <GameSlot game={game} locked={locked && !isAdmin} flipped={flip} roundIdx={rIdx}
+                                liveScores={liveScores}
+                                onPick={side => handlePick(region, rIdx, gIdx, side)} />
+                            </div>
+                          );
+                        })}
                       </div>
                     );
                   };
