@@ -98,7 +98,7 @@ function findLiveScore(liveScores, teamName) {
   return sub ? sub[1] : null;
 }
 
-function GameSlot({ game, onPick, locked, isChampionship, onScoreChange, flipped, roundIdx = 0, liveScores = {} }) {
+function GameSlot({ game, onPick, locked, isChampionship, onScoreChange, flipped, roundIdx = 0, liveScores = {}, isHorizontal = false }) {
   if (!game) return null;
   const { top, bottom, winner } = game;
   const slotBg     = isChampionship ? 'rgba(245,158,11,0.08)' : ROUND_COLORS[roundIdx] || ROUND_COLORS[0];
@@ -107,7 +107,6 @@ function GameSlot({ game, onPick, locked, isChampionship, onScoreChange, flipped
   // Find if this game has a live/final score on ESPN
   const topLive    = findLiveScore(liveScores, top?.name);
   const bottomLive = findLiveScore(liveScores, bottom?.name);
-  // Only show if both teams are found in the same game context
   const hasLive    = topLive && bottomLive;
   const isLiveGame = hasLive && topLive.state === 'in';
   const isFinal    = hasLive && topLive.state === 'post';
@@ -123,6 +122,30 @@ function GameSlot({ game, onPick, locked, isChampionship, onScoreChange, flipped
     const isFF = team.isFFPlaceholder;
     const live = side === 'top' ? topLive : bottomLive;
     const isLiveWinning = hasLive && live && live.score > (side === 'top' ? bottomLive?.score : topLive?.score);
+
+    if (isHorizontal) return (
+      <div onClick={() => !locked && !isFF && onPick?.(side)}
+        title={isW && !locked ? 'Click to undo this pick' : ''}
+        style={{
+          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, padding: '10px 14px',
+          background: isW ? 'linear-gradient(180deg,rgba(22,163,74,.3),rgba(22,163,74,.08))' : 'rgba(0,0,0,0.25)',
+          cursor: locked || isFF ? 'default' : 'pointer',
+          borderRadius: 6, opacity: isL ? 0.3 : 1, transition: 'background .12s', minWidth: 100,
+          border: isW ? '1px solid rgba(22,163,74,0.4)' : '1px solid rgba(255,255,255,0.06)',
+        }}>
+        <TeamLogo espnId={team.espnId} name={team.name} size={36} />
+        <span style={{ fontSize: 10, color: isW ? ACCENT2 : '#666', fontWeight: 700 }}>{team.seed}</span>
+        <span style={{ fontSize: 13, fontWeight: isW ? 700 : 500, color: isW ? ACCENT2 : isL ? '#3a3a3a' : '#d0d0d0', textAlign: 'center', maxWidth: 110, lineHeight: 1.2 }}>
+          {isFF ? 'TBD' : team.name}
+        </span>
+        {hasLive && live && (
+          <span style={{ fontSize: 20, fontWeight: 800, color: isFinal && live.winner ? ACCENT2 : isLiveGame && isLiveWinning ? '#facc15' : '#888' }}>
+            {live.score}
+          </span>
+        )}
+        {isW && <span style={{ color: ACCENT2, fontSize: 14 }}>✓</span>}
+      </div>
+    );
 
     return (
       <div onClick={() => !locked && !isFF && onPick?.(side)}
@@ -148,6 +171,32 @@ function GameSlot({ game, onPick, locked, isChampionship, onScoreChange, flipped
       </div>
     );
   };
+
+  if (isHorizontal) return (
+    <div style={{ border: `2px solid ${slotBorder}`, borderRadius: 10, overflow: 'hidden', background: slotBg }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
+        <Team team={top} side="top" />
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '0 10px', gap: 4 }}>
+          {isLiveGame && topLive?.clock && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#ef4444', display: 'inline-block', animation: 'livePulse 1.2s ease-in-out infinite' }} />
+              <span style={{ fontSize: 10, color: '#f87171', fontWeight: 700 }}>LIVE</span>
+            </div>
+          )}
+          {isFinal && <span style={{ fontSize: 10, color: '#555', fontWeight: 700, letterSpacing: 1 }}>FINAL</span>}
+          <span style={{ fontSize: 18, fontWeight: 900, color: '#444' }}>VS</span>
+          {isChampionship && (
+            <div style={{ display: 'flex', gap: 4, marginTop: 4 }}>
+              <input placeholder="–" value={game.scoreTop || ''} onChange={e => onScoreChange('scoreTop', e.target.value)} style={{ ...scoreInput, width: 44, textAlign: 'center' }} />
+              <span style={{ color: '#555', fontSize: 13, alignSelf: 'center' }}>-</span>
+              <input placeholder="–" value={game.scoreBottom || ''} onChange={e => onScoreChange('scoreBottom', e.target.value)} style={{ ...scoreInput, width: 44, textAlign: 'center' }} />
+            </div>
+          )}
+        </div>
+        <Team team={bottom} side="bottom" />
+      </div>
+    </div>
+  );
 
   return (
     <div style={{ border: `1px solid ${slotBorder}`, borderRadius: 6, overflow: 'hidden', background: slotBg, minWidth: 178 }}>
@@ -1066,13 +1115,13 @@ export default function App() {
                       <div style={{ position: 'relative' }}>
 
                         {/* Final Four — East vs West — floats above spine */}
-                        <div style={{ position: 'absolute', bottom: '100%', left: '50%', transform: 'translateX(-50%)', zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, paddingBottom: 6 }}>
+                        <div style={{ position: 'absolute', bottom: '100%', left: '50%', transform: `translateX(calc(-50% - ${CW * 0.9}px))`, zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, paddingBottom: 6 }}>
                           <div style={{ fontSize: 10, fontWeight: 800, color: '#34d399', letterSpacing: 1.5, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Final Four — East vs West</div>
                           <GameSlot game={bracket.finalFour[0]} onPick={s => handleFFPick(0, s)} locked={locked && !isAdmin} roundIdx={4} liveScores={liveScores} />
                         </div>
 
                         {/* Final Four — South vs Midwest — floats below spine */}
-                        <div style={{ position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)', zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, paddingTop: 6 }}>
+                        <div style={{ position: 'absolute', top: '100%', left: '50%', transform: `translateX(calc(-50% - ${CW * 0.9}px))`, zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, paddingTop: 6 }}>
                           <GameSlot game={bracket.finalFour[1]} onPick={s => handleFFPick(1, s)} locked={locked && !isAdmin} roundIdx={4} liveScores={liveScores} />
                           <div style={{ fontSize: 10, fontWeight: 800, color: '#34d399', letterSpacing: 1.5, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Final Four — South vs Midwest</div>
                         </div>
@@ -1093,7 +1142,7 @@ export default function App() {
                                 <span style={{ fontSize: 11, fontWeight: 800, color: GOLD2, letterSpacing: 1, fontFamily: "'Playfair Display', serif", whiteSpace: 'nowrap' }}>Championship</span>
                                 <span style={{ fontSize: 14 }}>🏆</span>
                               </div>
-                              <GameSlot game={bracket.championship} onPick={handleChampPick} locked={locked && !isAdmin} isChampionship onScoreChange={handleChampScore} roundIdx={-1} liveScores={liveScores} />
+                              <GameSlot game={bracket.championship} onPick={handleChampPick} locked={locked && !isAdmin} isChampionship isHorizontal onScoreChange={handleChampScore} roundIdx={-1} liveScores={liveScores} />
                               {bracket.championship?.winner && (
                                 <div style={{ textAlign: 'center', padding: '3px 8px', background: 'rgba(245,158,11,0.18)', borderRadius: 5, border: '1px solid rgba(245,158,11,0.5)' }}>
                                   <div style={{ fontSize: 9, color: GOLD2, letterSpacing: 1.5 }}>🎉 CHAMPION</div>
