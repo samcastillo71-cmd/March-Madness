@@ -1033,25 +1033,23 @@ export default function App() {
 
                   const SpineCell = ({ label, sub, color, borderLeft = true, width = CW }) => (
                     <div style={{ width, flexShrink: 0, height: SPINE_H, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', borderLeft: borderLeft ? '1px solid rgba(255,255,255,0.08)' : 'none', background: 'rgba(0,0,0,0.4)' }}>
-                      <div style={{ fontSize: 12, fontWeight: 800, color, letterSpacing: 0.8, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{label}</div>
-                      {sub && <div style={{ fontSize: 9, color: '#555', fontStyle: 'italic', marginTop: 1 }}>{sub}</div>}
+                      <div style={{ fontSize: 15, fontWeight: 800, color, letterSpacing: 1, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{label}</div>
+                      {sub && <div style={{ fontSize: 10, color: '#555', fontStyle: 'italic', marginTop: 2 }}>{sub}</div>}
                     </div>
                   );
 
                   return (
                     <div>
 
-                      {/* Region labels — top */}
-                      <div style={{ display: 'flex', marginBottom: 4 }}>
-                        {hasLeftFF && <div style={{ width: CW, flexShrink: 0 }} />}
-                        <div style={{ width: CW * 4, flexShrink: 0, paddingLeft: 8 }}><span style={{ fontSize: 20, fontWeight: 800, color: RC.East, letterSpacing: 3 }}>↑ EAST</span></div>
-                        <div style={{ width: CW * 3, flexShrink: 0 }} />
-                        <div style={{ width: CW * 4, flexShrink: 0, textAlign: 'right', paddingRight: 8 }}><span style={{ fontSize: 20, fontWeight: 800, color: RC.West, letterSpacing: 3 }}>WEST ↑</span></div>
-                        {hasRightFF && <div style={{ width: CW, flexShrink: 0 }} />}
-                      </div>
-
                       {/* TOP HALF — East (left) + West (right), bottom-aligned to spine */}
-                      <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+                      <div style={{ display: 'flex', alignItems: 'flex-end', position: 'relative' }}>
+                        {/* Region watermarks — overlaid inside the bracket rows */}
+                        <div style={{ position: 'absolute', top: 0, left: hasLeftFF ? CW : 0, width: CW * 4, height: TOP_H, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', zIndex: 0 }}>
+                          <span style={{ fontSize: 140, fontWeight: 900, color: RC.East, opacity: 0.07, letterSpacing: 8, textTransform: 'uppercase', userSelect: 'none', lineHeight: 1 }}>EAST</span>
+                        </div>
+                        <div style={{ position: 'absolute', top: 0, right: hasRightFF ? CW : 0, width: CW * 4, height: TOP_H, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', zIndex: 0 }}>
+                          <span style={{ fontSize: 140, fontWeight: 900, color: RC.West, opacity: 0.07, letterSpacing: 8, textTransform: 'uppercase', userSelect: 'none', lineHeight: 1 }}>WEST</span>
+                        </div>
                         {hasLeftFF && <FFCol regionTop="East" regionBot="South" />}
                         {[0,1,2,3].map(rIdx => <RoundCol key={rIdx} region="East" rIdx={rIdx} flip={false} dir="top" />)}
                         <div style={{ width: CW * 3, flexShrink: 0, height: TOP_H }} />
@@ -1108,21 +1106,19 @@ export default function App() {
                       </div>
 
                       {/* BOTTOM HALF — South (left) + Midwest (right), top-aligned from spine */}
-                      <div style={{ display: 'flex', alignItems: 'flex-start' }}>
+                      <div style={{ display: 'flex', alignItems: 'flex-start', position: 'relative' }}>
+                        {/* Region watermarks */}
+                        <div style={{ position: 'absolute', top: 0, left: hasLeftFF ? CW : 0, width: CW * 4, height: BOT_H, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', zIndex: 0 }}>
+                          <span style={{ fontSize: 140, fontWeight: 900, color: RC.South, opacity: 0.07, letterSpacing: 8, textTransform: 'uppercase', userSelect: 'none', lineHeight: 1 }}>SOUTH</span>
+                        </div>
+                        <div style={{ position: 'absolute', top: 0, right: hasRightFF ? CW : 0, width: CW * 4, height: BOT_H, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', zIndex: 0 }}>
+                          <span style={{ fontSize: 140, fontWeight: 900, color: RC.Midwest, opacity: 0.07, letterSpacing: 8, textTransform: 'uppercase', userSelect: 'none', lineHeight: 1 }}>MIDWEST</span>
+                        </div>
                         {hasLeftFF && <FFCol regionTop="East" regionBot="South" />}
                         {[0,1,2,3].map(rIdx => <RoundCol key={rIdx} region="South" rIdx={rIdx} flip={false} dir="bot" />)}
                         <div style={{ width: CW * 3, flexShrink: 0, height: BOT_H }} />
                         {[3,2,1,0].map(rIdx => <RoundCol key={rIdx} region="Midwest" rIdx={rIdx} flip={true} dir="bot" />)}
                         {hasRightFF && <FFCol regionTop="West" regionBot="Midwest" />}
-                      </div>
-
-                      {/* Region labels — bottom */}
-                      <div style={{ display: 'flex', marginTop: 4 }}>
-                        {hasLeftFF && <div style={{ width: CW, flexShrink: 0 }} />}
-                        <div style={{ width: CW * 4, flexShrink: 0, paddingLeft: 8 }}><span style={{ fontSize: 20, fontWeight: 800, color: RC.South, letterSpacing: 3 }}>↓ SOUTH</span></div>
-                        <div style={{ width: CW * 3, flexShrink: 0 }} />
-                        <div style={{ width: CW * 4, flexShrink: 0, textAlign: 'right', paddingRight: 8 }}><span style={{ fontSize: 20, fontWeight: 800, color: RC.Midwest, letterSpacing: 3 }}>MIDWEST ↓</span></div>
-                        {hasRightFF && <div style={{ width: CW, flexShrink: 0 }} />}
                       </div>
 
                     </div>
