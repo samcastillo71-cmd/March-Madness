@@ -1052,49 +1052,25 @@ export default function App() {
                   //   midpoint = (R32_divLine[i*2] + R32_divLine[i*2+1]) / 2
                   // E8: same logic one more level up
 
-                  const TEAM_H = 34; // height of one team row = where dividing line is from game top
-                  // R64 tops (from col top, bottom-aligned means we measure from top of full TOP_H)
-                  const r64Tops = Array.from({length:8}, (_,i) => i * SH);
-                  // dividing lines = top + TEAM_H
-                  const r64Divs = r64Tops.map(t => t + TEAM_H);
-                  // R32: dividing line at midpoint of gaps 1,3,5,7 → between r64 games (0,1),(2,3),(4,5),(6,7)
-                  const r32Tops = [0,1,2,3].map(i => {
-                    const mid = (r64Divs[i*2] + r64Divs[i*2+1]) / 2;
-                    return mid - TEAM_H;
-                  });
-                  const r32Divs = r32Tops.map(t => t + TEAM_H);
-                  // S16: midpoint between r32 game pairs
-                  const s16Tops = [0,1].map(i => {
-                    const mid = (r32Divs[i*2] + r32Divs[i*2+1]) / 2;
-                    return mid - TEAM_H;
-                  });
-                  const s16Divs = s16Tops.map(t => t + TEAM_H);
-                  // E8: midpoint between s16 game pair
-                  const e8Tops = [0].map(i => {
-                    const mid = (s16Divs[i*2] + s16Divs[i*2+1]) / 2;
-                    return mid - TEAM_H;
-                  });
-
+                  const TEAM_H = 34;
+                  // Actual top positions matching the flex/gap layout (bottom-aligned)
+                  // game[i] top = TOP_H - (n-i)*SH - (n-1-i)*gap
+                  const computeTops = (n, gap) => Array.from({length:n}, (_,i) => TOP_H - (n-i)*SH - (n-1-i)*gap);
+                  const r64Tops = computeTops(8, ROUND_GAP_PX[0]);
+                  const r32Tops = computeTops(4, ROUND_GAP_PX[1]);
+                  const s16Tops = computeTops(2, ROUND_GAP_PX[2]);
+                  const e8Tops  = computeTops(1, ROUND_GAP_PX[3]);
                   const ROUND_TOPS = [r64Tops, r32Tops, s16Tops, e8Tops];
 
                   const RoundCol = ({ region, rIdx, flip, dir }) => {
                     const games = bracket[region]?.rounds[rIdx] || [];
-                    const tops = ROUND_TOPS[rIdx];
                     return (
-                      <div style={{ width: CW, flexShrink: 0, height: TOP_H, position: 'relative', boxSizing: 'border-box' }}>
-                        {games.map((game, gIdx) => {
-                          const fromTop = tops[gIdx] ?? gIdx * SH;
-                          const pos = dir === 'top'
-                            ? { top: fromTop }
-                            : { bottom: fromTop };
-                          return (
-                            <div key={gIdx} style={{ position: 'absolute', left: 0, right: 0, ...pos }}>
-                              <GameSlot game={game} locked={locked && !isAdmin} flipped={flip} roundIdx={rIdx}
-                                liveScores={liveScores}
-                                onPick={side => handlePick(region, rIdx, gIdx, side)} />
-                            </div>
-                          );
-                        })}
+                      <div style={{ width: CW, flexShrink: 0, height: TOP_H, display: 'flex', flexDirection: 'column', justifyContent: dir === 'top' ? 'flex-end' : 'flex-start', gap: ROUND_GAP_PX[rIdx], boxSizing: 'border-box' }}>
+                        {games.map((game, gIdx) => (
+                          <GameSlot key={gIdx} game={game} locked={locked && !isAdmin} flipped={flip} roundIdx={rIdx}
+                            liveScores={liveScores}
+                            onPick={side => handlePick(region, rIdx, gIdx, side)} />
+                        ))}
                       </div>
                     );
                   };
