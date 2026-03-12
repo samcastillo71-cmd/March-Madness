@@ -1048,11 +1048,11 @@ export default function App() {
                       {/* TOP HALF — East (left) + West (right), bottom-aligned to spine */}
                       <div style={{ display: 'flex', alignItems: 'flex-end', position: 'relative' }}>
                         {/* EAST watermark — centered in S16 gap */}
-                        <div style={{ position: 'absolute', top: LABEL_TOP, left: (hasLeftFF ? CW : 0) + S16_CENTER_X, transform: 'translate(-50%, -50%)', pointerEvents: 'none', zIndex: 0 }}>
+                        <div style={{ position: 'absolute', top: LABEL_TOP + SH, left: (hasLeftFF ? CW : 0) + S16_CENTER_X + CW, transform: 'translate(-50%, -50%)', pointerEvents: 'none', zIndex: 0 }}>
                           <span style={{ fontSize: 130, fontWeight: 900, color: RC.East, opacity: 0.08, letterSpacing: 4, textTransform: 'uppercase', userSelect: 'none', lineHeight: 1, display: 'block', whiteSpace: 'nowrap' }}>EAST</span>
                         </div>
                         {/* WEST watermark — mirrored, S16 col from right edge of right region */}
-                        <div style={{ position: 'absolute', top: LABEL_TOP, right: (hasRightFF ? CW : 0) + S16_CENTER_X, transform: 'translate(50%, -50%)', pointerEvents: 'none', zIndex: 0 }}>
+                        <div style={{ position: 'absolute', top: LABEL_TOP + SH, right: (hasRightFF ? CW : 0) + S16_CENTER_X + CW * 2, transform: 'translate(50%, -50%)', pointerEvents: 'none', zIndex: 0 }}>
                           <span style={{ fontSize: 130, fontWeight: 900, color: RC.West, opacity: 0.08, letterSpacing: 4, textTransform: 'uppercase', userSelect: 'none', lineHeight: 1, display: 'block', whiteSpace: 'nowrap' }}>WEST</span>
                         </div>
                         {hasLeftFF && <FFCol regionTop="East" regionBot="South" />}
@@ -1113,10 +1113,10 @@ export default function App() {
                       {/* BOTTOM HALF — South (left) + Midwest (right), top-aligned from spine */}
                       <div style={{ display: 'flex', alignItems: 'flex-start', position: 'relative' }}>
                         {/* SOUTH watermark — S16 gap is also at TOP_H/2 from top (bottom half mirrors top) */}
-                        <div style={{ position: 'absolute', top: LABEL_TOP, left: (hasLeftFF ? CW : 0) + S16_CENTER_X, transform: 'translate(-50%, -50%)', pointerEvents: 'none', zIndex: 0 }}>
+                        <div style={{ position: 'absolute', top: LABEL_TOP - SH, left: (hasLeftFF ? CW : 0) + S16_CENTER_X + CW, transform: 'translate(-50%, -50%)', pointerEvents: 'none', zIndex: 0 }}>
                           <span style={{ fontSize: 130, fontWeight: 900, color: RC.South, opacity: 0.08, letterSpacing: 4, textTransform: 'uppercase', userSelect: 'none', lineHeight: 1, display: 'block', whiteSpace: 'nowrap' }}>SOUTH</span>
                         </div>
-                        <div style={{ position: 'absolute', top: LABEL_TOP, right: (hasRightFF ? CW : 0) + S16_CENTER_X, transform: 'translate(50%, -50%)', pointerEvents: 'none', zIndex: 0 }}>
+                        <div style={{ position: 'absolute', top: LABEL_TOP - SH, right: (hasRightFF ? CW : 0) + S16_CENTER_X + CW * 3, transform: 'translate(50%, -50%)', pointerEvents: 'none', zIndex: 0 }}>
                           <span style={{ fontSize: 130, fontWeight: 900, color: RC.Midwest, opacity: 0.08, letterSpacing: 4, textTransform: 'uppercase', userSelect: 'none', lineHeight: 1, display: 'block', whiteSpace: 'nowrap' }}>MIDWEST</span>
                         </div>
                         {hasLeftFF && <FFCol regionTop="East" regionBot="South" />}
