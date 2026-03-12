@@ -11,6 +11,12 @@ import {
   subscribeToLeaderboard, updateLeaderboardEntry,
   checkIsAdmin, saveResearchData,
   saveOneTeamResearch, subscribeToResearchData,
+  saveMammalBracket, loadMammalBracket,
+  saveMammalOfficialBracket, subscribeToMammalOfficialBracket,
+  subscribeToMammalConfig, setMammalTournamentLocked,
+  subscribeToMammalLeaderboard, updateMammalLeaderboardEntry,
+  saveMammalResearchData, saveOneMammalResearch, subscribeToMammalResearchData,
+  saveMammalRoster,
 } from './firestoreService';
 import {
   CURRENT_YEAR, buildInitialBracket, buildInitialBracketFromTeams,
@@ -113,7 +119,7 @@ function GameSlot({ game, onPick, locked, isChampionship, onScoreChange, flipped
 
   const Team = ({ team, side }) => {
     if (!team) return (
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 8px', height: 34, color: '#888', fontSize: 11, fontStyle: 'italic', flexDirection: flipped ? 'row-reverse' : 'row' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 8px', height: 44, color: '#888', fontSize: 11, fontStyle: 'italic', flexDirection: flipped ? 'row-reverse' : 'row' }}>
         <div style={{ width: 20, height: 20, borderRadius: '50%', background: '#111', flexShrink: 0 }} />TBD
       </div>
     );
@@ -135,7 +141,7 @@ function GameSlot({ game, onPick, locked, isChampionship, onScoreChange, flipped
         }}>
         <TeamLogo espnId={team.espnId} name={team.name} size={36} />
         <span style={{ fontSize: 10, color: isW ? ACCENT2 : '#666', fontWeight: 700 }}>{team.seed}</span>
-        <span style={{ fontSize: 13, fontWeight: isW ? 700 : 500, color: isW ? ACCENT2 : isL ? '#3a3a3a' : '#d0d0d0', textAlign: 'center', maxWidth: 110, lineHeight: 1.2 }}>
+        <span style={{ fontSize: 20, fontWeight: isW ? 700 : 500, color: isW ? ACCENT2 : isL ? '#3a3a3a' : '#d0d0d0', textAlign: 'center', maxWidth: 130, lineHeight: 1.2 }}>
           {isFF ? 'TBD' : team.name}
         </span>
         {hasLive && live && (
@@ -151,7 +157,7 @@ function GameSlot({ game, onPick, locked, isChampionship, onScoreChange, flipped
       <div onClick={() => !locked && !isFF && onPick?.(side)}
         title={isW && !locked ? 'Click to undo this pick' : ''}
         style={{
-          display: 'flex', alignItems: 'center', gap: 6, padding: '5px 8px', height: 34,
+          display: 'flex', alignItems: 'center', gap: 6, padding: '5px 8px', height: 44,
           flexDirection: flipped ? 'row-reverse' : 'row',
           background: isW ? 'linear-gradient(90deg,rgba(22,163,74,.3),rgba(22,163,74,.08))' : 'rgba(0,0,0,0.25)',
           cursor: locked || isFF ? 'default' : 'pointer',
@@ -159,7 +165,7 @@ function GameSlot({ game, onPick, locked, isChampionship, onScoreChange, flipped
         }}>
         <TeamLogo espnId={team.espnId} name={team.name} size={20} />
         <span style={{ fontSize: 10, color: isW ? ACCENT2 : '#666', fontWeight: 700, minWidth: 14, textDecoration: isL ? 'line-through' : 'none' }}>{team.seed}</span>
-        <span style={{ fontSize: 11, fontWeight: isW ? 700 : 500, color: isW ? ACCENT2 : isL ? '#3a3a3a' : '#d0d0d0', textDecoration: isL ? 'line-through' : 'none', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: hasLive ? 80 : 108, flex: 1 }}>
+        <span style={{ fontSize: 17, fontWeight: isW ? 700 : 500, color: isW ? ACCENT2 : isL ? '#3a3a3a' : '#d0d0d0', textDecoration: isL ? 'line-through' : 'none', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: hasLive ? 80 : 140, flex: 1 }}>
           {isFF ? 'FF Winner →' : team.name}
         </span>
         {hasLive && live && (
@@ -524,6 +530,250 @@ Return ONLY valid JSON, no markdown, no explanation. Use this exact structure:
   try { return JSON.parse(text.replace(/```json|```/g, '').trim()); } catch { return null; }
 }
 
+// ── MAMMAL AI RESEARCH GENERATOR ─────────────────────────────────────────────
+async function generateMammalResearch(animalName, seed, region) {
+  const prompt = `You are a nature educator writing animal profiles for middle school students (grades 6-8).
+Generate a fun, age-appropriate JSON profile for: ${animalName} (${region} Region, Seed #${seed}) competing in March Mammal Madness.
+Return ONLY valid JSON, no markdown, no explanation. Use this exact structure:
+{"habitat":"2-3 sentence description of where this animal lives","diet":"2-3 sentences on what it eats and how it hunts or forages","funFacts":["interesting fact 1","interesting fact 2","interesting fact 3"],"size":"weight and length/height","lifespan":"X-Y years","speed":"top speed if known, or movement description","superpower":"1 sentence on this animal's most impressive ability or adaptation","battleStrength":"1-2 sentence fun assessment of how this animal would do in a bracket battle and why"}
+Keep all language at a middle school reading level. Make it engaging and educational. No graphic violence descriptions.`;
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 600, messages: [{ role: 'user', content: prompt }] }),
+  });
+  const data = await res.json();
+  const text = data.content?.[0]?.text || '{}';
+  try { return JSON.parse(text.replace(/```json|```/g, '').trim()); } catch { return null; }
+}
+
+// ── MAMMAL TEAM ENTRY PANEL ───────────────────────────────────────────────────
+function MammalEntryPanel({ onAnimalsSaved, onRequestGenerateMammalResearch }) {
+  const [roster,       setRoster]       = useState({ East: Array(16).fill(null).map((_,i) => ({ seed:i+1, name:'', firstFour:false })), West: Array(16).fill(null).map((_,i) => ({ seed:i+1, name:'', firstFour:false })), South: Array(16).fill(null).map((_,i) => ({ seed:i+1, name:'', firstFour:false })), Midwest: Array(16).fill(null).map((_,i) => ({ seed:i+1, name:'', firstFour:false })) });
+  const [activeRegion, setActiveRegion] = useState('East');
+  const [saving,       setSaving]       = useState(false);
+  const [saved,        setSaved]        = useState(false);
+  const [applying,     setApplying]     = useState(false);
+  const [applied,      setApplied]      = useState(false);
+  const [loading,      setLoading]      = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const snap = await getDoc(doc(db, 'admin', 'mammalRoster'));
+        if (snap.exists()) { const d = snap.data(); delete d.updatedAt; setRoster(d); }
+      } catch {}
+      setLoading(false);
+    })();
+  }, []);
+
+  const updateAnimal = (region, idx, field, value) => {
+    setRoster(prev => { const n = JSON.parse(JSON.stringify(prev)); n[region][idx][field] = value; return n; });
+    setSaved(false); setApplied(false);
+  };
+
+  if (loading) return <div style={{ color: '#999', padding: 20 }}>Loading roster...</div>;
+
+  return (
+    <div style={{ ...S.card, marginBottom: 16, borderColor: 'rgba(134,239,172,0.25)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
+        <div>
+          <h3 style={{ color: '#86efac', marginBottom: 4 }}>🦁 Set Up Mammal Madness Animals</h3>
+          <p style={{ color: '#999', fontSize: 13 }}>Enter the 64 animals competing in this year's March Mammal Madness tournament.</p>
+        </div>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          <button style={{ ...S.btn(saved ? '#22c55e' : ACCENT, '#fff'), padding: '8px 20px', fontSize: 13 }}
+            onClick={async () => { setSaving(true); await saveMammalRoster(roster); setSaving(false); setSaved(true); }} disabled={saving}>
+            {saving ? 'Saving...' : saved ? '✓ Roster Saved' : 'Save Roster'}
+          </button>
+          {saved && (
+            <button style={{ ...S.btn(applied ? '#22c55e' : '#f59e0b', '#000'), padding: '8px 20px', fontSize: 13 }}
+              onClick={async () => { setApplying(true); const nb = buildInitialBracketFromTeams(roster); await saveMammalOfficialBracket(nb); setApplying(false); setApplied(true); onAnimalsSaved(nb, roster); }} disabled={applying}>
+              {applying ? 'Applying...' : applied ? '✓ Applied!' : 'Apply to Bracket'}
+            </button>
+          )}
+          {applied && (
+            <button style={{ ...S.btn('#6366f1', '#fff'), padding: '8px 20px', fontSize: 13 }} onClick={() => onRequestGenerateMammalResearch(roster)}>
+              ✨ Auto-Generate Animal Facts
+            </button>
+          )}
+        </div>
+      </div>
+      <div style={{ display: 'flex', gap: 4, marginBottom: 16 }}>
+        {['East','West','South','Midwest'].map(r => (
+          <button key={r} style={{ ...S.navBtn(activeRegion === r), borderBottom: activeRegion === r ? `2px solid ${RC[r]}` : '2px solid transparent', borderRadius: '6px 6px 0 0', padding: '8px 18px' }} onClick={() => setActiveRegion(r)}>
+            <span style={{ color: RC[r], marginRight: 6 }}>●</span>{r}
+            <span style={{ marginLeft: 6, fontSize: 11, color: '#777' }}>({roster[activeRegion]?.length || 0})</span>
+          </button>
+        ))}
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+        {(roster[activeRegion] || []).map((animal, idx) => (
+          <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 8, background: animal.firstFour ? 'rgba(99,102,241,0.08)' : 'rgba(255,255,255,0.03)', borderRadius: 8, padding: '8px 12px', border: animal.firstFour ? '1px solid rgba(99,102,241,0.3)' : '1px solid rgba(255,255,255,0.07)' }}>
+            <input type="number" min="1" max="16" value={animal.seed} onChange={e => updateAnimal(activeRegion, idx, 'seed', parseInt(e.target.value) || e.target.value)} style={{ ...S.input, width: 48, padding: '6px 6px', fontSize: 13, textAlign: 'center' }} />
+            <input placeholder="Animal name (e.g. African Lion)" value={animal.name} onChange={e => updateAnimal(activeRegion, idx, 'name', e.target.value)} style={{ ...S.input, flex: 1, padding: '6px 10px', fontSize: 13 }} />
+            <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', flexShrink: 0 }}>
+              <input type="checkbox" checked={animal.firstFour} onChange={e => updateAnimal(activeRegion, idx, 'firstFour', e.target.checked)} />
+              <span style={{ fontSize: 11, color: animal.firstFour ? '#818cf8' : '#888', whiteSpace: 'nowrap', fontWeight: animal.firstFour ? 700 : 400 }}>FF</span>
+            </label>
+          </div>
+        ))}
+      </div>
+      <button onClick={() => setRoster(prev => { const n = JSON.parse(JSON.stringify(prev)); n[activeRegion].push({ seed: '', name: '', firstFour: true }); return n; })} style={{ ...S.btn('rgba(99,102,241,0.2)', '#818cf8'), padding: '7px 16px', fontSize: 12, border: '1px solid rgba(99,102,241,0.3)', marginTop: 12 }}>
+        + Add FF Slot
+      </button>
+    </div>
+  );
+}
+
+// ── MAMMAL RESEARCH CARD ──────────────────────────────────────────────────────
+function MammalResearchCard({ animalName, card, isAdmin, onFieldSave, onGenerate, generating }) {
+  const empty = !card || Object.keys(card).length === 0;
+  return (
+    <div style={{ ...S.card, marginBottom: 20, borderColor: 'rgba(134,239,172,0.2)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
+        <div>
+          <div style={{ fontSize: 11, color: '#86efac', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4, fontWeight: 700 }}>🦁 Animal Profile</div>
+          <h2 style={{ fontFamily: "'Playfair Display', serif", color: '#fff', margin: 0, fontSize: 22 }}>{animalName}</h2>
+        </div>
+        {isAdmin && (
+          <button onClick={() => onGenerate(animalName)} disabled={generating} style={{ ...S.btn('#6366f1', '#fff'), padding: '8px 18px', fontSize: 13 }}>
+            {generating ? '⏳ Generating...' : '✨ Generate Facts'}
+          </button>
+        )}
+      </div>
+      {empty ? (
+        <div style={{ color: '#666', fontSize: 14, fontStyle: 'italic' }}>
+          {isAdmin ? 'No data yet — click "Generate Facts" to auto-populate.' : 'Animal facts coming soon!'}
+        </div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+          {[
+            ['🌍 Habitat', 'habitat'],
+            ['🍖 Diet & Hunting', 'diet'],
+            ['⚡ Superpower', 'superpower'],
+            ['⚔️ Battle Strength', 'battleStrength'],
+          ].map(([label, field]) => (
+            <div key={field} style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 8, padding: 14, border: '1px solid rgba(255,255,255,0.07)' }}>
+              <div style={{ fontSize: 11, color: '#86efac', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 6, fontWeight: 700 }}>{label}</div>
+              <div style={{ fontSize: 14, color: '#ccc', lineHeight: 1.6 }}>{card[field] || '—'}</div>
+            </div>
+          ))}
+          <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 8, padding: 14, border: '1px solid rgba(255,255,255,0.07)', gridColumn: '1 / -1' }}>
+            <div style={{ fontSize: 11, color: '#86efac', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 10, fontWeight: 700 }}>🌟 Fun Facts</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {(card.funFacts || []).map((fact, i) => (
+                <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                  <span style={{ color: '#86efac', fontWeight: 700, flexShrink: 0 }}>{i+1}.</span>
+                  <span style={{ fontSize: 14, color: '#ccc', lineHeight: 1.6 }}>{fact}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 16, gridColumn: '1 / -1', flexWrap: 'wrap' }}>
+            {[['📏 Size', card.size], ['⏳ Lifespan', card.lifespan], ['💨 Speed', card.speed]].map(([label, val]) => val && (
+              <div key={label} style={{ background: 'rgba(134,239,172,0.06)', borderRadius: 8, padding: '10px 16px', border: '1px solid rgba(134,239,172,0.15)' }}>
+                <div style={{ fontSize: 11, color: '#86efac', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4, fontWeight: 700 }}>{label}</div>
+                <div style={{ fontSize: 14, color: '#ccc' }}>{val}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── REVEAL MODE PANEL ─────────────────────────────────────────────────────────
+const ROUND_NAMES = ['Round of 64', 'Round of 32', 'Sweet 16', 'Elite Eight', 'Final Four', 'Championship'];
+
+function RevealModePanel({ bracket, onRevealWinner, locked, onLockToggle }) {
+  const [revealRound,   setRevealRound]   = useState(0);
+  const [revealRegion,  setRevealRegion]  = useState('East');
+  const [revealOpen,    setRevealOpen]    = useState(false);
+
+  if (!bracket) return null;
+
+  // Collect all games for current round across all regions (or FF/champ)
+  const regions = ['East', 'West', 'South', 'Midwest'];
+
+  // Build flat list of { region, rIdx, gIdx, game } for selected round
+  const regionGames = regions.flatMap(region => {
+    const games = bracket[region]?.rounds?.[revealRound] || [];
+    return games.map((game, gIdx) => ({ region, rIdx: revealRound, gIdx, game }));
+  });
+
+  return (
+    <div style={{ ...S.card, borderColor: 'rgba(250,204,21,0.3)', marginBottom: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: revealOpen ? 16 : 0, flexWrap: 'wrap', gap: 10 }}>
+        <div>
+          <h3 style={{ color: '#facc15', marginBottom: 2, fontSize: 15 }}>🎬 Reveal Mode</h3>
+          <p style={{ color: '#888', fontSize: 13, margin: 0 }}>Click winning teams one at a time — perfect for a live class reveal</p>
+        </div>
+        <button onClick={() => setRevealOpen(o => !o)} style={{ ...S.btn(revealOpen ? 'rgba(250,204,21,0.15)' : 'rgba(250,204,21,0.2)', '#facc15'), padding: '8px 18px', fontSize: 13, border: '1px solid rgba(250,204,21,0.3)' }}>
+          {revealOpen ? 'Close ▲' : 'Open ▼'}
+        </button>
+      </div>
+
+      {revealOpen && (
+        <>
+          {/* Round selector */}
+          <div style={{ display: 'flex', gap: 4, marginBottom: 16, flexWrap: 'wrap' }}>
+            {ROUND_NAMES.slice(0, 4).map((name, i) => (
+              <button key={i} onClick={() => setRevealRound(i)} style={{ ...S.navBtn(revealRound === i), borderBottom: revealRound === i ? '2px solid #facc15' : '2px solid transparent', borderRadius: '6px 6px 0 0', padding: '7px 14px', fontSize: 12, color: revealRound === i ? '#facc15' : '#888' }}>
+                {name}
+              </button>
+            ))}
+          </div>
+
+          {/* Region tabs */}
+          <div style={{ display: 'flex', gap: 4, marginBottom: 16 }}>
+            {regions.map(r => (
+              <button key={r} onClick={() => setRevealRegion(r)} style={{ ...S.navBtn(revealRegion === r), borderBottom: revealRegion === r ? `2px solid ${RC[r]}` : '2px solid transparent', borderRadius: '6px 6px 0 0', padding: '7px 14px', fontSize: 12 }}>
+                <span style={{ color: RC[r], marginRight: 4 }}>●</span>{r}
+              </button>
+            ))}
+          </div>
+
+          {/* Games for selected region/round */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 10 }}>
+            {(bracket[revealRegion]?.rounds?.[revealRound] || []).map((game, gIdx) => {
+              if (!game?.top && !game?.bottom) return null;
+              const hasWinner = !!game.winner;
+              return (
+                <div key={gIdx} style={{ background: hasWinner ? 'rgba(22,163,74,0.07)' : 'rgba(255,255,255,0.03)', border: `1px solid ${hasWinner ? 'rgba(22,163,74,0.3)' : 'rgba(255,255,255,0.08)'}`, borderRadius: 10, padding: 12 }}>
+                  <div style={{ fontSize: 10, color: '#666', letterSpacing: 1, marginBottom: 8, textTransform: 'uppercase' }}>Game {gIdx + 1} {hasWinner ? `→ ${game.winner.name}` : '— pick winner'}</div>
+                  {[['top', game.top], ['bottom', game.bottom]].map(([side, team]) => {
+                    if (!team) return null;
+                    const isWinner = game.winner?.name === team.name;
+                    return (
+                      <div key={side} onClick={() => !isWinner && onRevealWinner(revealRegion, revealRound, gIdx, side)}
+                        style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 7, marginBottom: 4, cursor: isWinner ? 'default' : 'pointer', background: isWinner ? 'rgba(22,163,74,0.2)' : 'rgba(255,255,255,0.04)', border: isWinner ? '1px solid rgba(22,163,74,0.5)' : '1px solid rgba(255,255,255,0.07)', transition: 'all .12s' }}>
+                        <span style={{ fontSize: 11, color: '#777', fontWeight: 700, minWidth: 20 }}>#{team.seed}</span>
+                        <span style={{ flex: 1, fontSize: 15, fontWeight: isWinner ? 700 : 400, color: isWinner ? ACCENT2 : '#ccc' }}>{team.name}</span>
+                        {isWinner ? <span style={{ color: ACCENT2, fontSize: 16 }}>✓</span> : <span style={{ color: '#555', fontSize: 12 }}>click to reveal</span>}
+                      </div>
+                    );
+                  })}
+                  {hasWinner && (
+                    <button onClick={() => onRevealWinner(revealRegion, revealRound, gIdx, null)}
+                      style={{ fontSize: 11, color: '#e74c3c', background: 'none', border: 'none', cursor: 'pointer', padding: '4px 0', fontFamily: 'inherit' }}>
+                      ↩ undo
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          <p style={{ color: '#666', fontSize: 12, marginTop: 14, marginBottom: 0 }}>
+            💡 Tip: Lock brackets before you start revealing so no one can change their picks while you reveal.
+          </p>
+        </>
+      )}
+    </div>
+  );
+}
+
 // ── MAIN APP ──────────────────────────────────────────────────────────────────
 export default function App() {
   const [user,             setUser]            = useState(null);
@@ -549,7 +799,23 @@ export default function App() {
   const [tournamentYear,   setTournamentYear]  = useState(CURRENT_YEAR);
   const [yearDraft,        setYearDraft]       = useState(String(CURRENT_YEAR));
   const [yearSaving,       setYearSaving]      = useState(false);
-  const [liveScores,       setLiveScores]      = useState({}); // { "Team Name": { score, oppScore, period, clock, status } }
+  const [liveScores,       setLiveScores]      = useState({});
+  // ── TOURNAMENT SWITCHER ───────────────────────────────────────────────────
+  const [activeTournament, setActiveTournament] = useState('basketball'); // 'basketball' | 'mammals'
+  // ── MAMMAL STATE ──────────────────────────────────────────────────────────
+  const [mammalBracket,       setMammalBracket]       = useState(() => buildInitialBracket());
+  const [mammalOfficialBracket, setMammalOfficialBracket] = useState(null);
+  const [mammalLocked,        setMammalLocked]        = useState(false);
+  const [mammalLeaderboard,   setMammalLeaderboard]   = useState([]);
+  const [mammalResearchData,  setMammalResearchData]  = useState({});
+  const [mammalSelectedAnimal, setMammalSelectedAnimal] = useState(null);
+  const [mammalFirstFourPicks, setMammalFirstFourPicks] = useState({});
+  const [mammalGenerating,    setMammalGenerating]    = useState(false);
+  const [mammalGenProgress,   setMammalGenProgress]   = useState({ done: 0, total: 0, current: '' });
+  const [mammalGeneratingOne, setMammalGeneratingOne] = useState(null);
+  const prevMammalBracket = useRef(null);
+  const prevMammalFF      = useRef(null);
+  const mammalSaveTimer   = useRef(null); // { "Team Name": { score, oppScore, period, clock, status } }
 
   const saveTimer   = useRef(null);
   const prevBracket = useRef(null);
@@ -587,6 +853,15 @@ export default function App() {
           setBracket(bracketOnly);
         } else { setBracket(saved); }
       }
+      // Load mammal bracket
+      const savedMammal = await loadMammalBracket(fbUser.uid);
+      if (savedMammal) {
+        if (savedMammal._firstFourPicks) {
+          setMammalFirstFourPicks(savedMammal._firstFourPicks);
+          const { _firstFourPicks, ...bracketOnly } = savedMammal;
+          setMammalBracket(bracketOnly);
+        } else { setMammalBracket(savedMammal); }
+      }
     } else { setUser(null); setIsAdmin(false); setIsTeacher(false); setBracket(buildInitialBracket()); }
     setAuthLoading(false);
   }), []);
@@ -604,7 +879,14 @@ export default function App() {
       setResearchData(data);
       if (!selectedTeam && Object.keys(data).length > 0) setSelectedTeam(Object.keys(data)[0]);
     });
-    return () => { u1(); u2(); u3(); u4(); };
+    const u5 = subscribeToMammalOfficialBracket(b => { setMammalOfficialBracket(b); if (isAdmin) setMammalBracket(b); });
+    const u6 = subscribeToMammalConfig(cfg => { setMammalLocked(cfg.locked ?? false); });
+    const u7 = subscribeToMammalLeaderboard(setMammalLeaderboard);
+    const u8 = subscribeToMammalResearchData(data => {
+      setMammalResearchData(data);
+      if (!mammalSelectedAnimal && Object.keys(data).length > 0) setMammalSelectedAnimal(Object.keys(data)[0]);
+    });
+    return () => { u1(); u2(); u3(); u4(); u5(); u6(); u7(); u8(); };
   }, [user, isAdmin]);
 
   // ── LIVE SCORES (ESPN public API, polls every 60s during tournament) ───────
@@ -665,6 +947,24 @@ export default function App() {
     return () => clearTimeout(saveTimer.current);
   }, [bracket, firstFourPicks, user, locked, isAdmin, officialBracket, isTeacher]);
 
+  // ── MAMMAL AUTO-SAVE ──────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!user || (mammalLocked && !isAdmin)) return;
+    const bStr = JSON.stringify(mammalBracket);
+    const fStr = JSON.stringify(mammalFirstFourPicks);
+    if (bStr === prevMammalBracket.current && fStr === prevMammalFF.current) return;
+    prevMammalBracket.current = bStr;
+    prevMammalFF.current = fStr;
+    clearTimeout(mammalSaveTimer.current);
+    mammalSaveTimer.current = setTimeout(async () => {
+      await saveMammalBracket(user.uid, { ...mammalBracket, _firstFourPicks: mammalFirstFourPicks }, user.displayName, user.photoURL);
+      if (isAdmin) await saveMammalOfficialBracket(mammalBracket);
+      const score = calcScore(mammalBracket, mammalOfficialBracket);
+      await updateMammalLeaderboardEntry(user.uid, user.displayName, user.photoURL, score, isTeacher);
+    }, 3000);
+    return () => clearTimeout(mammalSaveTimer.current);
+  }, [mammalBracket, mammalFirstFourPicks, user, mammalLocked, isAdmin, mammalOfficialBracket, isTeacher]);
+
   // ── PICK HANDLERS ─────────────────────────────────────────────────────────
   const clearTeamDownstream = (next, region, teamName, fromRound) => {
     for (let r = fromRound; r < 4; r++) {
@@ -689,11 +989,21 @@ export default function App() {
       const next = JSON.parse(JSON.stringify(prev));
       const game = next[region].rounds[rIdx][gIdx];
       if (!game) return prev;
+
+      // null side = undo winner (from reveal panel)
+      if (side === null) {
+        if (game.winner) clearTeamDownstream(next, region, game.winner.name, rIdx + 1);
+        game.winner = null;
+        if (isAdmin) saveOfficialBracket(next);
+        return next;
+      }
+
       const clicked = side === 'top' ? game.top : game.bottom;
       if (!clicked || clicked.isFFPlaceholder) return prev;
       if (game.winner?.name === clicked.name) {
         game.winner = null;
         clearTeamDownstream(next, region, clicked.name, rIdx + 1);
+        if (isAdmin) saveOfficialBracket(next);
         return next;
       }
       game.winner = clicked;
@@ -711,6 +1021,7 @@ export default function App() {
         next.finalFour[fi][fSide] = clicked;
         if (next.finalFour[fi].winner?.name !== clicked.name) next.finalFour[fi].winner = null;
       }
+      if (isAdmin) saveOfficialBracket(next);
       return next;
     });
   }, [locked, isAdmin]);
@@ -860,6 +1171,52 @@ export default function App() {
   const teacherBoard  = leaderboard.filter(e => e.isTeacher);
   const studentBoard  = leaderboard.filter(e => !e.isTeacher);
 
+  // ── MAMMAL DERIVED STATE ──────────────────────────────────────────────────
+  const mammalScore      = calcScore(mammalBracket, mammalOfficialBracket);
+  const mammalMyRank     = mammalLeaderboard.findIndex(e => e.uid === user?.uid) + 1;
+  const allAnimalNames   = Object.keys(mammalResearchData).sort();
+  const mammalTeacherBoard = mammalLeaderboard.filter(e => e.isTeacher);
+  const mammalStudentBoard = mammalLeaderboard.filter(e => !e.isTeacher);
+
+  // ── MAMMAL GENERATE ALL RESEARCH ─────────────────────────────────────────
+  const handleGenerateMammalResearch = useCallback(async (roster) => {
+    const animals = [];
+    ['East','West','South','Midwest'].forEach(region => {
+      (roster[region] || []).forEach(a => { if (!a.firstFour && a.name) animals.push({ name: a.name, seed: a.seed, region }); });
+    });
+    if (!animals.length) return;
+    setMammalGenerating(true);
+    setMammalGenProgress({ done: 0, total: animals.length, current: animals[0].name });
+    const allData = { ...mammalResearchData };
+    for (let i = 0; i < animals.length; i++) {
+      const { name, seed, region } = animals[i];
+      setMammalGenProgress({ done: i, total: animals.length, current: name });
+      try {
+        const card = await generateMammalResearch(name, seed, region);
+        if (card) allData[name] = { ...card, seed, region };
+      } catch (e) { console.warn('Failed:', name, e); }
+      if (i < animals.length - 1) await new Promise(r => setTimeout(r, 400));
+    }
+    await saveMammalResearchData(allData);
+    setMammalResearchData(allData);
+    setMammalGenProgress({ done: animals.length, total: animals.length, current: '' });
+    setMammalGenerating(false);
+    if (!mammalSelectedAnimal && Object.keys(allData).length > 0) setMammalSelectedAnimal(Object.keys(allData)[0]);
+  }, [mammalResearchData, mammalSelectedAnimal]);
+
+  // ── MAMMAL GENERATE ONE ───────────────────────────────────────────────────
+  const handleGenerateOneMammal = useCallback(async (animalName) => {
+    setMammalGeneratingOne(animalName);
+    try {
+      const card = await generateMammalResearch(animalName, mammalResearchData[animalName]?.seed || 1, mammalResearchData[animalName]?.region || '');
+      if (card) {
+        await saveOneMammalResearch(animalName, { ...card, seed: mammalResearchData[animalName]?.seed, region: mammalResearchData[animalName]?.region });
+        setMammalResearchData(prev => ({ ...prev, [animalName]: { ...card, seed: prev[animalName]?.seed, region: prev[animalName]?.region } }));
+      }
+    } catch (e) { console.warn('Failed:', animalName, e); }
+    setMammalGeneratingOne(null);
+  }, [mammalResearchData]);
+
   // ── LOGIN ─────────────────────────────────────────────────────────────────
   if (authLoading) return (
     <div style={{ ...S.app, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -946,6 +1303,59 @@ export default function App() {
         {/* ══════════════════ BRACKET TAB ══════════════════ */}
         {tab === 'bracket' && (
           <div style={{ padding: 20 }}>
+
+            {/* Tournament Switcher */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 20, background: 'rgba(255,255,255,0.04)', borderRadius: 12, padding: 4, width: 'fit-content', border: '1px solid rgba(255,255,255,0.08)' }}>
+              <button onClick={() => setActiveTournament('basketball')} style={{ padding: '8px 20px', borderRadius: 9, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, fontWeight: 700, background: activeTournament === 'basketball' ? ACCENT : 'transparent', color: activeTournament === 'basketball' ? '#fff' : '#888', transition: 'all .15s' }}>
+                🏀 Basketball
+              </button>
+              <button onClick={() => setActiveTournament('mammals')} style={{ padding: '8px 20px', borderRadius: 9, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, fontWeight: 700, background: activeTournament === 'mammals' ? '#16a34a' : 'transparent', color: activeTournament === 'mammals' ? '#fff' : '#888', transition: 'all .15s' }}>
+                🦁 Mammal Madness
+              </button>
+            </div>
+
+            {activeTournament === 'mammals' && (
+              <div style={{ ...S.card, display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 14, borderColor: 'rgba(134,239,172,0.25)' }}>
+                <div>
+                  <div style={{ fontSize: 11, color: '#86efac', letterSpacing: 1, textTransform: 'uppercase' }}>Your Mammal Score</div>
+                  <div style={{ fontSize: 38, fontWeight: 700, color: '#86efac', fontFamily: "'Playfair Display', serif", lineHeight: 1 }}>
+                    {mammalScore} <span style={{ fontSize: 14, color: '#888' }}>/ 1,920 pts</span>
+                  </div>
+                </div>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: 13, color: mammalLocked ? '#e74c3c' : '#22c55e', marginBottom: 6 }}>
+                    {mammalLocked ? '🔒 Brackets Locked' : '🟢 Picks Open'}
+                  </div>
+                  {isAdmin && (
+                    <button style={{ ...S.btn(mammalLocked ? '#22c55e' : '#e74c3c', '#fff'), fontSize: 12, padding: '6px 16px' }}
+                      onClick={async () => { const nl = !mammalLocked; setMammalLocked(nl); await setMammalTournamentLocked(nl); }}>
+                      {mammalLocked ? 'Unlock Brackets' : 'Lock All Brackets'}
+                    </button>
+                  )}
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: 11, color: '#777' }}>School Rank</div>
+                  <div style={{ fontSize: 34, fontWeight: 700, color: '#86efac', fontFamily: "'Playfair Display', serif", lineHeight: 1 }}>
+                    {mammalMyRank > 0 ? `#${mammalMyRank}` : '-'}
+                  </div>
+                  <div style={{ fontSize: 11, color: '#888' }}>of {mammalLeaderboard.length || '-'} entries</div>
+                </div>
+              </div>
+            )}
+
+            {activeTournament === 'mammals' && (
+              <div style={{ padding: 24, background: 'rgba(134,239,172,0.04)', borderRadius: 12, border: '1px solid rgba(134,239,172,0.15)', marginBottom: 20 }}>
+                <div style={{ fontSize: 22, fontWeight: 700, color: '#86efac', fontFamily: "'Playfair Display', serif", marginBottom: 8 }}>🦁 March Mammal Madness</div>
+                <p style={{ color: '#999', fontSize: 14, margin: 0 }}>The Mammal Madness bracket works exactly like the basketball bracket — pick your winners and see how you do! Your admin will set up the animals after they're announced.</p>
+                <div style={{ marginTop: 16, padding: 16, background: 'rgba(255,255,255,0.03)', borderRadius: 8, border: '1px solid rgba(255,255,255,0.07)' }}>
+                  <div style={{ color: '#86efac', fontWeight: 700, marginBottom: 8 }}>Mammal Bracket</div>
+                  <p style={{ color: '#777', fontSize: 13, margin: 0 }}>The full bracket will appear here once your admin sets up the animals. Same format as basketball — 64 animals, 4 regions, pick your champion!</p>
+                </div>
+              </div>
+            )}
+
+            {activeTournament !== 'mammals' && (
+              <>
             {/* Score bar */}
             <div style={{ ...S.card, display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 14 }}>
               <div>
@@ -1032,7 +1442,7 @@ export default function App() {
               <div style={{ minWidth: 3000, paddingBottom: 8 }}>
                 {(() => {
                   const CW = 240;
-                  const SH = 89;
+                  const SH = 101;
                   const SPINE_H = 56;
                   const TOP_H = 8 * SH;
                   const BOT_H = TOP_H;
@@ -1041,26 +1451,16 @@ export default function App() {
                   const hasLeftFF  = ffGamesList.some(f => f.region === 'East' || f.region === 'South');
                   const hasRightFF = ffGamesList.some(f => f.region === 'West' || f.region === 'Midwest');
 
-                  // Bracket alignment: each game's dividing line (at SH/2 from game top... 
-                  // actually dividing line is at 34px from game top, i.e. one team row height)
-                  // For top half (bottom-aligned to spine): positions measured from TOP of the column (distance from top)
-                  // R64: 8 games flush, game i top = i * SH
-                  // R32: game dividing line at gap N midpoint. Gap N midpoint (from col top) = N * SH
-                  //   game top = N*SH - 34  where N = 1,3,5,7 for games 0,1,2,3
-                  // S16: game dividing line at midpoint between R32 games i*2 and i*2+1
-                  //   R32 game i dividing line = R32_TOPS[i] + 34
-                  //   midpoint = (R32_divLine[i*2] + R32_divLine[i*2+1]) / 2
-                  // E8: same logic one more level up
-
-
-
                   // Absolute top positions for each round (from col edge toward spine)
-                  // Each game's dividing line (top + 34) sits at the midpoint of its two feeder dividing lines
+                  // SH=101: each game slot = 44px, divider = 1px, game height = 44+1+44 = 89, outer padding ~12 => ~101
+                  // R64: 8 games flush
+                  // R32 divLine at midpoint of each pair of R64 divLines (R64 divLine = top + 45)
+                  // S16, E8: same pattern one level up
                   const ROUND_ABS = [
-                    [0, 89, 178, 267, 356, 445, 534, 623],      // R64
-                    [44.5, 222.5, 400.5, 578.5],                 // R32
-                    [133.5, 489.5],                              // S16
-                    [311.5],                                     // E8
+                    [0, 101, 202, 303, 404, 505, 606, 707],        // R64  (i * SH)
+                    [50.5, 252.5, 454.5, 656.5],                   // R32  (midpoint of R64 pairs - 45)
+                    [151.5, 555.5],                                 // S16
+                    [353.5],                                        // E8
                   ];
 
                   const RoundCol = ({ region, rIdx, flip, dir }) => {
@@ -1294,12 +1694,21 @@ export default function App() {
                 })()}
               </div>
             </div>
+            </>
+            )}
           </div>
         )}
 
         {/* ══════════════════ RESEARCH TAB ══════════════════ */}
         {tab === 'research' && (
           <div style={{ padding: 24, maxWidth: 1080, margin: '0 auto' }}>
+            {/* Tournament switcher */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 20, background: 'rgba(255,255,255,0.04)', borderRadius: 12, padding: 4, width: 'fit-content', border: '1px solid rgba(255,255,255,0.08)' }}>
+              <button onClick={() => setActiveTournament('basketball')} style={{ padding: '7px 18px', borderRadius: 9, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 700, background: activeTournament === 'basketball' ? ACCENT : 'transparent', color: activeTournament === 'basketball' ? '#fff' : '#888', transition: 'all .15s' }}>🏀 Basketball</button>
+              <button onClick={() => setActiveTournament('mammals')} style={{ padding: '7px 18px', borderRadius: 9, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 700, background: activeTournament === 'mammals' ? '#16a34a' : 'transparent', color: activeTournament === 'mammals' ? '#fff' : '#888', transition: 'all .15s' }}>🦁 Mammal Madness</button>
+            </div>
+
+            {activeTournament === 'basketball' && (<>
             <h2 style={{ fontFamily: "'Playfair Display', serif", color: ACCENT2, marginBottom: 6 }}>Team Research Hub</h2>
             {isAdmin && <p style={{ color: '#777', fontSize: 13, marginBottom: 16 }}>As admin, click any field to edit it directly.</p>}
             {allTeamNames.length === 0 ? (
@@ -1334,19 +1743,52 @@ export default function App() {
                 ))}
               </div>
             </div>
+            </>)}
+
+            {activeTournament === 'mammals' && (<>
+            <h2 style={{ fontFamily: "'Playfair Display', serif", color: '#86efac', marginBottom: 6 }}>🦁 Animal Research Hub</h2>
+            {isAdmin && <p style={{ color: '#777', fontSize: 13, marginBottom: 16 }}>As admin, click "Generate Facts" on any animal card to auto-populate it.</p>}
+            {allAnimalNames.length === 0 ? (
+              <div style={{ ...S.card, textAlign: 'center', padding: 48, color: '#777', borderColor: 'rgba(134,239,172,0.15)' }}>
+                <div style={{ fontSize: 40, marginBottom: 16 }}>🦁</div>
+                <div style={{ fontSize: 16, marginBottom: 8 }}>No animal data yet</div>
+                <div style={{ fontSize: 13 }}>{isAdmin ? 'Go to Admin > Mammal Madness, set up your animals, then click "Auto-Generate Animal Facts"' : 'Check back after the admin sets up the Mammal Madness animals'}</div>
+              </div>
+            ) : (
+              <>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 24 }}>
+                  {allAnimalNames.map(a => (
+                    <button key={a} style={{ ...S.btn(mammalSelectedAnimal === a ? '#16a34a' : 'rgba(255,255,255,0.05)', mammalSelectedAnimal === a ? '#fff' : '#aaa'), padding: '7px 16px', fontSize: 13 }} onClick={() => setMammalSelectedAnimal(a)}>{a}</button>
+                  ))}
+                </div>
+                {mammalSelectedAnimal && (
+                  <MammalResearchCard
+                    animalName={mammalSelectedAnimal}
+                    card={mammalResearchData[mammalSelectedAnimal]}
+                    isAdmin={isAdmin}
+                    generating={mammalGeneratingOne === mammalSelectedAnimal}
+                    onGenerate={handleGenerateOneMammal}
+                  />
+                )}
+              </>
+            )}
+            </>)}
           </div>
         )}
 
         {/* ══════════════════ LEADERBOARD TAB ══════════════════ */}
         {tab === 'leaderboard' && (
           <div style={{ padding: 24, maxWidth: 660, margin: '0 auto' }}>
-            <h2 style={{ fontFamily: "'Playfair Display', serif", color: ACCENT2, marginBottom: 20 }}>Leaderboard</h2>
+            {/* Tournament switcher */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 20, background: 'rgba(255,255,255,0.04)', borderRadius: 12, padding: 4, width: 'fit-content', border: '1px solid rgba(255,255,255,0.08)' }}>
+              <button onClick={() => setActiveTournament('basketball')} style={{ padding: '7px 18px', borderRadius: 9, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 700, background: activeTournament === 'basketball' ? ACCENT : 'transparent', color: activeTournament === 'basketball' ? '#fff' : '#888', transition: 'all .15s' }}>🏀 Basketball</button>
+              <button onClick={() => setActiveTournament('mammals')} style={{ padding: '7px 18px', borderRadius: 9, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 700, background: activeTournament === 'mammals' ? '#16a34a' : 'transparent', color: activeTournament === 'mammals' ? '#fff' : '#888', transition: 'all .15s' }}>🦁 Mammal Madness</button>
+            </div>
 
-            {/* Students */}
+            {activeTournament === 'basketball' && (<>
+            <h2 style={{ fontFamily: "'Playfair Display', serif", color: ACCENT2, marginBottom: 20 }}>Leaderboard</h2>
             <div style={S.card}>
-              {studentBoard.length > 0 && (
-                <div style={{ fontSize: 11, color: '#888', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 10 }}>Students</div>
-              )}
+              {studentBoard.length > 0 && <div style={{ fontSize: 11, color: '#888', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 10 }}>Students</div>}
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#888', padding: '0 12px 10px', letterSpacing: 1, textTransform: 'uppercase' }}>
                 <span>Rank</span><span style={{ flex: 1, marginLeft: 54 }}>Name</span><span>Points</span>
               </div>
@@ -1361,8 +1803,6 @@ export default function App() {
                   </div>
                 ))}
             </div>
-
-            {/* Teachers (separate section) */}
             {teacherBoard.length > 0 && (
               <div style={{ ...S.card, marginTop: 20, borderColor: 'rgba(245,158,11,0.25)' }}>
                 <div style={{ fontSize: 11, color: GOLD, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 10 }}>🍎 Teachers</div>
@@ -1376,6 +1816,40 @@ export default function App() {
                 ))}
               </div>
             )}
+            </>)}
+
+            {activeTournament === 'mammals' && (<>
+            <h2 style={{ fontFamily: "'Playfair Display', serif", color: '#86efac', marginBottom: 20 }}>🦁 Mammal Madness Leaderboard</h2>
+            <div style={{ ...S.card, borderColor: 'rgba(134,239,172,0.2)' }}>
+              {mammalStudentBoard.length > 0 && <div style={{ fontSize: 11, color: '#888', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 10 }}>Students</div>}
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#888', padding: '0 12px 10px', letterSpacing: 1, textTransform: 'uppercase' }}>
+                <span>Rank</span><span style={{ flex: 1, marginLeft: 54 }}>Name</span><span>Points</span>
+              </div>
+              {mammalStudentBoard.length === 0
+                ? <div style={{ color: '#888', textAlign: 'center', padding: 24 }}>No mammal entries yet!</div>
+                : mammalStudentBoard.map((e, i) => (
+                  <div key={e.uid} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '11px 12px', background: e.uid === user?.uid ? 'rgba(134,239,172,0.08)' : 'transparent', borderRadius: 8, marginBottom: 3, border: e.uid === user?.uid ? '1px solid rgba(134,239,172,0.25)' : '1px solid transparent' }}>
+                    <span style={{ fontSize: 17, fontWeight: 700, color: i === 0 ? '#86efac' : i === 1 ? '#aaa' : i === 2 ? '#cd7f32' : '#444', minWidth: 30, fontFamily: "'Playfair Display', serif" }}>#{i+1}</span>
+                    {e.photoURL ? <img src={e.photoURL} alt="" width={26} height={26} style={{ borderRadius: '50%' }} /> : <div style={{ width: 26, height: 26, borderRadius: '50%', background: '#111', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: '#777' }}>?</div>}
+                    <span style={{ flex: 1, fontWeight: e.uid === user?.uid ? 700 : 400, color: e.uid === user?.uid ? '#86efac' : '#bbb', fontSize: 14 }}>{formatName(e.displayName)}{e.uid === user?.uid ? ' (You)' : ''}</span>
+                    <span style={{ fontSize: 20, fontWeight: 700, color: '#86efac', fontFamily: "'Playfair Display', serif" }}>{e.score}</span>
+                  </div>
+                ))}
+            </div>
+            {mammalTeacherBoard.length > 0 && (
+              <div style={{ ...S.card, marginTop: 20, borderColor: 'rgba(245,158,11,0.25)' }}>
+                <div style={{ fontSize: 11, color: GOLD, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 10 }}>🍎 Teachers</div>
+                {mammalTeacherBoard.map((e, i) => (
+                  <div key={e.uid} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '11px 12px', background: e.uid === user?.uid ? 'rgba(245,158,11,0.06)' : 'transparent', borderRadius: 8, marginBottom: 3, border: e.uid === user?.uid ? '1px solid rgba(245,158,11,0.2)' : '1px solid transparent' }}>
+                    <span style={{ fontSize: 17, fontWeight: 700, color: i === 0 ? GOLD2 : '#666', minWidth: 30, fontFamily: "'Playfair Display', serif" }}>#{i+1}</span>
+                    {e.photoURL ? <img src={e.photoURL} alt="" width={26} height={26} style={{ borderRadius: '50%' }} /> : <div style={{ width: 26, height: 26, borderRadius: '50%', background: '#111', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: '#777' }}>?</div>}
+                    <span style={{ flex: 1, fontWeight: e.uid === user?.uid ? 700 : 400, color: e.uid === user?.uid ? GOLD2 : '#bbb', fontSize: 14 }}>{formatName(e.displayName)}{e.uid === user?.uid ? ' (You)' : ''}</span>
+                    <span style={{ fontSize: 20, fontWeight: 700, color: GOLD2, fontFamily: "'Playfair Display', serif" }}>{e.score}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            </>)}
           </div>
         )}
 
@@ -1387,7 +1861,7 @@ export default function App() {
               <h2 style={{ fontFamily: "'Playfair Display', serif", color: '#e74c3c', margin: 0 }}>Admin Panel</h2>
             </div>
             <div style={{ display: 'flex', gap: 4, marginBottom: 24, borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-              {[['dashboard','Dashboard'],['teams','Set Up Teams'],['help','Help']].map(([id, label]) => (
+              {[['dashboard','Dashboard'],['teams','Set Up Teams'],['mammals','🦁 Mammal Madness'],['help','Help']].map(([id, label]) => (
                 <button key={id} style={{ ...S.navBtn(adminSubTab === id), borderBottom: adminSubTab === id ? '2px solid #e74c3c' : '2px solid transparent', borderRadius: '6px 6px 0 0', padding: '8px 18px' }} onClick={() => setAdminSubTab(id)}>{label}</button>
               ))}
             </div>
@@ -1406,6 +1880,14 @@ export default function App() {
                     <div style={{ fontSize: 12, color: '#999' }}>Currently fetching: {genProgress.current}</div>
                   </div>
                 )}
+
+                {/* Reveal Mode */}
+                <RevealModePanel
+                  bracket={officialBracket || bracket}
+                  onRevealWinner={handlePick}
+                  locked={locked}
+                  onLockToggle={async () => { const nl = !locked; setLocked(nl); await setTournamentLocked(nl); }}
+                />
 
                 {/* Tournament Year */}
                 <div style={{ ...S.card, borderColor: 'rgba(22,163,74,0.3)', marginBottom: 16 }}>
@@ -1440,6 +1922,40 @@ export default function App() {
 
             {adminSubTab === 'teams' && (
               <TeamEntryPanel onTeamsSaved={handleTeamsSaved} onRequestGenerateResearch={handleGenerateResearch} />
+            )}
+
+            {adminSubTab === 'mammals' && (
+              <>
+                {mammalGenerating && (
+                  <div style={{ ...S.card, marginBottom: 16, borderColor: 'rgba(134,239,172,0.3)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                      <span style={{ color: '#86efac', fontSize: 14, fontWeight: 700 }}>Generating animal facts...</span>
+                      <span style={{ color: '#888', fontSize: 13 }}>{mammalGenProgress.done} / {mammalGenProgress.total}</span>
+                    </div>
+                    <div style={{ height: 6, background: 'rgba(255,255,255,0.06)', borderRadius: 3, overflow: 'hidden', marginBottom: 8 }}>
+                      <div style={{ height: '100%', background: '#86efac', borderRadius: 3, width: `${(mammalGenProgress.done / mammalGenProgress.total) * 100}%`, transition: 'width 0.3s' }} />
+                    </div>
+                    <div style={{ fontSize: 12, color: '#999' }}>Currently generating: {mammalGenProgress.current}</div>
+                  </div>
+                )}
+                {/* Mammal lock control */}
+                <div style={{ ...S.card, borderColor: 'rgba(134,239,172,0.2)', marginBottom: 16 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div>
+                      <h3 style={{ color: '#86efac', marginBottom: 4 }}>Mammal Bracket Lock</h3>
+                      <p style={{ color: '#999', fontSize: 13, margin: 0 }}>Status: <span style={{ color: mammalLocked ? '#e74c3c' : '#22c55e', fontWeight: 700 }}>{mammalLocked ? '🔒 Locked' : '🟢 Open'}</span></p>
+                    </div>
+                    <button style={{ ...S.btn(mammalLocked ? '#22c55e' : '#e74c3c', '#fff'), fontSize: 13, padding: '8px 20px' }}
+                      onClick={async () => { const nl = !mammalLocked; setMammalLocked(nl); await setMammalTournamentLocked(nl); }}>
+                      {mammalLocked ? 'Unlock Brackets' : 'Lock All Brackets'}
+                    </button>
+                  </div>
+                </div>
+                <MammalEntryPanel
+                  onAnimalsSaved={(nb, roster) => { setMammalBracket(nb); }}
+                  onRequestGenerateMammalResearch={handleGenerateMammalResearch}
+                />
+              </>
             )}
 
             {adminSubTab === 'help' && (
