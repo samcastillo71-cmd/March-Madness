@@ -1070,36 +1070,36 @@ export default function App() {
                         <SpineCell label="Sweet 16"     sub='"Sweet Sixteen"'  color={ROUND_BORDER_COLORS[2]} />
                         <SpineCell label="Elite Eight"  sub='"Elite Eight"'    color={ROUND_BORDER_COLORS[3]} />
 
-                        {/* Center: FF left | Championship | FF right */}
-                        <div style={{ width: CW * 3, flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6, padding: '8px 10px', borderLeft: '1px solid rgba(255,255,255,0.08)' }}>
-                          {/* Final Four — East vs West */}
-                          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
-                            <div style={{ fontSize: 10, fontWeight: 800, color: '#34d399', letterSpacing: 1.5, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Final Four</div>
-                            <GameSlot game={bracket.finalFour[0]} onPick={s => handleFFPick(0, s)} locked={locked && !isAdmin} roundIdx={4} liveScores={liveScores} />
-                            <div style={{ fontSize: 9, color: '#555' }}>East vs West</div>
-                          </div>
-
-                          {/* Championship — center */}
-                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, padding: '6px 10px', background: 'linear-gradient(135deg,rgba(245,158,11,0.18),rgba(124,58,237,0.14))', border: '2px solid rgba(245,158,11,0.65)', borderRadius: 10, animation: 'champGlow 3s ease-in-out infinite', flexShrink: 0 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                              <span style={{ fontSize: 14 }}>🏆</span>
-                              <span style={{ fontSize: 11, fontWeight: 800, color: GOLD2, letterSpacing: 1, fontFamily: "'Playfair Display', serif", whiteSpace: 'nowrap' }}>Championship</span>
-                              <span style={{ fontSize: 14 }}>🏆</span>
+                        {/* Center: FF (top) / Championship / FF (bottom) — stacked vertically */}
+                        <div style={{ width: CW * 3, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px 10px', borderLeft: '1px solid rgba(255,255,255,0.08)' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                            {/* Final Four — East vs West (top) */}
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                              <div style={{ fontSize: 10, fontWeight: 800, color: '#34d399', letterSpacing: 1.5, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Final Four — East vs West</div>
+                              <GameSlot game={bracket.finalFour[0]} onPick={s => handleFFPick(0, s)} locked={locked && !isAdmin} roundIdx={4} liveScores={liveScores} />
                             </div>
-                            <GameSlot game={bracket.championship} onPick={handleChampPick} locked={locked && !isAdmin} isChampionship onScoreChange={handleChampScore} roundIdx={-1} liveScores={liveScores} />
-                            {bracket.championship?.winner && (
-                              <div style={{ textAlign: 'center', padding: '3px 8px', background: 'rgba(245,158,11,0.18)', borderRadius: 5, border: '1px solid rgba(245,158,11,0.5)' }}>
-                                <div style={{ fontSize: 9, color: GOLD2, letterSpacing: 1.5 }}>🎉 CHAMPION</div>
-                                <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', fontFamily: "'Playfair Display', serif" }}>{bracket.championship.winner.name}</div>
-                              </div>
-                            )}
-                          </div>
 
-                          {/* Final Four — South vs Midwest */}
-                          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
-                            <div style={{ fontSize: 10, fontWeight: 800, color: '#34d399', letterSpacing: 1.5, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Final Four</div>
-                            <GameSlot game={bracket.finalFour[1]} onPick={s => handleFFPick(1, s)} locked={locked && !isAdmin} roundIdx={4} liveScores={liveScores} />
-                            <div style={{ fontSize: 9, color: '#555' }}>South vs Midwest</div>
+                            {/* Championship — middle */}
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, padding: '6px 10px', background: 'linear-gradient(135deg,rgba(245,158,11,0.18),rgba(124,58,237,0.14))', border: '2px solid rgba(245,158,11,0.65)', borderRadius: 10, animation: 'champGlow 3s ease-in-out infinite' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                                <span style={{ fontSize: 14 }}>🏆</span>
+                                <span style={{ fontSize: 11, fontWeight: 800, color: GOLD2, letterSpacing: 1, fontFamily: "'Playfair Display', serif", whiteSpace: 'nowrap' }}>Championship</span>
+                                <span style={{ fontSize: 14 }}>🏆</span>
+                              </div>
+                              <GameSlot game={bracket.championship} onPick={handleChampPick} locked={locked && !isAdmin} isChampionship onScoreChange={handleChampScore} roundIdx={-1} liveScores={liveScores} />
+                              {bracket.championship?.winner && (
+                                <div style={{ textAlign: 'center', padding: '3px 8px', background: 'rgba(245,158,11,0.18)', borderRadius: 5, border: '1px solid rgba(245,158,11,0.5)' }}>
+                                  <div style={{ fontSize: 9, color: GOLD2, letterSpacing: 1.5 }}>🎉 CHAMPION</div>
+                                  <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', fontFamily: "'Playfair Display', serif" }}>{bracket.championship.winner.name}</div>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Final Four — South vs Midwest (bottom) */}
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                              <GameSlot game={bracket.finalFour[1]} onPick={s => handleFFPick(1, s)} locked={locked && !isAdmin} roundIdx={4} liveScores={liveScores} />
+                              <div style={{ fontSize: 10, fontWeight: 800, color: '#34d399', letterSpacing: 1.5, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Final Four — South vs Midwest</div>
+                            </div>
                           </div>
                         </div>
 
@@ -1116,7 +1116,7 @@ export default function App() {
                         <div style={{ position: 'absolute', top: LABEL_TOP - SH, left: (hasLeftFF ? CW : 0) + S16_CENTER_X + CW, transform: 'translate(-50%, -50%)', pointerEvents: 'none', zIndex: 0 }}>
                           <span style={{ fontSize: 130, fontWeight: 900, color: RC.South, opacity: 0.08, letterSpacing: 4, textTransform: 'uppercase', userSelect: 'none', lineHeight: 1, display: 'block', whiteSpace: 'nowrap' }}>SOUTH</span>
                         </div>
-                        <div style={{ position: 'absolute', top: LABEL_TOP - SH, right: (hasRightFF ? CW : 0) + S16_CENTER_X + CW * 3, transform: 'translate(50%, -50%)', pointerEvents: 'none', zIndex: 0 }}>
+                        <div style={{ position: 'absolute', top: LABEL_TOP - SH, right: (hasRightFF ? CW : 0) + S16_CENTER_X + CW * 2.5, transform: 'translate(50%, -50%)', pointerEvents: 'none', zIndex: 0 }}>
                           <span style={{ fontSize: 130, fontWeight: 900, color: RC.Midwest, opacity: 0.08, letterSpacing: 4, textTransform: 'uppercase', userSelect: 'none', lineHeight: 1, display: 'block', whiteSpace: 'nowrap' }}>MIDWEST</span>
                         </div>
                         {hasLeftFF && <FFCol regionTop="East" regionBot="South" />}
