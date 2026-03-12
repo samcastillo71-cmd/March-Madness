@@ -1120,124 +1120,65 @@ export default function App() {
                   // Dividing line y-positions (from col top) for each round
                   const DIVS = {
                     top: [
-                      [34, 123, 212, 301, 390, 479, 568, 657],   // R64
-                      [78.5, 256.5, 434.5, 612.5],               // R32
-                      [167.5, 523.5],                            // S16
-                      [345.5],                                   // E8
+                      [34, 123, 212, 301, 390, 479, 568, 657],
+                      [78.5, 256.5, 434.5, 612.5],
+                      [167.5, 523.5],
+                      [345.5],
                     ],
                     bot: [
-                      [657, 568, 479, 390, 301, 212, 123, 34],   // R64
-                      [612.5, 434.5, 256.5, 78.5],               // R32
-                      [523.5, 167.5],                            // S16
-                      [345.5],                                   // E8
+                      [657, 568, 479, 390, 301, 212, 123, 34],
+                      [612.5, 434.5, 256.5, 78.5],
+                      [523.5, 167.5],
+                      [345.5],
                     ],
                   };
 
-                  // BracketLines: absolute SVG overlay for one side (East or West/Midwest/South)
-                  // xOffset = left edge of the R64 column within the top/bot half row
-                  // flip = true for West/Midwest (rounds go E8->R64 left to right, lines point left)
-                  // dir = 'top' | 'bot'
                   const BracketLines = ({ xOffset, flip, dir }) => {
                     const divs = DIVS[dir];
                     const H = TOP_H;
-                    const W = CW * 4; // 4 round columns
-                    const MID = CW * 0.5; // stub meet point within connector gap
+                    const W = CW * 4;
+                    const STUB = CW * 0.5;
+                    const lines = [];
 
-                    const paths = [];
                     for (let rIdx = 0; rIdx < 3; rIdx++) {
                       const fromDivs = divs[rIdx];
                       const toDivs   = divs[rIdx + 1];
-                      const fromColor = ROUND_BORDER_COLORS[rIdx];
-                      const toColor   = ROUND_BORDER_COLORS[rIdx + 1];
-                      const gradId = `cg-${dir}-${flip?'f':'n'}-${rIdx}`;
+                      const gradId   = `cg-${dir}-${flip?'f':'n'}-${rIdx}`;
 
-                      // x positions within the W-wide SVG
-                      // For non-flip (East/South): R64 at left, E8 at right
-                      //   col rIdx left edge = rIdx * CW
-                      //   connector space between rIdx and rIdx+1: x from rIdx*CW+CW to (rIdx+1)*CW
-                      //   stub exits right edge of fromCol: x0 = rIdx*CW + CW
-                      //   stub enters left edge of toCol:   x1 = (rIdx+1)*CW
-                      //   vertical at x = x0 + MID
-                      // For flip (West/Midwest): E8 at left, R64 at right
-                      //   rIdx=0 is R64, which is at the right: col at x = (3-rIdx)*CW
-                      //   fromCol right edge = (3-rIdx)*CW  ... but lines go rightward toward spine
-                      //   Actually flip: fromCol (lower round) is at right, toCol is to its left
-                      //   fromCol left edge = (3-rIdx)*CW, connector space to left
-                      //   stub exits left edge: x0 = (3-rIdx)*CW
-                      //   stub enters right edge of toCol: x1 = (3-rIdx)*CW - CW = (2-rIdx)*CW + CW ... 
-                      //   vertical at x = x0 - MID
-
-                      toDivs.forEach((toY, tIdx) => {
+                      toDivs.forEach((yMid, tIdx) => {
                         const y1 = fromDivs[tIdx * 2];
                         const y2 = fromDivs[tIdx * 2 + 1];
                         if (y1 == null || y2 == null) return;
-                        const yMid = toY;
 
-                        let x0, xV, x1;
-                        if (!flip) {
-                          x0 = rIdx * CW + CW;       // right edge of fromCol
-                          xV = x0 + MID;             // vertical line x
-                          x1 = (rIdx + 1) * CW + CW; // left edge of toCol (= xV + MID... wait)
-                          // connector space is CW wide: from rIdx*CW+CW to rIdx*CW+2*CW
-                          // but we have no connector column — lines draw directly in SVG space
-                          // fromCol right = rIdx*CW + CW, toCol left = (rIdx+1)*CW + 0... 
-                          // Actually columns are adjacent — no gap col — so fromCol right = toCol left
-                          // Lines must fit within a CW-wide zone. Use MID = CW*0.5 within that zone.
-                          x0 = (rIdx + 1) * CW;     // boundary between fromCol and toCol
-                          xV = x0 + MID;
-                          x1 = (rIdx + 2) * CW;     // right edge of toCol... no, left edge
-                          // Simpler: stub goes from fromCol right edge (x = (rIdx+1)*CW - 0) 
-                          // into the toCol by MID pixels, vertical, then to toCol right
-                          // Actually we want: from game right edge, go right MID, vertical, go right MID to next game
-                          // fromCol occupies [rIdx*CW .. (rIdx+1)*CW]
-                          // toCol occupies [(rIdx+1)*CW .. (rIdx+2)*CW]
-                          // stub from fromCol right edge = (rIdx+1)*CW, go right MID
-                          x0 = (rIdx + 1) * CW;
-                          xV = x0 + MID;
-                          x1 = (rIdx + 2) * CW; // not needed, line goes from xV to xV... 
-                          // horizontal to toCol left edge = (rIdx+1)*CW, already at x0
-                          // Let's just do: two stubs + vertical + horizontal to toGame
-                        } else {
-                          // flip: R64 at right (col 3), R32 at col 2, S16 at col 1, E8 at col 0
-                          // fromCol (rIdx=0 = R64) right edge: W - rIdx*CW = W
-                          // fromCol occupies [W-(rIdx+1)*CW .. W-rIdx*CW]
-                          // fromCol left edge = W - (rIdx+1)*CW
-                          x0 = W - (rIdx + 1) * CW; // left edge of fromCol = right edge of connector zone
-                          xV = x0 - MID;
-                          x1 = W - (rIdx + 2) * CW; // right edge of toCol
-                        }
+                        // xBound: right edge of fromCol (= left edge of toCol)
+                        // flip=false (East/South): R64 leftmost, cols go right toward spine
+                        // flip=true  (West/Midwest): R64 rightmost, cols go left toward spine
+                        const xBound = flip ? W - (rIdx + 1) * CW : (rIdx + 1) * CW;
+                        const xV     = flip ? xBound - STUB        : xBound + STUB;
+                        const xTo    = flip ? xBound - CW          : xBound + CW;
 
-                        paths.push(
+                        lines.push(
                           <g key={`${rIdx}-${tIdx}`}>
-                            <defs>
-                              <linearGradient id={gradId} x1={flip?'100%':'0%'} y1="0%" x2={flip?'0%':'100%'} y2="0%">
-                                <stop offset="0%" stopColor={fromColor} />
-                                <stop offset="100%" stopColor={toColor} />
-                              </linearGradient>
-                            </defs>
-                            <line x1={x0} y1={y1} x2={xV} y2={y1} stroke={`url(#${gradId})`} strokeWidth="1.5" />
-                            <line x1={x0} y1={y2} x2={xV} y2={y2} stroke={`url(#${gradId})`} strokeWidth="1.5" />
-                            <line x1={xV} y1={y1} x2={xV} y2={y2} stroke={`url(#${gradId})`} strokeWidth="1.5" />
-                            <line x1={xV} y1={yMid} x2={flip ? x1 : x0} y2={yMid} stroke={`url(#${gradId})`} strokeWidth="1.5" />
+                            <line x1={xBound} y1={y1}   x2={xV}   y2={y1}   stroke={`url(#${gradId})`} strokeWidth="1.5" />
+                            <line x1={xBound} y1={y2}   x2={xV}   y2={y2}   stroke={`url(#${gradId})`} strokeWidth="1.5" />
+                            <line x1={xV}     y1={y1}   x2={xV}   y2={y2}   stroke={`url(#${gradId})`} strokeWidth="1.5" />
+                            <line x1={xV}     y1={yMid} x2={xTo}  y2={yMid} stroke={`url(#${gradId})`} strokeWidth="1.5" />
                           </g>
                         );
                       });
                     }
 
                     return (
-                      <svg width={W} height={H} style={{ position: 'absolute', top: 0, left: flip ? 'auto' : xOffset, right: flip ? xOffset : 'auto', pointerEvents: 'none', zIndex: 1, overflow: 'visible' }}>
+                      <svg width={W} height={H} style={{ position: 'absolute', top: 0, left: flip ? 'auto' : xOffset, right: flip ? xOffset : 'auto', pointerEvents: 'none', zIndex: 2, overflow: 'visible' }}>
                         <defs>
-                          {[0,1,2].map(rIdx => {
-                            const gradId = `cg-${dir}-${flip?'f':'n'}-${rIdx}`;
-                            return (
-                              <linearGradient key={gradId} id={gradId} x1={flip?'100%':'0%'} y1="0%" x2={flip?'0%':'100%'} y2="0%">
-                                <stop offset="0%" stopColor={ROUND_BORDER_COLORS[rIdx]} />
-                                <stop offset="100%" stopColor={ROUND_BORDER_COLORS[rIdx+1]} />
-                              </linearGradient>
-                            );
-                          })}
+                          {[0,1,2].map(rIdx => (
+                            <linearGradient key={rIdx} id={`cg-${dir}-${flip?'f':'n'}-${rIdx}`} x1={flip?'100%':'0%'} y1="0%" x2={flip?'0%':'100%'} y2="0%">
+                              <stop offset="0%" stopColor={ROUND_BORDER_COLORS[rIdx]} />
+                              <stop offset="100%" stopColor={ROUND_BORDER_COLORS[rIdx+1]} />
+                            </linearGradient>
+                          ))}
                         </defs>
-                        {paths}
+                        {lines}
                       </svg>
                     );
                   };
