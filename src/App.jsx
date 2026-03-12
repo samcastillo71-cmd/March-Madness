@@ -22,22 +22,22 @@ const ACCENT  = '#16a34a';
 const ACCENT2 = '#4ade80';
 const GOLD    = '#f59e0b';
 const GOLD2   = '#fcd34d';
-const RC = { East: '#60a5fa', West: '#f87171', South: '#4ade80', Midwest: '#fb923c' };
+const RC = { East: '#93c5fd', West: '#fca5a5', South: '#86efac', Midwest: '#fdba74' };
 
 // Round colors — each round has a distinct tint
 const ROUND_COLORS = [
-  'rgba(96,165,250,0.13)',   // R64 — blue tint
-  'rgba(167,139,250,0.13)',  // R32 — purple tint
-  'rgba(251,191,36,0.10)',   // S16 — amber tint
-  'rgba(239,68,68,0.13)',    // E8  — red tint
-  'rgba(16,185,129,0.15)',   // FF  — teal
+  'rgba(96,165,250,0.22)',   // R64 — blue tint
+  'rgba(167,139,250,0.22)',  // R32 — purple tint
+  'rgba(251,191,36,0.18)',   // S16 — amber tint
+  'rgba(239,68,68,0.22)',    // E8  — red tint
+  'rgba(16,185,129,0.25)',   // FF  — teal
 ];
 const ROUND_BORDER_COLORS = [
-  'rgba(96,165,250,0.35)',
-  'rgba(167,139,250,0.35)',
-  'rgba(251,191,36,0.30)',
-  'rgba(239,68,68,0.35)',
-  'rgba(52,211,153,0.45)',   // FF  — teal
+  'rgba(96,165,250,0.6)',
+  'rgba(167,139,250,0.6)',
+  'rgba(251,191,36,0.55)',
+  'rgba(239,68,68,0.6)',
+  'rgba(52,211,153,0.7)',    // FF  — teal
 ];
 
 const ROUND_LABELS = [
@@ -48,13 +48,13 @@ const ROUND_LABELS = [
 ];
 
 const S = {
-  app:    { minHeight: '100vh', background: '#060d08', color: '#dde8e2', fontFamily: "'Source Sans 3', sans-serif" },
-  header: { background: 'rgba(6,13,8,.97)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(22,163,74,.3)', padding: '0 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 60, position: 'sticky', top: 0, zIndex: 200 },
+  app:    { minHeight: '100vh', background: '#0a1a0e', color: '#e8f5ee', fontFamily: "'Source Sans 3', sans-serif" },
+  header: { background: 'rgba(10,26,14,.97)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(22,163,74,.5)', padding: '0 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 60, position: 'sticky', top: 0, zIndex: 200 },
   logo:   { fontFamily: "'Playfair Display', serif", fontSize: 19, fontWeight: 900, color: ACCENT2, letterSpacing: 1 },
-  card:   { background: 'rgba(22,163,74,0.06)', border: '1px solid rgba(22,163,74,0.18)', borderRadius: 12, padding: 20 },
+  card:   { background: 'rgba(22,163,74,0.10)', border: '1px solid rgba(22,163,74,0.30)', borderRadius: 12, padding: 20 },
   btn:    (bg = ACCENT, fg = '#fff') => ({ padding: '10px 22px', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, fontWeight: 700, background: bg, color: fg, letterSpacing: 0.3 }),
-  navBtn: a => ({ padding: '7px 15px', borderRadius: 6, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 600, background: a ? ACCENT : 'transparent', color: a ? '#fff' : '#777', transition: 'all .15s' }),
-  input:  { background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(22,163,74,0.25)', borderRadius: 8, color: '#fff', padding: '10px 14px', fontSize: 14, fontFamily: 'inherit', outline: 'none', width: '100%' },
+  navBtn: a => ({ padding: '7px 15px', borderRadius: 6, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 600, background: a ? ACCENT : 'transparent', color: a ? '#fff' : '#999', transition: 'all .15s' }),
+  input:  { background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(22,163,74,0.35)', borderRadius: 8, color: '#fff', padding: '10px 14px', fontSize: 14, fontFamily: 'inherit', outline: 'none', width: '100%' },
   tag:    (color) => ({ fontSize: 10, color, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4, fontWeight: 700 }),
 };
 
@@ -113,7 +113,7 @@ function GameSlot({ game, onPick, locked, isChampionship, onScoreChange, flipped
 
   const Team = ({ team, side }) => {
     if (!team) return (
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 8px', height: 34, color: '#444', fontSize: 11, fontStyle: 'italic', flexDirection: flipped ? 'row-reverse' : 'row' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 8px', height: 34, color: '#888', fontSize: 11, fontStyle: 'italic', flexDirection: flipped ? 'row-reverse' : 'row' }}>
         <div style={{ width: 20, height: 20, borderRadius: '50%', background: '#111', flexShrink: 0 }} />TBD
       </div>
     );
@@ -183,12 +183,12 @@ function GameSlot({ game, onPick, locked, isChampionship, onScoreChange, flipped
               <span style={{ fontSize: 10, color: '#f87171', fontWeight: 700 }}>LIVE</span>
             </div>
           )}
-          {isFinal && <span style={{ fontSize: 10, color: '#555', fontWeight: 700, letterSpacing: 1 }}>FINAL</span>}
-          <span style={{ fontSize: 18, fontWeight: 900, color: '#444' }}>VS</span>
+          {isFinal && <span style={{ fontSize: 10, color: '#777', fontWeight: 700, letterSpacing: 1 }}>FINAL</span>}
+          <span style={{ fontSize: 18, fontWeight: 900, color: '#888' }}>VS</span>
           {isChampionship && (
             <div style={{ display: 'flex', gap: 4, marginTop: 4 }}>
               <input placeholder="–" value={game.scoreTop || ''} onChange={e => onScoreChange('scoreTop', e.target.value)} style={{ ...scoreInput, width: 44, textAlign: 'center' }} />
-              <span style={{ color: '#555', fontSize: 13, alignSelf: 'center' }}>-</span>
+              <span style={{ color: '#777', fontSize: 13, alignSelf: 'center' }}>-</span>
               <input placeholder="–" value={game.scoreBottom || ''} onChange={e => onScoreChange('scoreBottom', e.target.value)} style={{ ...scoreInput, width: 44, textAlign: 'center' }} />
             </div>
           )}
@@ -201,24 +201,24 @@ function GameSlot({ game, onPick, locked, isChampionship, onScoreChange, flipped
   return (
     <div style={{ border: `1px solid ${slotBorder}`, borderRadius: 6, overflow: 'hidden', background: slotBg, minWidth: 178 }}>
       <Team team={top} side="top" />
-      <div style={{ height: 1, background: 'rgba(255,255,255,0.08)' }} />
+      <div style={{ height: 1, background: 'rgba(255,255,255,0.15)' }} />
       <Team team={bottom} side="bottom" />
       {isLiveGame && topLive?.clock && (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, padding: '2px 8px', background: 'rgba(239,68,68,0.12)', borderTop: '1px solid rgba(239,68,68,0.2)' }}>
           <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#ef4444', display: 'inline-block', animation: 'livePulse 1.2s ease-in-out infinite' }} />
           <span style={{ fontSize: 10, color: '#f87171', fontWeight: 700 }}>LIVE</span>
-          <span style={{ fontSize: 10, color: '#666' }}>{topLive.period ? `${topLive.period}H` : ''} {topLive.clock}</span>
+          <span style={{ fontSize: 10, color: '#999' }}>{topLive.period ? `${topLive.period}H` : ''} {topLive.clock}</span>
         </div>
       )}
       {isFinal && (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2px 8px', background: 'rgba(255,255,255,0.04)', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-          <span style={{ fontSize: 10, color: '#555', fontWeight: 700, letterSpacing: 1 }}>FINAL</span>
+          <span style={{ fontSize: 10, color: '#777', fontWeight: 700, letterSpacing: 1 }}>FINAL</span>
         </div>
       )}
       {isChampionship && (
         <div style={{ display: 'flex', gap: 4, padding: '4px 8px', borderTop: '1px solid rgba(245,158,11,0.2)' }}>
           <input placeholder="Score 1" value={game.scoreTop || ''} onChange={e => onScoreChange('scoreTop', e.target.value)} style={scoreInput} />
-          <span style={{ color: '#555', fontSize: 11, alignSelf: 'center' }}>-</span>
+          <span style={{ color: '#777', fontSize: 11, alignSelf: 'center' }}>-</span>
           <input placeholder="Score 2" value={game.scoreBottom || ''} onChange={e => onScoreChange('scoreBottom', e.target.value)} style={scoreInput} />
         </div>
       )}
@@ -253,7 +253,7 @@ function RegionBracket({ region, rounds, onPick, locked, flipped = false, vflipp
           }}>
             <div style={{ textAlign: 'center', marginBottom: vflipped ? 0 : 4, marginTop: vflipped ? 4 : 0, whiteSpace: 'nowrap' }}>
               <div style={{ fontSize: 11, color: ACCENT2, fontWeight: 700, letterSpacing: 1.2, textTransform: 'uppercase' }}>{label?.main}</div>
-              <div style={{ fontSize: 9, color: '#555', fontStyle: 'italic', marginTop: 1 }}>{label?.sub}</div>
+              <div style={{ fontSize: 9, color: '#777', fontStyle: 'italic', marginTop: 1 }}>{label?.sub}</div>
             </div>
             {theGames.map((game, gIdx) => (
               <GameSlot key={gIdx} game={game} locked={locked} flipped={flipped} roundIdx={logicIdx}
@@ -275,7 +275,7 @@ function EditableField({ value, onSave, color = '#ccc', large = false, multiline
   if (!editing) return (
     <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6, cursor: 'pointer' }} onClick={() => { setDraft(value); setEditing(true); }}>
       <span style={{ color, fontSize: large ? 38 : 13, fontWeight: large ? 700 : 400, lineHeight: 1.5, flex: 1 }}>{value || '-'}</span>
-      <span style={{ fontSize: 10, color: '#444', marginTop: large ? 6 : 2, flexShrink: 0 }}>edit</span>
+      <span style={{ fontSize: 10, color: '#888', marginTop: large ? 6 : 2, flexShrink: 0 }}>edit</span>
     </div>
   );
   return (
@@ -296,7 +296,7 @@ function EditableField({ value, onSave, color = '#ccc', large = false, multiline
 // ── RESEARCH CARD ─────────────────────────────────────────────────────────────
 function ResearchCard({ teamName, card, isAdmin, onFieldSave }) {
   if (!card) return (
-    <div style={{ ...S.card, display: 'flex', alignItems: 'center', justifyContent: 'center', height: 200, color: '#444' }}>
+    <div style={{ ...S.card, display: 'flex', alignItems: 'center', justifyContent: 'center', height: 200, color: '#888' }}>
       No data yet
     </div>
   );
@@ -322,7 +322,7 @@ function ResearchCard({ teamName, card, isAdmin, onFieldSave }) {
           <div key={i} style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 6, padding: '10px 12px', marginBottom: 8 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
               {isAdmin ? <EditableField value={p.name} onSave={v => onFieldSave(teamName, `keyPlayers.${i}.name`, v)} /> : <span style={{ fontWeight: 700 }}>{p.name}</span>}
-              {isAdmin ? <EditableField value={p.pos} onSave={v => onFieldSave(teamName, `keyPlayers.${i}.pos`, v)} /> : <span style={{ color: '#666', fontSize: 12 }}>{p.pos}</span>}
+              {isAdmin ? <EditableField value={p.pos} onSave={v => onFieldSave(teamName, `keyPlayers.${i}.pos`, v)} /> : <span style={{ color: '#999', fontSize: 12 }}>{p.pos}</span>}
             </div>
             {isAdmin ? <EditableField value={p.stats} onSave={v => onFieldSave(teamName, `keyPlayers.${i}.stats`, v)} /> : <div style={{ fontSize: 13, color: '#999', margin: '3px 0' }}>{p.stats}</div>}
             {isAdmin ? <EditableField value={p.note} onSave={v => onFieldSave(teamName, `keyPlayers.${i}.note`, v)} color={ACCENT2} /> : <div style={{ fontSize: 12, color: ACCENT2, fontStyle: 'italic' }}>{p.note}</div>}
@@ -345,11 +345,11 @@ function ResearchCard({ teamName, card, isAdmin, onFieldSave }) {
       <div style={S.card}>
         <h3 style={{ color: ACCENT2, marginBottom: 10 }}>Championship Odds</h3>
         {field('odds', card.odds, { color: '#22c55e', large: true })}
-        <div style={{ fontSize: 13, color: '#555', marginBottom: 16, marginTop: 6 }}>Consensus sportsbook odds to win it all</div>
+        <div style={{ fontSize: 13, color: '#777', marginBottom: 16, marginTop: 6 }}>Consensus sportsbook odds to win it all</div>
         <div style={{ padding: 12, background: 'rgba(22,163,74,0.07)', borderRadius: 8, border: '1px solid rgba(22,163,74,0.18)', fontSize: 13, color: '#aaa', lineHeight: 1.5 }}>
           Bracket tip: Advancing this team deep rewards strong point upside relative to their championship probability.
         </div>
-        {isAdmin && <div style={{ marginTop: 12, padding: 10, background: 'rgba(255,255,255,0.03)', borderRadius: 8, fontSize: 12, color: '#555' }}>Click any field above to edit it.</div>}
+        {isAdmin && <div style={{ marginTop: 12, padding: 10, background: 'rgba(255,255,255,0.03)', borderRadius: 8, fontSize: 12, color: '#777' }}>Click any field above to edit it.</div>}
       </div>
     </div>
   );
@@ -423,7 +423,7 @@ function TeamEntryPanel({ onTeamsSaved, onRequestGenerateResearch }) {
     onTeamsSaved(nb, roster);
   };
 
-  if (loading) return <div style={{ color: '#666', padding: 20 }}>Loading roster...</div>;
+  if (loading) return <div style={{ color: '#999', padding: 20 }}>Loading roster...</div>;
 
   const regionTeams = roster[activeRegion] || [];
 
@@ -432,7 +432,7 @@ function TeamEntryPanel({ onTeamsSaved, onRequestGenerateResearch }) {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
         <div>
           <h3 style={{ color: ACCENT2, marginBottom: 4 }}>Set Up This Year's Teams</h3>
-          <p style={{ color: '#666', fontSize: 13 }}>Enter all 64–68 teams after Selection Sunday. Use "Add FF Slot" for First Four play-in teams — give them the same seed number and check FF on both.</p>
+          <p style={{ color: '#999', fontSize: 13 }}>Enter all 64–68 teams after Selection Sunday. Use "Add FF Slot" for First Four play-in teams — give them the same seed number and check FF on both.</p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -468,7 +468,7 @@ function TeamEntryPanel({ onTeamsSaved, onRequestGenerateResearch }) {
         {['East','West','South','Midwest'].map(r => (
           <button key={r} style={{ ...S.navBtn(activeRegion === r), borderBottom: activeRegion === r ? `2px solid ${RC[r]}` : '2px solid transparent', borderRadius: '6px 6px 0 0', padding: '8px 18px' }} onClick={() => setActiveRegion(r)}>
             <span style={{ color: RC[r], marginRight: 6 }}>●</span>{r}
-            <span style={{ marginLeft: 6, fontSize: 11, color: '#555' }}>({roster[r]?.length || 0})</span>
+            <span style={{ marginLeft: 6, fontSize: 11, color: '#777' }}>({roster[r]?.length || 0})</span>
           </button>
         ))}
       </div>
@@ -491,7 +491,7 @@ function TeamEntryPanel({ onTeamsSaved, onRequestGenerateResearch }) {
               <span style={{ fontSize: 11, color: team.firstFour ? '#818cf8' : '#888', whiteSpace: 'nowrap', fontWeight: team.firstFour ? 700 : 400 }}>FF</span>
             </label>
             {regionTeams.length > 16 && (
-              <button onClick={() => removeTeamSlot(activeRegion, idx)} style={{ background: 'none', border: 'none', color: '#444', cursor: 'pointer', fontSize: 14, padding: '0 2px', flexShrink: 0 }} title="Remove slot">×</button>
+              <button onClick={() => removeTeamSlot(activeRegion, idx)} style={{ background: 'none', border: 'none', color: '#888', cursor: 'pointer', fontSize: 14, padding: '0 2px', flexShrink: 0 }} title="Remove slot">×</button>
             )}
           </div>
         ))}
@@ -888,7 +888,7 @@ export default function App() {
         <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 48, color: ACCENT2, letterSpacing: 2, lineHeight: 1.1 }}>
           MARCH MADNESS<br />{tournamentYear}
         </h1>
-        <p style={{ color: '#555', fontSize: 16, marginTop: 10 }}>School-Wide Bracket Challenge</p>
+        <p style={{ color: '#777', fontSize: 16, marginTop: 10 }}>School-Wide Bracket Challenge</p>
       </div>
       <div style={{ ...S.card, textAlign: 'center', maxWidth: 380, padding: '36px 40px' }}>
         <p style={{ color: '#888', fontSize: 14, marginBottom: 24, lineHeight: 1.7 }}>
@@ -944,9 +944,9 @@ export default function App() {
           {user.photoURL && <img src={user.photoURL} alt="" width={28} height={28} style={{ borderRadius: '50%' }} />}
           <span style={{ fontSize: 13, color: '#888' }}>{user.displayName?.split(' ')[0]}</span>
           {isTeacher && <span style={{ fontSize: 10, background: 'rgba(245,158,11,0.15)', color: GOLD, border: '1px solid rgba(245,158,11,0.3)', borderRadius: 4, padding: '2px 6px', fontWeight: 700 }}>TEACHER</span>}
-          {saving && <span style={{ fontSize: 11, color: '#555' }}>Saving...</span>}
+          {saving && <span style={{ fontSize: 11, color: '#777' }}>Saving...</span>}
           {!saving && lastSaved && <span style={{ fontSize: 11, color: '#166534' }}>Saved</span>}
-          <button onClick={logOut} style={{ background: 'none', border: 'none', color: '#444', cursor: 'pointer', fontSize: 12 }}>Sign out</button>
+          <button onClick={logOut} style={{ background: 'none', border: 'none', color: '#888', cursor: 'pointer', fontSize: 12 }}>Sign out</button>
         </div>
       </header>
 
@@ -958,11 +958,11 @@ export default function App() {
             {/* Score bar */}
             <div style={{ ...S.card, display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 14 }}>
               <div>
-                <div style={{ fontSize: 11, color: '#555', letterSpacing: 1, textTransform: 'uppercase' }}>Your Score</div>
+                <div style={{ fontSize: 11, color: '#777', letterSpacing: 1, textTransform: 'uppercase' }}>Your Score</div>
                 <div style={{ fontSize: 38, fontWeight: 700, color: ACCENT2, fontFamily: "'Playfair Display', serif", lineHeight: 1 }}>
-                  {score} <span style={{ fontSize: 14, color: '#444' }}>/ 1,920 pts</span>
+                  {score} <span style={{ fontSize: 14, color: '#888' }}>/ 1,920 pts</span>
                 </div>
-                <div style={{ fontSize: 10, color: '#444', marginTop: 2 }}>ESPN scoring (max 1,920)</div>
+                <div style={{ fontSize: 10, color: '#888', marginTop: 2 }}>ESPN scoring (max 1,920)</div>
               </div>
               <div style={{ textAlign: 'center' }}>
                 <div style={{ fontSize: 13, color: locked ? '#e74c3c' : '#22c55e', marginBottom: 6 }}>
@@ -976,11 +976,11 @@ export default function App() {
                 )}
               </div>
               <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: 11, color: '#555' }}>School Rank</div>
+                <div style={{ fontSize: 11, color: '#777' }}>School Rank</div>
                 <div style={{ fontSize: 34, fontWeight: 700, color: ACCENT2, fontFamily: "'Playfair Display', serif", lineHeight: 1 }}>
                   {myRank > 0 ? `#${myRank}` : '-'}
                 </div>
-                <div style={{ fontSize: 11, color: '#444' }}>of {leaderboard.length || '-'} entries</div>
+                <div style={{ fontSize: 11, color: '#888' }}>of {leaderboard.length || '-'} entries</div>
               </div>
             </div>
 
@@ -988,7 +988,7 @@ export default function App() {
             {ffGamesList.length > 0 && (
               <div style={{ marginBottom: 20, padding: '16px 18px', background: 'rgba(99,102,241,0.07)', border: '1px solid rgba(99,102,241,0.25)', borderRadius: 12 }}>
                 <div style={{ fontSize: 12, fontWeight: 700, color: '#818cf8', letterSpacing: 2, marginBottom: 2 }}>FIRST FOUR — PLAY-IN GAMES</div>
-                <div style={{ fontSize: 11, color: '#555', marginBottom: 14 }}>Pick who wins each play-in game and advances into the main bracket</div>
+                <div style={{ fontSize: 11, color: '#777', marginBottom: 14 }}>Pick who wins each play-in game and advances into the main bracket</div>
                 <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
                   {ffGamesList.map(({ region, seed, ffTeams, key }) => {
                     const pick    = firstFourPicks[key];
@@ -1004,15 +1004,15 @@ export default function App() {
                             <div key={team.name} onClick={() => !isLockd && handleFirstFourPick(key, team, region, seed)}
                               style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', borderRadius: 7, marginBottom: 5, cursor: isLockd ? 'default' : 'pointer', background: isPick ? 'rgba(99,102,241,0.2)' : 'rgba(255,255,255,0.03)', border: isPick ? '1px solid rgba(99,102,241,0.5)' : '1px solid rgba(255,255,255,0.07)', transition: 'all .12s' }}>
                               <TeamLogo espnId={team.espnId} name={team.name} size={20} />
-                              <span style={{ fontSize: 10, color: '#555', fontWeight: 700, minWidth: 14 }}>{team.seed}</span>
+                              <span style={{ fontSize: 10, color: '#777', fontWeight: 700, minWidth: 14 }}>{team.seed}</span>
                               <span style={{ fontSize: 12, fontWeight: isPick ? 700 : 400, color: isPick ? '#a5b4fc' : '#bbb', flex: 1 }}>{team.name}</span>
                               {isPick && <span style={{ color: '#818cf8', fontSize: 13 }}>✓</span>}
                             </div>
                           );
                         })}
                         {pick
-                          ? <div style={{ fontSize: 10, color: '#555', textAlign: 'center', marginTop: 4 }}>{pick} advances as #{seed} seed</div>
-                          : <div style={{ fontSize: 10, color: '#444', textAlign: 'center', marginTop: 4 }}>pick a winner</div>}
+                          ? <div style={{ fontSize: 10, color: '#777', textAlign: 'center', marginTop: 4 }}>{pick} advances as #{seed} seed</div>
+                          : <div style={{ fontSize: 10, color: '#888', textAlign: 'center', marginTop: 4 }}>pick a winner</div>}
                       </div>
                     );
                   })}
@@ -1060,7 +1060,7 @@ export default function App() {
                             <div key={team.name} onClick={() => !isLockd && handleFirstFourPick(ffKey, team, region, seed)}
                               style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', borderRadius: 6, marginBottom: 4, cursor: isLockd ? 'default' : 'pointer', background: isPick ? 'rgba(99,102,241,0.2)' : 'rgba(0,0,0,0.2)', border: isPick ? '1px solid rgba(99,102,241,0.5)' : '1px solid rgba(255,255,255,0.06)', transition: 'all .12s' }}>
                               <TeamLogo espnId={team.espnId} name={team.name} size={24} />
-                              <span style={{ fontSize: 13, color: '#666', fontWeight: 700, minWidth: 18 }}>{team.seed}</span>
+                              <span style={{ fontSize: 13, color: '#999', fontWeight: 700, minWidth: 18 }}>{team.seed}</span>
                               <span style={{ fontSize: 14, fontWeight: isPick ? 700 : 400, color: isPick ? '#a5b4fc' : '#bbb', flex: 1 }}>{team.name}</span>
                               {isPick && <span style={{ color: '#818cf8' }}>✓</span>}
                             </div>
@@ -1081,10 +1081,10 @@ export default function App() {
                   };
 
                   const SpineCell = ({ label, sub, color, borderLeft = true, width = CW }) => (
-                    <div style={{ width, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderLeft: borderLeft ? '1px solid rgba(255,255,255,0.08)' : 'none', background: 'rgba(0,0,0,0.4)' }}>
+                    <div style={{ width, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderLeft: borderLeft ? '1px solid rgba(255,255,255,0.08)' : 'none', background: 'rgba(255,255,255,0.04)' }}>
                       <div style={{ height: SPINE_H, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
                         <div style={{ fontSize: 27, fontWeight: 800, color, letterSpacing: 1, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{label}</div>
-                        {sub && <div style={{ fontSize: 10, color: '#555', fontStyle: 'italic', marginTop: 2 }}>{sub}</div>}
+                        {sub && <div style={{ fontSize: 10, color: '#777', fontStyle: 'italic', marginTop: 2 }}>{sub}</div>}
                       </div>
                     </div>
                   );
@@ -1100,11 +1100,11 @@ export default function App() {
                       <div style={{ display: 'flex', alignItems: 'flex-end', position: 'relative' }}>
                         {/* EAST watermark — centered in S16 gap */}
                         <div style={{ position: 'absolute', top: LABEL_TOP + SH, left: (hasLeftFF ? CW : 0) + S16_CENTER_X + CW, transform: 'translate(-50%, -50%)', pointerEvents: 'none', zIndex: 0 }}>
-                          <span style={{ fontSize: 130, fontWeight: 900, color: RC.East, opacity: 0.08, letterSpacing: 4, textTransform: 'uppercase', userSelect: 'none', lineHeight: 1, display: 'block', whiteSpace: 'nowrap' }}>EAST</span>
+                          <span style={{ fontSize: 130, fontWeight: 900, color: RC.East, opacity: 0.18, letterSpacing: 4, textTransform: 'uppercase', userSelect: 'none', lineHeight: 1, display: 'block', whiteSpace: 'nowrap' }}>EAST</span>
                         </div>
                         {/* WEST watermark — mirrored, S16 col from right edge of right region */}
                         <div style={{ position: 'absolute', top: LABEL_TOP + SH, right: (hasRightFF ? CW : 0) + S16_CENTER_X + CW * 2, transform: 'translate(50%, -50%)', pointerEvents: 'none', zIndex: 0 }}>
-                          <span style={{ fontSize: 130, fontWeight: 900, color: RC.West, opacity: 0.08, letterSpacing: 4, textTransform: 'uppercase', userSelect: 'none', lineHeight: 1, display: 'block', whiteSpace: 'nowrap' }}>WEST</span>
+                          <span style={{ fontSize: 130, fontWeight: 900, color: RC.West, opacity: 0.18, letterSpacing: 4, textTransform: 'uppercase', userSelect: 'none', lineHeight: 1, display: 'block', whiteSpace: 'nowrap' }}>WEST</span>
                         </div>
                         {hasLeftFF && <FFCol regionTop="East" regionBot="South" />}
                         {[0,1,2,3].map(rIdx => <RoundCol key={rIdx} region="East" rIdx={rIdx} flip={false} dir="top" />)}
@@ -1117,7 +1117,7 @@ export default function App() {
                       <div style={{ position: 'relative' }}>
 
                         {/* Spine row */}
-                        <div style={{ display: 'flex', alignItems: 'stretch', borderTop: '2px solid rgba(255,255,255,0.15)', borderBottom: '2px solid rgba(255,255,255,0.15)', background: 'rgba(0,0,0,0.35)' }}>
+                        <div style={{ display: 'flex', alignItems: 'stretch', borderTop: '2px solid rgba(255,255,255,0.15)', borderBottom: '2px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.03)' }}>
                           {hasLeftFF  && <SpineCell label="First Four"  sub='"Play-In"'      color="#818cf8" borderLeft={false} />}
                           <SpineCell label="Round of 64"  sub='"First Round"'    color={ROUND_BORDER_COLORS[0]} borderLeft={!hasLeftFF} />
                           <SpineCell label="Round of 32"  sub='"Second Round"'   color={ROUND_BORDER_COLORS[1]} />
@@ -1167,10 +1167,10 @@ export default function App() {
                       <div style={{ display: 'flex', alignItems: 'flex-start', position: 'relative' }}>
                         {/* SOUTH watermark — S16 gap is also at TOP_H/2 from top (bottom half mirrors top) */}
                         <div style={{ position: 'absolute', top: LABEL_TOP - SH, left: (hasLeftFF ? CW : 0) + S16_CENTER_X + CW, transform: 'translate(-50%, -50%)', pointerEvents: 'none', zIndex: 0 }}>
-                          <span style={{ fontSize: 130, fontWeight: 900, color: RC.South, opacity: 0.08, letterSpacing: 4, textTransform: 'uppercase', userSelect: 'none', lineHeight: 1, display: 'block', whiteSpace: 'nowrap' }}>SOUTH</span>
+                          <span style={{ fontSize: 130, fontWeight: 900, color: RC.South, opacity: 0.18, letterSpacing: 4, textTransform: 'uppercase', userSelect: 'none', lineHeight: 1, display: 'block', whiteSpace: 'nowrap' }}>SOUTH</span>
                         </div>
                         <div style={{ position: 'absolute', top: LABEL_TOP - SH, right: (hasRightFF ? CW : 0) + S16_CENTER_X + CW * 2.5, transform: 'translate(50%, -50%)', pointerEvents: 'none', zIndex: 0 }}>
-                          <span style={{ fontSize: 130, fontWeight: 900, color: RC.Midwest, opacity: 0.08, letterSpacing: 4, textTransform: 'uppercase', userSelect: 'none', lineHeight: 1, display: 'block', whiteSpace: 'nowrap' }}>MIDWEST</span>
+                          <span style={{ fontSize: 130, fontWeight: 900, color: RC.Midwest, opacity: 0.18, letterSpacing: 4, textTransform: 'uppercase', userSelect: 'none', lineHeight: 1, display: 'block', whiteSpace: 'nowrap' }}>MIDWEST</span>
                         </div>
                         {hasLeftFF && <FFCol regionTop="East" regionBot="South" />}
                         {[0,1,2,3].map(rIdx => <RoundCol key={rIdx} region="South" rIdx={rIdx} flip={false} dir="bot" />)}
@@ -1191,9 +1191,9 @@ export default function App() {
         {tab === 'research' && (
           <div style={{ padding: 24, maxWidth: 1080, margin: '0 auto' }}>
             <h2 style={{ fontFamily: "'Playfair Display', serif", color: ACCENT2, marginBottom: 6 }}>Team Research Hub</h2>
-            {isAdmin && <p style={{ color: '#555', fontSize: 13, marginBottom: 16 }}>As admin, click any field to edit it directly.</p>}
+            {isAdmin && <p style={{ color: '#777', fontSize: 13, marginBottom: 16 }}>As admin, click any field to edit it directly.</p>}
             {allTeamNames.length === 0 ? (
-              <div style={{ ...S.card, textAlign: 'center', padding: 48, color: '#555' }}>
+              <div style={{ ...S.card, textAlign: 'center', padding: 48, color: '#777' }}>
                 <div style={{ fontSize: 40, marginBottom: 16 }}>📊</div>
                 <div style={{ fontSize: 16, marginBottom: 8 }}>No research data yet</div>
                 <div style={{ fontSize: 13 }}>{isAdmin ? 'Go to Admin > Set Up Teams, save your roster, apply to bracket, then click "Auto-Generate Research"' : 'Check back after the admin sets up the tournament teams'}</div>
@@ -1210,7 +1210,7 @@ export default function App() {
             )}
             <div style={{ ...S.card, border: '1px solid rgba(22,163,74,0.25)', marginTop: 8 }}>
               <h3 style={{ color: ACCENT2, marginBottom: 4, fontFamily: "'Playfair Display', serif" }}>AI Research Assistant</h3>
-              <p style={{ color: '#555', fontSize: 13, marginBottom: 14 }}>Ask anything about matchups, history, upsets, or bracket strategy</p>
+              <p style={{ color: '#777', fontSize: 13, marginBottom: 14 }}>Ask anything about matchups, history, upsets, or bracket strategy</p>
               <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
                 <input style={{ ...S.input, flex: 1 }} value={researchQ} onChange={e => setResearchQ(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleResearch()} placeholder="e.g. 'How does Duke match up with Auburn?' or 'Best Cinderella picks this year?'" />
                 <button style={{ ...S.btn(), flexShrink: 0 }} onClick={handleResearch} disabled={researchLoading}>{researchLoading ? '...' : 'Ask'}</button>
@@ -1235,17 +1235,17 @@ export default function App() {
             {/* Students */}
             <div style={S.card}>
               {studentBoard.length > 0 && (
-                <div style={{ fontSize: 11, color: '#444', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 10 }}>Students</div>
+                <div style={{ fontSize: 11, color: '#888', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 10 }}>Students</div>
               )}
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#444', padding: '0 12px 10px', letterSpacing: 1, textTransform: 'uppercase' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#888', padding: '0 12px 10px', letterSpacing: 1, textTransform: 'uppercase' }}>
                 <span>Rank</span><span style={{ flex: 1, marginLeft: 54 }}>Name</span><span>Points</span>
               </div>
               {studentBoard.length === 0
-                ? <div style={{ color: '#444', textAlign: 'center', padding: 24 }}>No entries yet — be the first to submit!</div>
+                ? <div style={{ color: '#888', textAlign: 'center', padding: 24 }}>No entries yet — be the first to submit!</div>
                 : studentBoard.map((e, i) => (
                   <div key={e.uid} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '11px 12px', background: e.uid === user?.uid ? 'rgba(22,163,74,0.08)' : 'transparent', borderRadius: 8, marginBottom: 3, border: e.uid === user?.uid ? '1px solid rgba(22,163,74,0.25)' : '1px solid transparent' }}>
                     <span style={{ fontSize: 17, fontWeight: 700, color: i === 0 ? ACCENT2 : i === 1 ? '#aaa' : i === 2 ? '#cd7f32' : '#444', minWidth: 30, fontFamily: "'Playfair Display', serif" }}>#{i+1}</span>
-                    {e.photoURL ? <img src={e.photoURL} alt="" width={26} height={26} style={{ borderRadius: '50%' }} /> : <div style={{ width: 26, height: 26, borderRadius: '50%', background: '#111', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: '#555' }}>?</div>}
+                    {e.photoURL ? <img src={e.photoURL} alt="" width={26} height={26} style={{ borderRadius: '50%' }} /> : <div style={{ width: 26, height: 26, borderRadius: '50%', background: '#111', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: '#777' }}>?</div>}
                     <span style={{ flex: 1, fontWeight: e.uid === user?.uid ? 700 : 400, color: e.uid === user?.uid ? ACCENT2 : '#bbb', fontSize: 14 }}>{formatName(e.displayName)}{e.uid === user?.uid ? ' (You)' : ''}</span>
                     <span style={{ fontSize: 20, fontWeight: 700, color: ACCENT2, fontFamily: "'Playfair Display', serif" }}>{e.score}</span>
                   </div>
@@ -1259,7 +1259,7 @@ export default function App() {
                 {teacherBoard.map((e, i) => (
                   <div key={e.uid} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '11px 12px', background: e.uid === user?.uid ? 'rgba(245,158,11,0.06)' : 'transparent', borderRadius: 8, marginBottom: 3, border: e.uid === user?.uid ? '1px solid rgba(245,158,11,0.2)' : '1px solid transparent' }}>
                     <span style={{ fontSize: 17, fontWeight: 700, color: i === 0 ? GOLD2 : '#666', minWidth: 30, fontFamily: "'Playfair Display', serif" }}>#{i+1}</span>
-                    {e.photoURL ? <img src={e.photoURL} alt="" width={26} height={26} style={{ borderRadius: '50%' }} /> : <div style={{ width: 26, height: 26, borderRadius: '50%', background: '#111', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: '#555' }}>?</div>}
+                    {e.photoURL ? <img src={e.photoURL} alt="" width={26} height={26} style={{ borderRadius: '50%' }} /> : <div style={{ width: 26, height: 26, borderRadius: '50%', background: '#111', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: '#777' }}>?</div>}
                     <span style={{ flex: 1, fontWeight: e.uid === user?.uid ? 700 : 400, color: e.uid === user?.uid ? GOLD2 : '#bbb', fontSize: 14 }}>{formatName(e.displayName)}{e.uid === user?.uid ? ' (You)' : ''}</span>
                     <span style={{ fontSize: 20, fontWeight: 700, color: GOLD2, fontFamily: "'Playfair Display', serif" }}>{e.score}</span>
                   </div>
@@ -1293,20 +1293,20 @@ export default function App() {
                     <div style={{ height: 6, background: 'rgba(255,255,255,0.06)', borderRadius: 3, overflow: 'hidden', marginBottom: 8 }}>
                       <div style={{ height: '100%', background: '#6366f1', borderRadius: 3, width: `${(genProgress.done / genProgress.total) * 100}%`, transition: 'width 0.3s' }} />
                     </div>
-                    <div style={{ fontSize: 12, color: '#666' }}>Currently fetching: {genProgress.current}</div>
+                    <div style={{ fontSize: 12, color: '#999' }}>Currently fetching: {genProgress.current}</div>
                   </div>
                 )}
 
                 {/* Tournament Year */}
                 <div style={{ ...S.card, borderColor: 'rgba(22,163,74,0.3)', marginBottom: 16 }}>
                   <h3 style={{ color: ACCENT2, marginBottom: 8, fontSize: 15 }}>Tournament Year</h3>
-                  <p style={{ color: '#666', fontSize: 13, marginBottom: 12 }}>Updates the year shown on the login screen and app header for all users.</p>
+                  <p style={{ color: '#999', fontSize: 13, marginBottom: 12 }}>Updates the year shown on the login screen and app header for all users.</p>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     <input type="number" value={yearDraft} onChange={e => setYearDraft(e.target.value)} style={{ ...S.input, width: 110, padding: '8px 12px', fontSize: 16 }} />
                     <button style={{ ...S.btn(ACCENT, '#fff'), padding: '8px 20px' }} onClick={handleSaveYear} disabled={yearSaving}>
                       {yearSaving ? 'Saving...' : 'Update Year'}
                     </button>
-                    <span style={{ fontSize: 12, color: '#555' }}>Currently: <strong style={{ color: ACCENT2 }}>{tournamentYear}</strong></span>
+                    <span style={{ fontSize: 12, color: '#777' }}>Currently: <strong style={{ color: ACCENT2 }}>{tournamentYear}</strong></span>
                   </div>
                 </div>
 
@@ -1321,7 +1321,7 @@ export default function App() {
                   {[['Total Entries', leaderboard.length],['Avg Score', leaderboard.length ? Math.round(leaderboard.reduce((a,e) => a+(e.score||0),0)/leaderboard.length)+' pts' : '-'],['Status', locked ? '🔒 Locked' : '🟢 Open']].map(([l,v]) => (
                     <div key={l} style={{ ...S.card, textAlign: 'center' }}>
                       <div style={{ fontSize: 26, fontWeight: 700, color: ACCENT2, fontFamily: "'Playfair Display', serif" }}>{v}</div>
-                      <div style={{ fontSize: 11, color: '#555', marginTop: 4 }}>{l}</div>
+                      <div style={{ fontSize: 11, color: '#777', marginTop: 4 }}>{l}</div>
                     </div>
                   ))}
                 </div>
