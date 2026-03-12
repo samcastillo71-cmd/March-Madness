@@ -1054,10 +1054,16 @@ export default function App() {
 
 
 
+                  // Vertical offset to center each round's games on their feeder midpoints
+                  // R32: -44.5px, S16: -89px, E8: -178px, R64: 0
+                  const ROUND_OFFSET = [0, -44.5, -89, -178];
+
                   const RoundCol = ({ region, rIdx, flip, dir }) => {
                     const games = bracket[region]?.rounds[rIdx] || [];
+                    const offset = ROUND_OFFSET[rIdx];
+                    const offsetProp = dir === 'top' ? { top: offset } : { bottom: offset };
                     return (
-                      <div style={{ width: CW, flexShrink: 0, height: TOP_H, display: 'flex', flexDirection: 'column', justifyContent: dir === 'top' ? 'flex-end' : 'flex-start', gap: ROUND_GAP_PX[rIdx], boxSizing: 'border-box' }}>
+                      <div style={{ width: CW, flexShrink: 0, height: TOP_H, display: 'flex', flexDirection: 'column', justifyContent: dir === 'top' ? 'flex-end' : 'flex-start', gap: ROUND_GAP_PX[rIdx], boxSizing: 'border-box', position: 'relative', ...offsetProp }}>
                         {games.map((game, gIdx) => (
                           <GameSlot key={gIdx} game={game} locked={locked && !isAdmin} flipped={flip} roundIdx={rIdx}
                             liveScores={liveScores}
