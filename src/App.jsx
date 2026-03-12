@@ -1117,6 +1117,131 @@ export default function App() {
                     );
                   };
 
+                  // Dividing line y-positions (from col top) for each round
+                  const DIVS = {
+                    top: [
+                      [34, 123, 212, 301, 390, 479, 568, 657],   // R64
+                      [78.5, 256.5, 434.5, 612.5],               // R32
+                      [167.5, 523.5],                            // S16
+                      [345.5],                                   // E8
+                    ],
+                    bot: [
+                      [657, 568, 479, 390, 301, 212, 123, 34],   // R64
+                      [612.5, 434.5, 256.5, 78.5],               // R32
+                      [523.5, 167.5],                            // S16
+                      [345.5],                                   // E8
+                    ],
+                  };
+
+                  // BracketLines: absolute SVG overlay for one side (East or West/Midwest/South)
+                  // xOffset = left edge of the R64 column within the top/bot half row
+                  // flip = true for West/Midwest (rounds go E8->R64 left to right, lines point left)
+                  // dir = 'top' | 'bot'
+                  const BracketLines = ({ xOffset, flip, dir }) => {
+                    const divs = DIVS[dir];
+                    const H = TOP_H;
+                    const W = CW * 4; // 4 round columns
+                    const MID = CW * 0.5; // stub meet point within connector gap
+
+                    const paths = [];
+                    for (let rIdx = 0; rIdx < 3; rIdx++) {
+                      const fromDivs = divs[rIdx];
+                      const toDivs   = divs[rIdx + 1];
+                      const fromColor = ROUND_BORDER_COLORS[rIdx];
+                      const toColor   = ROUND_BORDER_COLORS[rIdx + 1];
+                      const gradId = `cg-${dir}-${flip?'f':'n'}-${rIdx}`;
+
+                      // x positions within the W-wide SVG
+                      // For non-flip (East/South): R64 at left, E8 at right
+                      //   col rIdx left edge = rIdx * CW
+                      //   connector space between rIdx and rIdx+1: x from rIdx*CW+CW to (rIdx+1)*CW
+                      //   stub exits right edge of fromCol: x0 = rIdx*CW + CW
+                      //   stub enters left edge of toCol:   x1 = (rIdx+1)*CW
+                      //   vertical at x = x0 + MID
+                      // For flip (West/Midwest): E8 at left, R64 at right
+                      //   rIdx=0 is R64, which is at the right: col at x = (3-rIdx)*CW
+                      //   fromCol right edge = (3-rIdx)*CW  ... but lines go rightward toward spine
+                      //   Actually flip: fromCol (lower round) is at right, toCol is to its left
+                      //   fromCol left edge = (3-rIdx)*CW, connector space to left
+                      //   stub exits left edge: x0 = (3-rIdx)*CW
+                      //   stub enters right edge of toCol: x1 = (3-rIdx)*CW - CW = (2-rIdx)*CW + CW ... 
+                      //   vertical at x = x0 - MID
+
+                      toDivs.forEach((toY, tIdx) => {
+                        const y1 = fromDivs[tIdx * 2];
+                        const y2 = fromDivs[tIdx * 2 + 1];
+                        if (y1 == null || y2 == null) return;
+                        const yMid = toY;
+
+                        let x0, xV, x1;
+                        if (!flip) {
+                          x0 = rIdx * CW + CW;       // right edge of fromCol
+                          xV = x0 + MID;             // vertical line x
+                          x1 = (rIdx + 1) * CW + CW; // left edge of toCol (= xV + MID... wait)
+                          // connector space is CW wide: from rIdx*CW+CW to rIdx*CW+2*CW
+                          // but we have no connector column — lines draw directly in SVG space
+                          // fromCol right = rIdx*CW + CW, toCol left = (rIdx+1)*CW + 0... 
+                          // Actually columns are adjacent — no gap col — so fromCol right = toCol left
+                          // Lines must fit within a CW-wide zone. Use MID = CW*0.5 within that zone.
+                          x0 = (rIdx + 1) * CW;     // boundary between fromCol and toCol
+                          xV = x0 + MID;
+                          x1 = (rIdx + 2) * CW;     // right edge of toCol... no, left edge
+                          // Simpler: stub goes from fromCol right edge (x = (rIdx+1)*CW - 0) 
+                          // into the toCol by MID pixels, vertical, then to toCol right
+                          // Actually we want: from game right edge, go right MID, vertical, go right MID to next game
+                          // fromCol occupies [rIdx*CW .. (rIdx+1)*CW]
+                          // toCol occupies [(rIdx+1)*CW .. (rIdx+2)*CW]
+                          // stub from fromCol right edge = (rIdx+1)*CW, go right MID
+                          x0 = (rIdx + 1) * CW;
+                          xV = x0 + MID;
+                          x1 = (rIdx + 2) * CW; // not needed, line goes from xV to xV... 
+                          // horizontal to toCol left edge = (rIdx+1)*CW, already at x0
+                          // Let's just do: two stubs + vertical + horizontal to toGame
+                        } else {
+                          // flip: R64 at right (col 3), R32 at col 2, S16 at col 1, E8 at col 0
+                          // fromCol (rIdx=0 = R64) right edge: W - rIdx*CW = W
+                          // fromCol occupies [W-(rIdx+1)*CW .. W-rIdx*CW]
+                          // fromCol left edge = W - (rIdx+1)*CW
+                          x0 = W - (rIdx + 1) * CW; // left edge of fromCol = right edge of connector zone
+                          xV = x0 - MID;
+                          x1 = W - (rIdx + 2) * CW; // right edge of toCol
+                        }
+
+                        paths.push(
+                          <g key={`${rIdx}-${tIdx}`}>
+                            <defs>
+                              <linearGradient id={gradId} x1={flip?'100%':'0%'} y1="0%" x2={flip?'0%':'100%'} y2="0%">
+                                <stop offset="0%" stopColor={fromColor} />
+                                <stop offset="100%" stopColor={toColor} />
+                              </linearGradient>
+                            </defs>
+                            <line x1={x0} y1={y1} x2={xV} y2={y1} stroke={`url(#${gradId})`} strokeWidth="1.5" />
+                            <line x1={x0} y1={y2} x2={xV} y2={y2} stroke={`url(#${gradId})`} strokeWidth="1.5" />
+                            <line x1={xV} y1={y1} x2={xV} y2={y2} stroke={`url(#${gradId})`} strokeWidth="1.5" />
+                            <line x1={xV} y1={yMid} x2={flip ? x1 : x0} y2={yMid} stroke={`url(#${gradId})`} strokeWidth="1.5" />
+                          </g>
+                        );
+                      });
+                    }
+
+                    return (
+                      <svg width={W} height={H} style={{ position: 'absolute', top: 0, left: flip ? 'auto' : xOffset, right: flip ? xOffset : 'auto', pointerEvents: 'none', zIndex: 1, overflow: 'visible' }}>
+                        <defs>
+                          {[0,1,2].map(rIdx => {
+                            const gradId = `cg-${dir}-${flip?'f':'n'}-${rIdx}`;
+                            return (
+                              <linearGradient key={gradId} id={gradId} x1={flip?'100%':'0%'} y1="0%" x2={flip?'0%':'100%'} y2="0%">
+                                <stop offset="0%" stopColor={ROUND_BORDER_COLORS[rIdx]} />
+                                <stop offset="100%" stopColor={ROUND_BORDER_COLORS[rIdx+1]} />
+                              </linearGradient>
+                            );
+                          })}
+                        </defs>
+                        {paths}
+                      </svg>
+                    );
+                  };
+
                   const SpineCell = ({ label, sub, color, borderLeft = true, width = CW }) => (
                     <div style={{ width, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderLeft: borderLeft ? '1px solid rgba(255,255,255,0.08)' : 'none', background: 'rgba(255,255,255,0.04)' }}>
                       <div style={{ height: SPINE_H, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
@@ -1143,6 +1268,10 @@ export default function App() {
                         <div style={{ position: 'absolute', top: LABEL_TOP + SH, right: (hasRightFF ? CW : 0) + S16_CENTER_X + CW * 2, transform: 'translate(50%, -50%)', pointerEvents: 'none', zIndex: 0 }}>
                           <span style={{ fontSize: 130, fontWeight: 900, color: RC.West, opacity: 0.18, letterSpacing: 4, textTransform: 'uppercase', userSelect: 'none', lineHeight: 1, display: 'block', whiteSpace: 'nowrap' }}>WEST</span>
                         </div>
+                        {/* East connector lines */}
+                        <BracketLines xOffset={hasLeftFF ? CW : 0} flip={false} dir="top" />
+                        {/* West connector lines */}
+                        <BracketLines xOffset={hasRightFF ? CW : 0} flip={true} dir="top" />
                         {hasLeftFF && <FFCol regionTop="East" regionBot="South" />}
                         {[0,1,2,3].map(rIdx => <RoundCol key={rIdx} region="East" rIdx={rIdx} flip={false} dir="top" />)}
                         <div style={{ width: CW * 3, flexShrink: 0, height: TOP_H }} />
@@ -1201,13 +1330,17 @@ export default function App() {
 
                       {/* BOTTOM HALF — South (left) + Midwest (right), top-aligned from spine */}
                       <div style={{ display: 'flex', alignItems: 'flex-start', position: 'relative' }}>
-                        {/* SOUTH watermark — S16 gap is also at TOP_H/2 from top (bottom half mirrors top) */}
+                        {/* SOUTH watermark */}
                         <div style={{ position: 'absolute', top: LABEL_TOP - SH, left: (hasLeftFF ? CW : 0) + S16_CENTER_X + CW, transform: 'translate(-50%, -50%)', pointerEvents: 'none', zIndex: 0 }}>
                           <span style={{ fontSize: 130, fontWeight: 900, color: RC.South, opacity: 0.18, letterSpacing: 4, textTransform: 'uppercase', userSelect: 'none', lineHeight: 1, display: 'block', whiteSpace: 'nowrap' }}>SOUTH</span>
                         </div>
                         <div style={{ position: 'absolute', top: LABEL_TOP - SH, right: (hasRightFF ? CW : 0) + S16_CENTER_X + CW * 2.5, transform: 'translate(50%, -50%)', pointerEvents: 'none', zIndex: 0 }}>
                           <span style={{ fontSize: 130, fontWeight: 900, color: RC.Midwest, opacity: 0.18, letterSpacing: 4, textTransform: 'uppercase', userSelect: 'none', lineHeight: 1, display: 'block', whiteSpace: 'nowrap' }}>MIDWEST</span>
                         </div>
+                        {/* South connector lines */}
+                        <BracketLines xOffset={hasLeftFF ? CW : 0} flip={false} dir="bot" />
+                        {/* Midwest connector lines */}
+                        <BracketLines xOffset={hasRightFF ? CW : 0} flip={true} dir="bot" />
                         {hasLeftFF && <FFCol regionTop="East" regionBot="South" />}
                         {[0,1,2,3].map(rIdx => <RoundCol key={rIdx} region="South" rIdx={rIdx} flip={false} dir="bot" />)}
                         <div style={{ width: CW * 3, flexShrink: 0, height: BOT_H }} />
