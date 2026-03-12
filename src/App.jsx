@@ -956,7 +956,8 @@ export default function App() {
             )}
 
             {/* ── MAIN BRACKET ── */}
-            <div className="bscroll" style={{ overflowX: 'auto', overflowY: 'visible', paddingBottom: 16 }}>
+            <div className="bscroll" style={{ overflowX: 'auto', overflowY: 'visible', paddingBottom: 16 }}
+              onWheel={e => { if (Math.abs(e.deltaX) < Math.abs(e.deltaY)) { e.currentTarget.scrollLeft += e.deltaY; e.preventDefault(); } }}>
               <div style={{ minWidth: 3000, paddingBottom: 8 }}>
                 {(() => {
                   const CW = 240;
@@ -1036,56 +1037,54 @@ export default function App() {
 
                       {/* TOP HALF — East (left) + West (right), bottom-aligned to spine */}
                       <div style={{ display: 'flex', alignItems: 'flex-end' }}>
-
                         {hasLeftFF && <FFCol regionTop="East" regionBot="South" />}
                         {[0,1,2,3].map(rIdx => <RoundCol key={rIdx} region="East" rIdx={rIdx} flip={false} dir="top" />)}
-
-                        {/* Center — Championship floats above, Final Four at spine */}
-                        <div style={{ width: CW * 3, flexShrink: 0, position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', height: TOP_H }}>
-                          <div style={{ position: 'absolute', top: '22%', left: '50%', transform: 'translateX(-50%)', width: 'max-content', zIndex: 20, display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: 4, padding: '8px 12px', background: 'linear-gradient(135deg,rgba(245,158,11,0.22),rgba(124,58,237,0.18))', border: '2px solid rgba(245,158,11,0.7)', borderRadius: 12, animation: 'champGlow 3s ease-in-out infinite' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                              <span style={{ fontSize: 16 }}>🏆</span>
-                              <span style={{ fontSize: 13, fontWeight: 800, color: GOLD2, letterSpacing: 1, fontFamily: "'Playfair Display', serif" }}>National Championship</span>
-                              <span style={{ fontSize: 16 }}>🏆</span>
-                            </div>
-                            <GameSlot game={bracket.championship} onPick={handleChampPick} locked={locked && !isAdmin} isChampionship onScoreChange={handleChampScore} roundIdx={-1} liveScores={liveScores} />
-                            {bracket.championship?.winner && (
-                              <div style={{ textAlign: 'center', padding: '4px 10px', background: 'rgba(245,158,11,0.2)', borderRadius: 6, border: '1px solid rgba(245,158,11,0.6)' }}>
-                                <div style={{ fontSize: 10, color: GOLD2, letterSpacing: 2 }}>🎉 CHAMPION 🎉</div>
-                                <div style={{ fontSize: 15, fontWeight: 700, color: '#fff', fontFamily: "'Playfair Display', serif" }}>{bracket.championship.winner.name}</div>
-                              </div>
-                            )}
-                          </div>
-                          {(() => {
-                            const ff0 = bracket.finalFour[0];
-                            const topLabel = ff0?.top?.name && ff0?.bottom?.name
-                              ? `${ff0.top.name} vs ${ff0.bottom.name}`
-                              : 'East vs West';
-                            return (
-                              <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: 4, padding: '6px 10px', background: 'linear-gradient(135deg,rgba(16,185,129,0.15),rgba(6,182,212,0.1))', border: '2px solid rgba(52,211,153,0.4)', borderRadius: 10 }}>
-                                <div style={{ fontSize: 11, fontWeight: 800, color: '#34d399', letterSpacing: 2, textTransform: 'uppercase' }}>Final Four</div>
-                                <GameSlot game={bracket.finalFour[0]} onPick={s => handleFFPick(0, s)} locked={locked && !isAdmin} roundIdx={3} liveScores={liveScores} />
-                                <div style={{ fontSize: 10, color: '#555' }}>{topLabel}</div>
-                              </div>
-                            );
-                          })()}
-                        </div>
-
+                        <div style={{ width: CW * 3, flexShrink: 0, height: TOP_H }} />
                         {[3,2,1,0].map(rIdx => <RoundCol key={rIdx} region="West" rIdx={rIdx} flip={true} dir="top" />)}
                         {hasRightFF && <FFCol regionTop="West" regionBot="Midwest" />}
-
                       </div>
 
-                      {/* HORIZONTAL SPINE */}
-                      <div style={{ display: 'flex', borderTop: '2px solid rgba(255,255,255,0.15)', borderBottom: '2px solid rgba(255,255,255,0.15)' }}>
+                      {/* ── SPINE: round labels left/right, games in the center ── */}
+                      <div style={{ display: 'flex', alignItems: 'stretch', borderTop: '2px solid rgba(255,255,255,0.15)', borderBottom: '2px solid rgba(255,255,255,0.15)', background: 'rgba(0,0,0,0.35)' }}>
                         {hasLeftFF  && <SpineCell label="First Four"  sub='"Play-In"'      color="#818cf8" borderLeft={false} />}
                         <SpineCell label="Round of 64"  sub='"First Round"'    color={ROUND_BORDER_COLORS[0]} borderLeft={!hasLeftFF} />
                         <SpineCell label="Round of 32"  sub='"Second Round"'   color={ROUND_BORDER_COLORS[1]} />
                         <SpineCell label="Sweet 16"     sub='"Sweet Sixteen"'  color={ROUND_BORDER_COLORS[2]} />
                         <SpineCell label="Elite Eight"  sub='"Elite Eight"'    color={ROUND_BORDER_COLORS[3]} />
-                        <SpineCell label="Final Four"   sub='"The Final Four"' color="#34d399" />
-                        <SpineCell label="Championship" sub="🏆"               color={GOLD2} />
-                        <SpineCell label="Final Four"   sub='"The Final Four"' color="#34d399" />
+
+                        {/* Center: FF left | Championship | FF right */}
+                        <div style={{ width: CW * 3, flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6, padding: '8px 10px', borderLeft: '1px solid rgba(255,255,255,0.08)' }}>
+                          {/* Final Four — East vs West */}
+                          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+                            <div style={{ fontSize: 10, fontWeight: 800, color: '#34d399', letterSpacing: 1.5, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Final Four</div>
+                            <GameSlot game={bracket.finalFour[0]} onPick={s => handleFFPick(0, s)} locked={locked && !isAdmin} roundIdx={3} liveScores={liveScores} />
+                            <div style={{ fontSize: 9, color: '#555' }}>East vs West</div>
+                          </div>
+
+                          {/* Championship — center */}
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, padding: '6px 10px', background: 'linear-gradient(135deg,rgba(245,158,11,0.18),rgba(124,58,237,0.14))', border: '2px solid rgba(245,158,11,0.65)', borderRadius: 10, animation: 'champGlow 3s ease-in-out infinite', flexShrink: 0 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                              <span style={{ fontSize: 14 }}>🏆</span>
+                              <span style={{ fontSize: 11, fontWeight: 800, color: GOLD2, letterSpacing: 1, fontFamily: "'Playfair Display', serif", whiteSpace: 'nowrap' }}>Championship</span>
+                              <span style={{ fontSize: 14 }}>🏆</span>
+                            </div>
+                            <GameSlot game={bracket.championship} onPick={handleChampPick} locked={locked && !isAdmin} isChampionship onScoreChange={handleChampScore} roundIdx={-1} liveScores={liveScores} />
+                            {bracket.championship?.winner && (
+                              <div style={{ textAlign: 'center', padding: '3px 8px', background: 'rgba(245,158,11,0.18)', borderRadius: 5, border: '1px solid rgba(245,158,11,0.5)' }}>
+                                <div style={{ fontSize: 9, color: GOLD2, letterSpacing: 1.5 }}>🎉 CHAMPION</div>
+                                <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', fontFamily: "'Playfair Display', serif" }}>{bracket.championship.winner.name}</div>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Final Four — South vs Midwest */}
+                          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+                            <div style={{ fontSize: 10, fontWeight: 800, color: '#34d399', letterSpacing: 1.5, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Final Four</div>
+                            <GameSlot game={bracket.finalFour[1]} onPick={s => handleFFPick(1, s)} locked={locked && !isAdmin} roundIdx={3} liveScores={liveScores} />
+                            <div style={{ fontSize: 9, color: '#555' }}>South vs Midwest</div>
+                          </div>
+                        </div>
+
                         <SpineCell label="Elite Eight"  sub='"Elite Eight"'    color={ROUND_BORDER_COLORS[3]} />
                         <SpineCell label="Sweet 16"     sub='"Sweet Sixteen"'  color={ROUND_BORDER_COLORS[2]} />
                         <SpineCell label="Round of 32"  sub='"Second Round"'   color={ROUND_BORDER_COLORS[1]} />
@@ -1095,30 +1094,11 @@ export default function App() {
 
                       {/* BOTTOM HALF — South (left) + Midwest (right), top-aligned from spine */}
                       <div style={{ display: 'flex', alignItems: 'flex-start' }}>
-
                         {hasLeftFF && <FFCol regionTop="East" regionBot="South" />}
                         {[0,1,2,3].map(rIdx => <RoundCol key={rIdx} region="South" rIdx={rIdx} flip={false} dir="bot" />)}
-
-                        {/* Center bottom — South vs Midwest Final Four */}
-                        <div style={{ width: CW * 3, flexShrink: 0, height: BOT_H, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start', paddingTop: 8 }}>
-                          {(() => {
-                            const ff1 = bracket.finalFour[1];
-                            const botLabel = ff1?.top?.name && ff1?.bottom?.name
-                              ? `${ff1.top.name} vs ${ff1.bottom.name}`
-                              : 'South vs Midwest';
-                            return (
-                              <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: 4, padding: '6px 10px', background: 'linear-gradient(135deg,rgba(16,185,129,0.15),rgba(6,182,212,0.1))', border: '2px solid rgba(52,211,153,0.4)', borderRadius: 10 }}>
-                                <div style={{ fontSize: 11, fontWeight: 800, color: '#34d399', letterSpacing: 2, textTransform: 'uppercase' }}>Final Four</div>
-                                <GameSlot game={bracket.finalFour[1]} onPick={s => handleFFPick(1, s)} locked={locked && !isAdmin} roundIdx={3} liveScores={liveScores} />
-                                <div style={{ fontSize: 10, color: '#555' }}>{botLabel}</div>
-                              </div>
-                            );
-                          })()}
-                        </div>
-
+                        <div style={{ width: CW * 3, flexShrink: 0, height: BOT_H }} />
                         {[3,2,1,0].map(rIdx => <RoundCol key={rIdx} region="Midwest" rIdx={rIdx} flip={true} dir="bot" />)}
                         {hasRightFF && <FFCol regionTop="West" regionBot="Midwest" />}
-
                       </div>
 
                       {/* Region labels — bottom */}
