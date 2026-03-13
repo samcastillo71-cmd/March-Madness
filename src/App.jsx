@@ -361,15 +361,120 @@ function ResearchCard({ teamName, card, isAdmin, onFieldSave }) {
   );
 }
 
+// ── PLACEHOLDER ROSTERS ───────────────────────────────────────────────────────
+const PLACEHOLDER_BASKETBALL = {
+  East:    [['Lakewood State','Ridgecrest U','Valley Tech','Pinehurst A&M','Crestview College','Northgate U','Ironwood State','Maplewood U','Harborview College','Clearwater State','Foxgrove U','Stonegate College','Elmwood State','Birchwood U','Ashford College','Westbrook U'],],
+  West:    [['Pacific Ridge U','Suncrest State','Coastal Tech','Mesa Verde U','Driftwood College','Highpoint State','Timberline U','Redwood College','Sandstone State','Blue Mesa U','Cascade College','Sunridge State','Cliffside U','Pinecrest College','Lakeside State','Oceanview U'],],
+  South:   [['Magnolia State','Bayou Tech','Cypress U','Longleaf A&M','Palmetto College','Sycamore State','Willowbrook U','Peachtree College','Jasmine State','Tupelo U','Cypress Hills College','Redstone State','Gulf Coast U','Mossy Oak College','Crescent State','Tidewater U'],],
+  Midwest: [['Cornerstone U','Prairie State','Great Plains Tech','Tallgrass A&M','Wheatfield College','Bluebell State','Meadowview U','Oakdale College','Cornhusker State','Lakeshore U','Birchbark College','Rolling Hills State','Sunset Ridge U','Maple Grove College','Creekside State','Riverbend U'],],
+};
+const PLACEHOLDER_ANIMALS = {
+  East:    ['African Lion','Snow Leopard','Gray Wolf','Brown Bear','Cheetah','Mountain Lion','Wolverine','Honey Badger','Arctic Fox','Red Fox','Bobcat','Lynx','Ocelot','Caracal','Serval','Clouded Leopard'],
+  West:    ['African Elephant','White Rhino','Hippo','Giraffe','Cape Buffalo','Moose','Bison','Kodiak Bear','Polar Bear','Grizzly Bear','Black Bear','Jaguar','Tiger','Cougar','Leopard','Hyena'],
+  South:   ['Killer Whale','Sperm Whale','Humpback Whale','Great White Shark','Bottlenose Dolphin','Sea Lion','Walrus','Narwhal','Beluga Whale','Orca','Manta Ray','Giant Squid','Octopus','Saltwater Croc','Komodo Dragon','Anaconda'],
+  Midwest: ['Peregrine Falcon','Bald Eagle','Great Horned Owl','Harpy Eagle','Golden Eagle','Osprey','Red-tailed Hawk','Snowy Owl','Secretary Bird','Martial Eagle','Wedge-tailed Eagle','Philippine Eagle','Barn Owl','Great Grey Owl','Barred Owl','Steller\'s Sea Eagle'],
+};
+
+function makePlaceholderRoster() {
+  const regions = ['East','West','South','Midwest'];
+  const out = { year: new Date().getFullYear() };
+  regions.forEach(r => {
+    out[r] = PLACEHOLDER_BASKETBALL[r][0].map((name, i) => ({ seed: i+1, name, espnId: '', firstFour: false }));
+  });
+  return out;
+}
+
+function makePlaceholderMammalRoster() {
+  const regions = ['East','West','South','Midwest'];
+  const out = {};
+  regions.forEach(r => {
+    out[r] = PLACEHOLDER_ANIMALS[r].map((name, i) => ({ seed: i+1, name, firstFour: false }));
+  });
+  return out;
+}
+
+// ── ESPN BRACKET IMPORT ───────────────────────────────────────────────────────
+async function importFromESPN() {
+  // ESPN bracket endpoint — group 100 = NCAA Tournament
+  const urls = [
+    'https://site.web.api.espn.com/apis/v2/sports/basketball/mens-college-basketball/tournaments/22?region=us&lang=en',
+    'https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/tournaments/22',
+  ];
+
+  let data = null;
+  for (const url of urls) {
+    try {
+      const res = await fetch(url);
+      if (res.ok) { data = await res.json(); break; }
+    } catch {}
+  }
+
+  // Fallback: try scoreboard with tournament filter
+  if (!data) {
+    try {
+      const res = await fetch('https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard?groups=100&limit=64');
+      if (res.ok) data = await res.json();
+    } catch {}
+  }
+
+  if (!data) throw new Error('Could not reach ESPN API. Try again or enter teams manually.');
+
+  // Parse bracket structure — ESPN returns regions with seeds and teams
+  const regionMap = { East: [], West: [], South: [], Midwest: [] };
+  const regionNames = Object.keys(regionMap);
+
+  // Try tournament bracket format
+  const bracket = data.bracket || data.rounds?.[0] || data.tournament?.bracket;
+  if (bracket) {
+    // Walk bracket tree to find all R1 matchups
+    const walkBracket = (node) => {
+      if (!node) return;
+      if (node.competitors) {
+        node.competitors.forEach(c => {
+          const region = regionNames.find(r => c.region?.toLowerCase().includes(r.toLowerCase()));
+          if (region && c.team) {
+            regionMap[region].push({ seed: c.seed, name: c.team.displayName || c.team.name, espnId: String(c.team.id || ''), firstFour: false });
+          }
+        });
+      }
+      (node.children || node.games || []).forEach(walkBracket);
+    };
+    walkBracket(bracket);
+  }
+
+  // Try groups/regions format
+  const groups = data.groups || data.regions || data.rounds?.[0]?.groups;
+  if (groups && Object.values(regionMap).every(r => r.length === 0)) {
+    groups.forEach(group => {
+      const regionName = regionNames.find(r => group.name?.toLowerCase().includes(r.toLowerCase()) || group.abbreviation?.toLowerCase().includes(r.toLowerCase()[0]));
+      if (!regionName) return;
+      (group.teams || group.standings?.entries || []).forEach(entry => {
+        const team = entry.team || entry;
+        const seed = entry.seed || entry.curatedRank?.current || 0;
+        regionMap[regionName].push({ seed, name: team.displayName || team.name || '', espnId: String(team.id || ''), firstFour: false });
+      });
+    });
+  }
+
+  // Check if we got anything useful
+  const totalTeams = Object.values(regionMap).reduce((s, r) => s + r.length, 0);
+  if (totalTeams < 16) throw new Error(`ESPN returned only ${totalTeams} teams — the tournament bracket may not be announced yet. Check back after Selection Sunday.`);
+
+  // Sort by seed and cap at 16 (+FF slots) per region
+  Object.keys(regionMap).forEach(r => {
+    regionMap[r].sort((a, b) => a.seed - b.seed);
+    // Mark potential First Four (seed 11 or 16 with duplicates)
+    const seedCounts = {};
+    regionMap[r].forEach(t => { seedCounts[t.seed] = (seedCounts[t.seed] || 0) + 1; });
+    regionMap[r] = regionMap[r].map(t => ({ ...t, firstFour: seedCounts[t.seed] > 1 }));
+  });
+
+  return { ...regionMap, year: new Date().getFullYear() };
+}
+
 // ── ADMIN TEAM ENTRY PANEL ────────────────────────────────────────────────────
 function makeEmptyRoster() {
-  return {
-    year: new Date().getFullYear(),
-    East:    Array(16).fill(null).map((_, i) => ({ seed: i+1, name: '', espnId: '', firstFour: false })),
-    West:    Array(16).fill(null).map((_, i) => ({ seed: i+1, name: '', espnId: '', firstFour: false })),
-    South:   Array(16).fill(null).map((_, i) => ({ seed: i+1, name: '', espnId: '', firstFour: false })),
-    Midwest: Array(16).fill(null).map((_, i) => ({ seed: i+1, name: '', espnId: '', firstFour: false })),
-  };
+  return makePlaceholderRoster();
 }
 
 function TeamEntryPanel({ onTeamsSaved, onRequestGenerateResearch }) {
@@ -413,6 +518,10 @@ function TeamEntryPanel({ onTeamsSaved, onRequestGenerateResearch }) {
     setSaved(false);
   };
 
+  const [importing,    setImporting]    = useState(false);
+  const [importStatus, setImportStatus] = useState(''); // '', 'success', 'error'
+  const [importMsg,    setImportMsg]    = useState('');
+
   // Step 1: Save roster only (fast)
   const handleSaveRoster = async () => {
     setSaving(true);
@@ -429,6 +538,23 @@ function TeamEntryPanel({ onTeamsSaved, onRequestGenerateResearch }) {
     onTeamsSaved(nb, roster);
   };
 
+  // ESPN Import
+  const handleESPNImport = async () => {
+    setImporting(true); setImportStatus(''); setImportMsg('Fetching from ESPN...');
+    try {
+      const imported = await importFromESPN();
+      setRoster(imported);
+      setSaved(false); setApplied(false);
+      setImportStatus('success');
+      const total = Object.values(imported).filter(v => Array.isArray(v)).reduce((s, r) => s + r.length, 0);
+      setImportMsg(`✓ Imported ${total} teams! Review below, then Save Roster → Apply to Bracket.`);
+    } catch (e) {
+      setImportStatus('error');
+      setImportMsg(e.message || 'Import failed — try again or enter teams manually.');
+    }
+    setImporting(false);
+  };
+
   if (loading) return <div style={{ color: '#999', padding: 20 }}>Loading roster...</div>;
 
   const regionTeams = roster[activeRegion] || [];
@@ -438,9 +564,13 @@ function TeamEntryPanel({ onTeamsSaved, onRequestGenerateResearch }) {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
         <div>
           <h3 style={{ color: ACCENT2, marginBottom: 4 }}>Set Up This Year's Teams</h3>
-          <p style={{ color: '#999', fontSize: 13 }}>Enter all 64–68 teams after Selection Sunday. Use "Add FF Slot" for First Four play-in teams — give them the same seed number and check FF on both.</p>
+          <p style={{ color: '#999', fontSize: 13 }}>Import from ESPN after Selection Sunday, or enter teams manually. You can always edit individual teams after importing.</p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          {/* ESPN Import button */}
+          <button style={{ ...S.btn('#0284c7', '#fff'), padding: '8px 18px', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }} onClick={handleESPNImport} disabled={importing}>
+            {importing ? '⏳ Importing...' : '📡 Import from ESPN'}
+          </button>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <span style={{ fontSize: 12, color: '#888' }}>Year:</span>
             <input type="number" value={roster.year} onChange={e => { setRoster(p => ({ ...p, year: parseInt(e.target.value) })); setSaved(false); }} style={{ ...S.input, width: 82, padding: '6px 10px', fontSize: 13 }} />
@@ -460,6 +590,13 @@ function TeamEntryPanel({ onTeamsSaved, onRequestGenerateResearch }) {
           )}
         </div>
       </div>
+
+      {/* ESPN import status */}
+      {importMsg && (
+        <div style={{ marginBottom: 12, padding: '10px 14px', borderRadius: 8, background: importStatus === 'success' ? 'rgba(22,163,74,0.1)' : 'rgba(239,68,68,0.1)', border: `1px solid ${importStatus === 'success' ? 'rgba(22,163,74,0.3)' : 'rgba(239,68,68,0.3)'}`, fontSize: 13, color: importStatus === 'success' ? ACCENT2 : '#f87171' }}>
+          {importMsg}
+        </div>
+      )}
 
       {/* Step indicators */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 16, fontSize: 12 }}>
@@ -698,7 +835,20 @@ function RevealModePanel({ bracket, mammalBracket, onRevealWinner, onRevealMamma
   const activeLocked   = revealTournament === 'mammals' ? mammalLocked : locked;
   const activeOnLock   = revealTournament === 'mammals' ? onMammalLockToggle : onLockToggle;
 
-  if (!activeBracket) return null;
+  if (!activeBracket) return (
+    <div style={{ ...S.card, borderColor: 'rgba(250,204,21,0.3)', marginBottom: 16 }}>
+      <h3 style={{ color: '#facc15', marginBottom: 8, fontSize: 15 }}>🎬 Reveal Mode</h3>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 16, background: 'rgba(255,255,255,0.04)', borderRadius: 10, padding: 3, width: 'fit-content', border: '1px solid rgba(255,255,255,0.08)' }}>
+        <button onClick={() => setRevealTournament('basketball')} style={{ padding: '6px 16px', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 700, background: revealTournament === 'basketball' ? ACCENT : 'transparent', color: revealTournament === 'basketball' ? '#fff' : '#888', transition: 'all .15s' }}>🏀 Basketball</button>
+        <button onClick={() => setRevealTournament('mammals')} style={{ padding: '6px 16px', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 700, background: revealTournament === 'mammals' ? '#16a34a' : 'transparent', color: revealTournament === 'mammals' ? '#fff' : '#888', transition: 'all .15s' }}>🦁 Mammal Madness</button>
+      </div>
+      <p style={{ color: '#666', fontSize: 13, margin: 0, fontStyle: 'italic' }}>
+        {revealTournament === 'mammals'
+          ? '🦁 No Mammal Madness bracket set up yet — go to Admin → Mammal Madness to add animals first.'
+          : 'No bracket data yet.'}
+      </p>
+    </div>
+  );
 
   const regions = ['East', 'West', 'South', 'Midwest'];
 
@@ -856,7 +1006,7 @@ export default function App() {
   // ── TOURNAMENT SWITCHER ───────────────────────────────────────────────────
   const [activeTournament, setActiveTournament] = useState('basketball'); // 'basketball' | 'mammals'
   // ── MAMMAL STATE ──────────────────────────────────────────────────────────
-  const [mammalBracket,       setMammalBracket]       = useState(() => buildInitialBracket());
+  const [mammalBracket,       setMammalBracket]       = useState(() => buildInitialBracketFromTeams(makePlaceholderMammalRoster()));
   const [mammalOfficialBracket, setMammalOfficialBracket] = useState(null);
   const [mammalLocked,        setMammalLocked]        = useState(false);
   const [mammalLeaderboard,   setMammalLeaderboard]   = useState([]);
@@ -915,7 +1065,7 @@ export default function App() {
           setMammalBracket(bracketOnly);
         } else { setMammalBracket(savedMammal); }
       }
-    } else { setUser(null); setIsAdmin(false); setIsTeacher(false); setBracket(buildInitialBracket()); }
+    } else { setUser(null); setIsAdmin(false); setIsTeacher(false); setBracket(buildInitialBracket()); setMammalBracket(buildInitialBracketFromTeams(makePlaceholderMammalRoster())); }
     setAuthLoading(false);
   }), []);
 
@@ -1979,7 +2129,7 @@ export default function App() {
                 {/* Reveal Mode */}
                 <RevealModePanel
                   bracket={officialBracket || bracket}
-                  mammalBracket={mammalOfficialBracket || mammalBracket}
+                  mammalBracket={mammalOfficialBracket}
                   onRevealWinner={handlePick}
                   onRevealMammalWinner={handleMammalPick}
                   onRevealFF={handleFFPick}
