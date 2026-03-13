@@ -696,7 +696,7 @@ Keep all language at a middle school reading level. Make it engaging and educati
 }
 
 // ── MAMMAL TEAM ENTRY PANEL ───────────────────────────────────────────────────
-function MammalEntryPanel({ onAnimalsSaved, onRequestGenerateMammalResearch }) {
+function MammalEntryPanel({ onAnimalsSaved, onRequestGenerateMammalResearch, regionNames, onRegionNamesChange }) {
   const [roster,       setRoster]       = useState({ East: Array(16).fill(null).map((_,i) => ({ seed:i+1, name:'', firstFour:false })), West: Array(16).fill(null).map((_,i) => ({ seed:i+1, name:'', firstFour:false })), South: Array(16).fill(null).map((_,i) => ({ seed:i+1, name:'', firstFour:false })), Midwest: Array(16).fill(null).map((_,i) => ({ seed:i+1, name:'', firstFour:false })) });
   const [activeRegion, setActiveRegion] = useState('East');
   const [saving,       setSaving]       = useState(false);
@@ -709,7 +709,12 @@ function MammalEntryPanel({ onAnimalsSaved, onRequestGenerateMammalResearch }) {
     (async () => {
       try {
         const snap = await getDoc(doc(db, 'admin', 'mammalRoster'));
-        if (snap.exists()) { const d = snap.data(); delete d.updatedAt; setRoster(d); }
+        if (snap.exists()) {
+          const d = snap.data();
+          if (d._regionNames) onRegionNamesChange(d._regionNames);
+          delete d.updatedAt; delete d._regionNames;
+          setRoster(d);
+        }
       } catch {}
       setLoading(false);
     })();
@@ -728,10 +733,21 @@ function MammalEntryPanel({ onAnimalsSaved, onRequestGenerateMammalResearch }) {
         <div>
           <h3 style={{ color: '#86efac', marginBottom: 4 }}>🦁 Set Up Mammal Madness Animals</h3>
           <p style={{ color: '#999', fontSize: 13 }}>Enter the 64 animals competing in this year's March Mammal Madness tournament.</p>
+          {/* Region name editor */}
+          <div style={{ marginTop: 10, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            <span style={{ fontSize: 12, color: '#86efac', fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', flexShrink: 0 }}>Region Names:</span>
+            {['East','West','South','Midwest'].map(r => (
+              <div key={r} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <span style={{ fontSize: 11, color: RC[r], fontWeight: 700 }}>{r}:</span>
+                <input value={regionNames[r]} onChange={e => onRegionNamesChange({ ...regionNames, [r]: e.target.value })}
+                  placeholder={r} style={{ ...S.input, width: 120, padding: '4px 8px', fontSize: 12 }} />
+              </div>
+            ))}
+          </div>
         </div>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <button style={{ ...S.btn(saved ? '#22c55e' : ACCENT, '#fff'), padding: '8px 20px', fontSize: 13 }}
-            onClick={async () => { setSaving(true); await saveMammalRoster(roster); setSaving(false); setSaved(true); }} disabled={saving}>
+            onClick={async () => { setSaving(true); await saveMammalRoster({ ...roster, _regionNames: regionNames }); setSaving(false); setSaved(true); }} disabled={saving}>
             {saving ? 'Saving...' : saved ? '✓ Roster Saved' : 'Save Roster'}
           </button>
           {saved && (
@@ -1028,6 +1044,7 @@ export default function App() {
   const [mammalGenerating,    setMammalGenerating]    = useState(false);
   const [mammalGenProgress,   setMammalGenProgress]   = useState({ done: 0, total: 0, current: '' });
   const [mammalGeneratingOne, setMammalGeneratingOne] = useState(null);
+  const [mammalRegionNames,   setMammalRegionNames]   = useState({ East: 'East', West: 'West', South: 'South', Midwest: 'Midwest' });
   const prevMammalBracket = useRef(null);
   const prevMammalFF      = useRef(null);
   const mammalSaveTimer   = useRef(null); // { "Team Name": { score, oppScore, period, clock, status } }
@@ -1070,6 +1087,11 @@ export default function App() {
       }
       // Load mammal bracket
       const savedMammal = await loadMammalBracket(fbUser.uid);
+      // Load mammal region names
+      try {
+        const rSnap = await getDoc(doc(db, 'admin', 'mammalRoster'));
+        if (rSnap.exists() && rSnap.data()._regionNames) setMammalRegionNames(rSnap.data()._regionNames);
+      } catch {}
       if (savedMammal) {
         if (savedMammal._firstFourPicks) {
           setMammalFirstFourPicks(savedMammal._firstFourPicks);
@@ -1728,10 +1750,10 @@ export default function App() {
                       {/* TOP — East + West */}
                       <div style={{ display: 'flex', alignItems: 'flex-end', position: 'relative', overflow: 'hidden' }}>
                         <div style={{ position: 'absolute', top: LABEL_TOP + SH, left: S16_CENTER_X + CW, transform: 'translate(-50%,-50%)', pointerEvents: 'none', zIndex: 0 }}>
-                          <span style={{ fontSize: 130, fontWeight: 900, color: RC.East, opacity: 0.18, letterSpacing: 4, textTransform: 'uppercase', userSelect: 'none', lineHeight: 1, display: 'block', whiteSpace: 'nowrap' }}>EAST</span>
+                          <span style={{ fontSize: 130, fontWeight: 900, color: RC.East, opacity: 0.18, letterSpacing: 4, textTransform: 'uppercase', userSelect: 'none', lineHeight: 1, display: 'block', whiteSpace: 'nowrap' }}>{ mammalRegionNames.East }</span>
                         </div>
                         <div style={{ position: 'absolute', top: LABEL_TOP + SH, right: S16_CENTER_X + CW * 2, transform: 'translate(50%,-50%)', pointerEvents: 'none', zIndex: 0 }}>
-                          <span style={{ fontSize: 130, fontWeight: 900, color: RC.West, opacity: 0.18, letterSpacing: 4, textTransform: 'uppercase', userSelect: 'none', lineHeight: 1, display: 'block', whiteSpace: 'nowrap' }}>WEST</span>
+                          <span style={{ fontSize: 130, fontWeight: 900, color: RC.West, opacity: 0.18, letterSpacing: 4, textTransform: 'uppercase', userSelect: 'none', lineHeight: 1, display: 'block', whiteSpace: 'nowrap' }}>{ mammalRegionNames.West }</span>
                         </div>
                         {[0,1,2,3].map(rIdx => <MRoundCol key={rIdx} region="East" rIdx={rIdx} flip={false} dir="top" />)}
                         <div style={{ width: CW * 3, flexShrink: 0, height: TOP_H }} />
@@ -1778,10 +1800,10 @@ export default function App() {
                       {/* BOTTOM — South + Midwest */}
                       <div style={{ display: 'flex', alignItems: 'flex-start', position: 'relative', overflow: 'hidden' }}>
                         <div style={{ position: 'absolute', top: LABEL_TOP - SH, left: S16_CENTER_X + CW, transform: 'translate(-50%,-50%)', pointerEvents: 'none', zIndex: 0 }}>
-                          <span style={{ fontSize: 130, fontWeight: 900, color: RC.South, opacity: 0.18, letterSpacing: 4, textTransform: 'uppercase', userSelect: 'none', lineHeight: 1, display: 'block', whiteSpace: 'nowrap' }}>SOUTH</span>
+                          <span style={{ fontSize: 130, fontWeight: 900, color: RC.South, opacity: 0.18, letterSpacing: 4, textTransform: 'uppercase', userSelect: 'none', lineHeight: 1, display: 'block', whiteSpace: 'nowrap' }}>{ mammalRegionNames.South }</span>
                         </div>
                         <div style={{ position: 'absolute', top: LABEL_TOP - SH, right: S16_CENTER_X + CW * 2.5, transform: 'translate(50%,-50%)', pointerEvents: 'none', zIndex: 0 }}>
-                          <span style={{ fontSize: 130, fontWeight: 900, color: RC.Midwest, opacity: 0.18, letterSpacing: 4, textTransform: 'uppercase', userSelect: 'none', lineHeight: 1, display: 'block', whiteSpace: 'nowrap' }}>MIDWEST</span>
+                          <span style={{ fontSize: 130, fontWeight: 900, color: RC.Midwest, opacity: 0.18, letterSpacing: 4, textTransform: 'uppercase', userSelect: 'none', lineHeight: 1, display: 'block', whiteSpace: 'nowrap' }}>{ mammalRegionNames.Midwest }</span>
                         </div>
                         {[0,1,2,3].map(rIdx => <MRoundCol key={rIdx} region="South" rIdx={rIdx} flip={false} dir="bot" />)}
                         <div style={{ width: CW * 3, flexShrink: 0, height: BOT_H }} />
@@ -2432,6 +2454,8 @@ export default function App() {
                 <MammalEntryPanel
                   onAnimalsSaved={(nb, roster) => { setMammalBracket(nb); }}
                   onRequestGenerateMammalResearch={handleGenerateMammalResearch}
+                  regionNames={mammalRegionNames}
+                  onRegionNamesChange={setMammalRegionNames}
                 />
               </>
             )}
