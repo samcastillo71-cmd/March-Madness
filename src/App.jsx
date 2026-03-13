@@ -674,8 +674,9 @@ Return ONLY valid JSON, no markdown, no explanation. Use this exact structure:
     body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
   });
   const data = await res.json();
+  console.log('Gemini response status:', res.status, JSON.stringify(data).slice(0, 300));
   const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
-  try { return JSON.parse(text.replace(/```json|```/g, '').trim()); } catch { return null; }
+  try { return JSON.parse(text.replace(/```json|```/g, '').trim()); } catch (e) { console.warn('JSON parse failed:', text.slice(0,200)); return null; }
 }
 
 // ── MAMMAL AI RESEARCH GENERATOR ─────────────────────────────────────────────
