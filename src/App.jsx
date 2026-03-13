@@ -1435,14 +1435,23 @@ export default function App() {
     for (let i = 0; i < teams.length; i++) {
       const { name, seed, region } = teams[i];
       setGenProgress({ done: i, total: teams.length, current: name });
-      try {
-        const card = await generateResearchForTeam(name, seed, region);
-        if (card) allData[name] = { ...card, seed, region };
-      } catch (e) { console.warn('Failed:', name, e); }
-      if (i < teams.length - 1) await new Promise(r => setTimeout(r, 400));
+      let card = null;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          card = await generateResearchForTeam(name, seed, region);
+          if (card) break;
+        } catch (e) { console.warn('Failed attempt', attempt + 1, name, e); }
+        if (attempt < 2) await new Promise(r => setTimeout(r, 5000));
+      }
+      if (card) {
+        allData[name] = { ...card, seed, region };
+        // Save after each team so progress isn't lost if interrupted
+        await saveResearchData(allData);
+        setResearchData({ ...allData });
+      }
+      // 5 seconds between requests = 12 per minute, safely under the 15/min limit
+      if (i < teams.length - 1) await new Promise(r => setTimeout(r, 5000));
     }
-    await saveResearchData(allData);
-    setResearchData(allData);
     setGenProgress({ done: teams.length, total: teams.length, current: '' });
     setGenerating(false);
     if (!selectedTeam && Object.keys(allData).length > 0) setSelectedTeam(Object.keys(allData)[0]);
@@ -1498,14 +1507,21 @@ export default function App() {
     for (let i = 0; i < animals.length; i++) {
       const { name, seed, region } = animals[i];
       setMammalGenProgress({ done: i, total: animals.length, current: name });
-      try {
-        const card = await generateMammalResearch(name, seed, region);
-        if (card) allData[name] = { ...card, seed, region };
-      } catch (e) { console.warn('Failed:', name, e); }
-      if (i < animals.length - 1) await new Promise(r => setTimeout(r, 400));
+      let card = null;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          card = await generateMammalResearch(name, seed, region);
+          if (card) break;
+        } catch (e) { console.warn('Failed attempt', attempt + 1, name, e); }
+        if (attempt < 2) await new Promise(r => setTimeout(r, 5000));
+      }
+      if (card) {
+        allData[name] = { ...card, seed, region };
+        await saveMammalResearchData(allData);
+        setMammalResearchData({ ...allData });
+      }
+      if (i < animals.length - 1) await new Promise(r => setTimeout(r, 5000));
     }
-    await saveMammalResearchData(allData);
-    setMammalResearchData(allData);
     setMammalGenProgress({ done: animals.length, total: animals.length, current: '' });
     setMammalGenerating(false);
     if (!mammalSelectedAnimal && Object.keys(allData).length > 0) setMammalSelectedAnimal(Object.keys(allData)[0]);
