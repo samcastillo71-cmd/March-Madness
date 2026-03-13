@@ -2193,6 +2193,7 @@ export default function App() {
                 </div>
               </div>
             )}
+            {!researchMatchup && activeTournament === 'basketball' && (<>
             <h2 style={{ fontFamily: "'Playfair Display', serif", color: ACCENT2, marginBottom: 6 }}>Team Research Hub</h2>
             {isAdmin && <p style={{ color: '#777', fontSize: 13, marginBottom: 16 }}>As admin, click any field to edit it directly.</p>}
             {allTeamNames.length === 0 ? (
