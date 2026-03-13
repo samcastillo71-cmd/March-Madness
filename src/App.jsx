@@ -1129,12 +1129,21 @@ export default function App() {
       setResearchData(data);
       if (!selectedTeam && Object.keys(data).length > 0) setSelectedTeam(Object.keys(data)[0]);
     });
-    const u5 = subscribeToMammalOfficialBracket(b => { setMammalOfficialBracket(b); if (isAdmin) setMammalBracket(b); });
+    const u5 = subscribeToMammalOfficialBracket(b => {
+      setMammalOfficialBracket(b);
+      // Only overwrite bracket state for admins; non-admins keep their own picks
+      if (isAdmin && b) setMammalBracket(b);
+    });
     const u6 = subscribeToMammalConfig(cfg => { setMammalLocked(cfg.locked ?? false); });
     const u7 = subscribeToMammalLeaderboard(setMammalLeaderboard);
     const u8 = subscribeToMammalResearchData(data => {
       setMammalResearchData(data);
-      if (!mammalSelectedAnimal && Object.keys(data).length > 0) setMammalSelectedAnimal(Object.keys(data)[0]);
+      // Only auto-select first animal if none is selected yet — never override user's current selection
+      setMammalSelectedAnimal(prev => {
+        if (prev) return prev;
+        const keys = Object.keys(data);
+        return keys.length > 0 ? keys[0] : null;
+      });
     });
     return () => { u1(); u2(); u3(); u4(); u5(); u6(); u7(); u8(); };
   }, [user, isAdmin]);
@@ -1499,6 +1508,27 @@ export default function App() {
       return card;
     })());
   }, [researchData]);
+
+  // ── EDIT MAMMAL RESEARCH FIELD ───────────────────────────────────────────
+  const handleMammalResearchFieldSave = useCallback(async (animalName, fieldPath, value) => {
+    setMammalResearchData(prev => {
+      const next = JSON.parse(JSON.stringify(prev));
+      if (!next[animalName]) next[animalName] = {};
+      const parts = fieldPath.split('.');
+      let obj = next[animalName];
+      for (let i = 0; i < parts.length - 1; i++) { if (!obj[parts[i]]) obj[parts[i]] = {}; obj = obj[parts[i]]; }
+      obj[parts[parts.length - 1]] = value;
+      return next;
+    });
+    await saveOneMammalResearch(animalName, (() => {
+      const card = JSON.parse(JSON.stringify(mammalResearchData[animalName] || {}));
+      const parts = fieldPath.split('.');
+      let obj = card;
+      for (let i = 0; i < parts.length - 1; i++) { if (!obj[parts[i]]) obj[parts[i]] = {}; obj = obj[parts[i]]; }
+      obj[parts[parts.length - 1]] = value;
+      return card;
+    })());
+  }, [mammalResearchData]);
 
   // ── AI ASSISTANT ──────────────────────────────────────────────────────────
   const score        = calcScore(bracket, officialBracket);
@@ -2189,9 +2219,13 @@ export default function App() {
                       <span style={{ fontWeight: 800, fontSize: 16, color: '#a5b4fc', fontFamily: "'Playfair Display', serif" }}>{researchMatchup.teamA}</span>
                     </div>
                     <div style={{ padding: 16 }}>
-                      {(researchMatchup.isMammal ? mammalResearchData : researchData)[researchMatchup.teamA]
-                        ? <ResearchCard teamName={researchMatchup.teamA} card={(researchMatchup.isMammal ? mammalResearchData : researchData)[researchMatchup.teamA]} isAdmin={isAdmin} onFieldSave={researchMatchup.isMammal ? handleMammalResearchFieldSave : handleResearchFieldSave} compact />
-                        : <div style={{ padding: 32, textAlign: 'center', color: '#555', fontSize: 13 }}>No research data yet for {researchMatchup.teamA}</div>
+                      {researchMatchup.isMammal
+                        ? (mammalResearchData[researchMatchup.teamA]
+                            ? <MammalResearchCard animalName={researchMatchup.teamA} card={mammalResearchData[researchMatchup.teamA]} isAdmin={false} onGenerate={() => {}} generating={false} />
+                            : <div style={{ padding: 32, textAlign: 'center', color: '#555', fontSize: 13 }}>No animal data yet for {researchMatchup.teamA}</div>)
+                        : (researchData[researchMatchup.teamA]
+                            ? <ResearchCard teamName={researchMatchup.teamA} card={researchData[researchMatchup.teamA]} isAdmin={isAdmin} onFieldSave={handleResearchFieldSave} />
+                            : <div style={{ padding: 32, textAlign: 'center', color: '#555', fontSize: 13 }}>No research data yet for {researchMatchup.teamA}</div>)
                       }
                     </div>
                   </div>
@@ -2206,9 +2240,13 @@ export default function App() {
                       <span style={{ fontWeight: 800, fontSize: 16, color: '#fdba74', fontFamily: "'Playfair Display', serif" }}>{researchMatchup.teamB}</span>
                     </div>
                     <div style={{ padding: 16 }}>
-                      {(researchMatchup.isMammal ? mammalResearchData : researchData)[researchMatchup.teamB]
-                        ? <ResearchCard teamName={researchMatchup.teamB} card={(researchMatchup.isMammal ? mammalResearchData : researchData)[researchMatchup.teamB]} isAdmin={isAdmin} onFieldSave={researchMatchup.isMammal ? handleMammalResearchFieldSave : handleResearchFieldSave} compact />
-                        : <div style={{ padding: 32, textAlign: 'center', color: '#555', fontSize: 13 }}>No research data yet for {researchMatchup.teamB}</div>
+                      {researchMatchup.isMammal
+                        ? (mammalResearchData[researchMatchup.teamB]
+                            ? <MammalResearchCard animalName={researchMatchup.teamB} card={mammalResearchData[researchMatchup.teamB]} isAdmin={false} onGenerate={() => {}} generating={false} />
+                            : <div style={{ padding: 32, textAlign: 'center', color: '#555', fontSize: 13 }}>No animal data yet for {researchMatchup.teamB}</div>)
+                        : (researchData[researchMatchup.teamB]
+                            ? <ResearchCard teamName={researchMatchup.teamB} card={researchData[researchMatchup.teamB]} isAdmin={isAdmin} onFieldSave={handleResearchFieldSave} />
+                            : <div style={{ padding: 32, textAlign: 'center', color: '#555', fontSize: 13 }}>No research data yet for {researchMatchup.teamB}</div>)
                       }
                     </div>
                   </div>
