@@ -1270,6 +1270,42 @@ export default function App() {
     });
   }, [mammalLocked, isAdmin]);
 
+  const handleMammalFFPick = useCallback((idx, side) => {
+    if (mammalLocked && !isAdmin) return;
+    setMammalBracket(prev => {
+      const next = JSON.parse(JSON.stringify(prev));
+      const ff = next.finalFour[idx];
+      const clicked = ff[side];
+      if (!clicked) return prev;
+      if (ff.winner?.name === clicked.name) {
+        ff.winner = null;
+        const cSide = idx === 0 ? 'top' : 'bottom';
+        next.championship[cSide] = null; next.championship.winner = null;
+        if (isAdmin) saveMammalOfficialBracket(next);
+        return next;
+      }
+      ff.winner = clicked;
+      const cSide = idx === 0 ? 'top' : 'bottom';
+      next.championship[cSide] = clicked;
+      if (next.championship.winner?.name !== clicked.name) next.championship.winner = null;
+      if (isAdmin) saveMammalOfficialBracket(next);
+      return next;
+    });
+  }, [mammalLocked, isAdmin]);
+
+  const handleMammalChampPick = useCallback(side => {
+    if (mammalLocked && !isAdmin) return;
+    setMammalBracket(prev => {
+      const next = JSON.parse(JSON.stringify(prev));
+      const clicked = next.championship[side];
+      if (!clicked) return prev;
+      if (next.championship.winner?.name === clicked.name) { next.championship.winner = null; return next; }
+      next.championship.winner = clicked;
+      if (isAdmin) saveMammalOfficialBracket(next);
+      return next;
+    });
+  }, [mammalLocked, isAdmin]);
+
   const handleFFPick = useCallback((idx, side) => {
     if (locked && !isAdmin) return;
     setBracket(prev => {
@@ -1591,14 +1627,131 @@ export default function App() {
             )}
 
             {activeTournament === 'mammals' && (
-              <div style={{ padding: 24, background: 'rgba(134,239,172,0.04)', borderRadius: 12, border: '1px solid rgba(134,239,172,0.15)', marginBottom: 20 }}>
-                <div style={{ fontSize: 22, fontWeight: 700, color: '#86efac', fontFamily: "'Playfair Display', serif", marginBottom: 8 }}>🦁 March Mammal Madness</div>
-                <p style={{ color: '#999', fontSize: 14, margin: 0 }}>The Mammal Madness bracket works exactly like the basketball bracket — pick your winners and see how you do! Your admin will set up the animals after they're announced.</p>
-                <div style={{ marginTop: 16, padding: 16, background: 'rgba(255,255,255,0.03)', borderRadius: 8, border: '1px solid rgba(255,255,255,0.07)' }}>
-                  <div style={{ color: '#86efac', fontWeight: 700, marginBottom: 8 }}>Mammal Bracket</div>
-                  <p style={{ color: '#777', fontSize: 13, margin: 0 }}>The full bracket will appear here once your admin sets up the animals. Same format as basketball — 64 animals, 4 regions, pick your champion!</p>
-                </div>
+              <>
+            {/* Mammal bracket scroll */}
+            <div className="bscroll-top" style={{ overflowX: 'auto', overflowY: 'hidden', height: 12, marginBottom: 2 }}
+              onScroll={e => { const b = document.querySelector('.bscroll-m'); if (b) b.scrollLeft = e.currentTarget.scrollLeft; }}>
+              <div style={{ minWidth: `${240 * 11}px`, height: 1 }} />
+            </div>
+            <div className="bscroll-m bscroll" style={{ overflowX: 'auto', overflowY: 'visible', paddingBottom: 4, cursor: 'grab' }}
+              onScroll={e => { const t = document.querySelector('.bscroll-top'); if (t) t.scrollLeft = e.currentTarget.scrollLeft; }}
+              onMouseDown={e => {
+                const el = e.currentTarget; el.style.cursor = 'grabbing';
+                const startX = e.pageX - el.offsetLeft, startScroll = el.scrollLeft;
+                const onMove = mv => { el.scrollLeft = startScroll - (mv.pageX - el.offsetLeft - startX); };
+                const onUp = () => { el.style.cursor = 'grab'; window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
+                window.addEventListener('mousemove', onMove); window.addEventListener('mouseup', onUp);
+              }}>
+              <div style={{ display: 'inline-block', paddingBottom: 8 }}>
+                {(() => {
+                  const CW = 240, SH = 89, SPINE_H = 56, TOP_H = 8 * SH, BOT_H = TOP_H;
+                  const TOTAL_W = CW * 4 + CW * 3 + CW * 4;
+                  const ROUND_ABS = [
+                    [0,89,178,267,356,445,534,623],
+                    [44.5,222.5,400.5,578.5],
+                    [133.5,489.5],
+                    [311.5],
+                  ];
+                  const activeMammal = mammalOfficialBracket || mammalBracket;
+
+                  const MRoundCol = ({ region, rIdx, flip, dir }) => {
+                    const games = activeMammal[region]?.rounds[rIdx] || [];
+                    const positions = ROUND_ABS[rIdx];
+                    return (
+                      <div style={{ width: CW, flexShrink: 0, height: TOP_H, position: 'relative', boxSizing: 'border-box' }}>
+                        {games.map((game, gIdx) => {
+                          const pos = positions[gIdx] ?? gIdx * SH;
+                          return (
+                            <div key={gIdx} style={{ position: 'absolute', left: 0, right: 0, ...(dir === 'top' ? { top: pos } : { bottom: pos }) }}>
+                              <GameSlot game={game} locked={mammalLocked && !isAdmin} flipped={flip} roundIdx={rIdx}
+                                onPick={side => handleMammalPick(region, rIdx, gIdx, side)} />
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  };
+
+                  const MSpineCell = ({ label, color, borderLeft = true }) => (
+                    <div style={{ width: CW, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderLeft: borderLeft ? '1px solid rgba(255,255,255,0.08)' : 'none', background: 'rgba(255,255,255,0.04)' }}>
+                      <div style={{ height: SPINE_H, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                        <div style={{ fontSize: 20, fontWeight: 800, color, letterSpacing: 1, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{label}</div>
+                      </div>
+                    </div>
+                  );
+
+                  const S16_CENTER_X = CW * 2.5, LABEL_TOP = TOP_H / 2;
+
+                  return (
+                    <div style={{ width: TOTAL_W, overflow: 'hidden' }}>
+                      {/* TOP — East + West */}
+                      <div style={{ display: 'flex', alignItems: 'flex-end', position: 'relative', overflow: 'hidden' }}>
+                        <div style={{ position: 'absolute', top: LABEL_TOP + SH, left: S16_CENTER_X + CW, transform: 'translate(-50%,-50%)', pointerEvents: 'none', zIndex: 0 }}>
+                          <span style={{ fontSize: 130, fontWeight: 900, color: RC.East, opacity: 0.18, letterSpacing: 4, textTransform: 'uppercase', userSelect: 'none', lineHeight: 1, display: 'block', whiteSpace: 'nowrap' }}>EAST</span>
+                        </div>
+                        <div style={{ position: 'absolute', top: LABEL_TOP + SH, right: S16_CENTER_X + CW * 2, transform: 'translate(50%,-50%)', pointerEvents: 'none', zIndex: 0 }}>
+                          <span style={{ fontSize: 130, fontWeight: 900, color: RC.West, opacity: 0.18, letterSpacing: 4, textTransform: 'uppercase', userSelect: 'none', lineHeight: 1, display: 'block', whiteSpace: 'nowrap' }}>WEST</span>
+                        </div>
+                        {[0,1,2,3].map(rIdx => <MRoundCol key={rIdx} region="East" rIdx={rIdx} flip={false} dir="top" />)}
+                        <div style={{ width: CW * 3, flexShrink: 0, height: TOP_H }} />
+                        {[3,2,1,0].map(rIdx => <MRoundCol key={rIdx} region="West" rIdx={rIdx} flip={true} dir="top" />)}
+                      </div>
+
+                      {/* SPINE */}
+                      <div style={{ display: 'flex', alignItems: 'stretch', borderTop: '2px solid rgba(255,255,255,0.15)', borderBottom: '2px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.03)' }}>
+                        <MSpineCell label="Round of 64" color={ROUND_BORDER_COLORS[0]} borderLeft={false} />
+                        <MSpineCell label="Round of 32" color={ROUND_BORDER_COLORS[1]} />
+                        <MSpineCell label="Sweet 16"    color={ROUND_BORDER_COLORS[2]} />
+                        <MSpineCell label="Elite Eight" color={ROUND_BORDER_COLORS[3]} />
+                        {/* Center */}
+                        <div style={{ width: CW * 3, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px 10px', borderLeft: '1px solid rgba(255,255,255,0.08)' }}>
+                          <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, padding: '6px 10px', background: 'linear-gradient(135deg,rgba(134,239,172,0.15),rgba(22,163,74,0.10))', border: '2px solid rgba(134,239,172,0.5)', borderRadius: 10, animation: 'champGlow 3s ease-in-out infinite' }}>
+                            <div style={{ position: 'absolute', bottom: 'calc(100% + 6px)', left: '50%', transform: 'translateX(-50%)', zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                              <div style={{ fontSize: 10, fontWeight: 800, color: '#34d399', letterSpacing: 1.5, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Final Four — East vs West</div>
+                              <GameSlot game={activeMammal.finalFour?.[0]} onPick={s => handleMammalFFPick(0, s)} locked={mammalLocked && !isAdmin} roundIdx={4} />
+                            </div>
+                            <div style={{ position: 'absolute', top: 'calc(100% + 6px)', left: '50%', transform: 'translateX(-50%)', zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                              <GameSlot game={activeMammal.finalFour?.[1]} onPick={s => handleMammalFFPick(1, s)} locked={mammalLocked && !isAdmin} roundIdx={4} />
+                              <div style={{ fontSize: 10, fontWeight: 800, color: '#34d399', letterSpacing: 1.5, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Final Four — South vs Midwest</div>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                              <span style={{ fontSize: 14 }}>🦁</span>
+                              <span style={{ fontSize: 11, fontWeight: 800, color: '#86efac', letterSpacing: 1, fontFamily: "'Playfair Display', serif", whiteSpace: 'nowrap' }}>Championship</span>
+                              <span style={{ fontSize: 14 }}>🦁</span>
+                            </div>
+                            <GameSlot game={activeMammal.championship} onPick={handleMammalChampPick} locked={mammalLocked && !isAdmin} isChampionship isHorizontal roundIdx={-1} />
+                            {activeMammal.championship?.winner && (
+                              <div style={{ textAlign: 'center', padding: '3px 8px', background: 'rgba(134,239,172,0.15)', borderRadius: 5, border: '1px solid rgba(134,239,172,0.4)' }}>
+                                <div style={{ fontSize: 9, color: '#86efac', letterSpacing: 1.5 }}>🎉 CHAMPION</div>
+                                <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', fontFamily: "'Playfair Display', serif" }}>{activeMammal.championship.winner.name}</div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <MSpineCell label="Elite Eight" color={ROUND_BORDER_COLORS[3]} />
+                        <MSpineCell label="Sweet 16"    color={ROUND_BORDER_COLORS[2]} />
+                        <MSpineCell label="Round of 32" color={ROUND_BORDER_COLORS[1]} />
+                        <MSpineCell label="Round of 64" color={ROUND_BORDER_COLORS[0]} />
+                      </div>
+
+                      {/* BOTTOM — South + Midwest */}
+                      <div style={{ display: 'flex', alignItems: 'flex-start', position: 'relative', overflow: 'hidden' }}>
+                        <div style={{ position: 'absolute', top: LABEL_TOP - SH, left: S16_CENTER_X + CW, transform: 'translate(-50%,-50%)', pointerEvents: 'none', zIndex: 0 }}>
+                          <span style={{ fontSize: 130, fontWeight: 900, color: RC.South, opacity: 0.18, letterSpacing: 4, textTransform: 'uppercase', userSelect: 'none', lineHeight: 1, display: 'block', whiteSpace: 'nowrap' }}>SOUTH</span>
+                        </div>
+                        <div style={{ position: 'absolute', top: LABEL_TOP - SH, right: S16_CENTER_X + CW * 2.5, transform: 'translate(50%,-50%)', pointerEvents: 'none', zIndex: 0 }}>
+                          <span style={{ fontSize: 130, fontWeight: 900, color: RC.Midwest, opacity: 0.18, letterSpacing: 4, textTransform: 'uppercase', userSelect: 'none', lineHeight: 1, display: 'block', whiteSpace: 'nowrap' }}>MIDWEST</span>
+                        </div>
+                        {[0,1,2,3].map(rIdx => <MRoundCol key={rIdx} region="South" rIdx={rIdx} flip={false} dir="bot" />)}
+                        <div style={{ width: CW * 3, flexShrink: 0, height: BOT_H }} />
+                        {[3,2,1,0].map(rIdx => <MRoundCol key={rIdx} region="Midwest" rIdx={rIdx} flip={true} dir="bot" />)}
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
+            </div>
+              </>
             )}
 
             {activeTournament !== 'mammals' && (
@@ -2132,8 +2285,8 @@ export default function App() {
                   mammalBracket={mammalOfficialBracket}
                   onRevealWinner={handlePick}
                   onRevealMammalWinner={handleMammalPick}
-                  onRevealFF={handleFFPick}
-                  onRevealChamp={handleChampPick}
+                  onRevealFF={revealTournament === 'mammals' ? handleMammalFFPick : handleFFPick}
+                  onRevealChamp={revealTournament === 'mammals' ? handleMammalChampPick : handleChampPick}
                   locked={locked}
                   mammalLocked={mammalLocked}
                   onLockToggle={async () => { const nl = !locked; setLocked(nl); await setTournamentLocked(nl); }}
