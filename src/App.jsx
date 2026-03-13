@@ -104,7 +104,8 @@ function findLiveScore(liveScores, teamName) {
   return sub ? sub[1] : null;
 }
 
-function GameSlot({ game, onPick, locked, isChampionship, onScoreChange, flipped, roundIdx = 0, liveScores = {}, isHorizontal = false }) {
+function GameSlot({ game, onPick, locked, isChampionship, onScoreChange, flipped, roundIdx = 0, liveScores = {}, isHorizontal = false, onMatchup = null }) {
+  const [hovered, setHovered] = useState(false);
   if (!game) return null;
   const { top, bottom, winner } = game;
   const slotBg     = isChampionship ? 'rgba(245,158,11,0.08)' : ROUND_COLORS[roundIdx] || ROUND_COLORS[0];
@@ -205,7 +206,8 @@ function GameSlot({ game, onPick, locked, isChampionship, onScoreChange, flipped
   );
 
   return (
-    <div style={{ border: `1px solid ${slotBorder}`, borderRadius: 6, overflow: 'hidden', background: slotBg, minWidth: 178 }}>
+    <div style={{ position: 'relative' }} onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}>
+      <div style={{ border: `1px solid ${slotBorder}`, borderRadius: 6, overflow: 'hidden', background: slotBg, minWidth: 178 }}>
       <Team team={top} side="top" />
       <div style={{ height: 1, background: 'rgba(255,255,255,0.15)' }} />
       <Team team={bottom} side="bottom" />
@@ -227,6 +229,15 @@ function GameSlot({ game, onPick, locked, isChampionship, onScoreChange, flipped
           <span style={{ color: '#777', fontSize: 11, alignSelf: 'center' }}>-</span>
           <input placeholder="Score 2" value={game.scoreBottom || ''} onChange={e => onScoreChange('scoreBottom', e.target.value)} style={scoreInput} />
         </div>
+      )}
+      </div>
+      {/* Matchup research button — shows on hover when both teams present */}
+      {onMatchup && top?.name && bottom?.name && !top.isFFPlaceholder && !bottom.isFFPlaceholder && hovered && (
+        <button onClick={e => { e.stopPropagation(); onMatchup(top.name, bottom.name); }}
+          style={{ position: 'absolute', top: -10, right: -10, zIndex: 20, background: '#1d4ed8', border: 'none', borderRadius: '50%', width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.4)', transition: 'transform .1s' }}
+          title="Compare these teams in Research tab">
+          📊
+        </button>
       )}
     </div>
   );
@@ -993,6 +1004,7 @@ export default function App() {
   const [lastSaved,        setLastSaved]       = useState(null);
   const [researchData,     setResearchData]    = useState({});
   const [selectedTeam,     setSelectedTeam]    = useState(null);
+  const [researchMatchup,  setResearchMatchup] = useState(null); // { teamA, teamB, label, isMammal }
   const [researchQ,        setResearchQ]       = useState('');
   const [researchResult,   setResearchResult]  = useState('');
   const [researchLoading,  setResearchLoading] = useState(false);
@@ -1077,8 +1089,15 @@ export default function App() {
       // Only use official bracket if it has real team names
       const hasRealTeams = b && ['East','West','South','Midwest'].some(r =>
         b[r]?.rounds?.[0]?.some(g => g?.top?.name && g.top.name !== '' && !g.top.name.startsWith('Seed ')));
+      const placeholder = buildInitialBracket();
       setOfficialBracket(hasRealTeams ? b : null);
-      if (isAdmin && hasRealTeams) setBracket(b);
+      if (isAdmin) setBracket(hasRealTeams ? b : placeholder);
+      else setBracket(prev => {
+        // If user's saved bracket has no real teams, show placeholder
+        const userHasTeams = ['East','West','South','Midwest'].some(r =>
+          prev[r]?.rounds?.[0]?.some(g => g?.top?.name && g.top.name !== '' && !g.top.name.startsWith('Seed ')));
+        return userHasTeams ? prev : placeholder;
+      });
     });
     const u2 = subscribeToConfig(cfg => {
       setLocked(cfg.locked ?? false);
@@ -1685,7 +1704,8 @@ export default function App() {
                           return (
                             <div key={gIdx} style={{ position: 'absolute', left: 0, right: 0, ...(dir === 'top' ? { top: pos } : { bottom: pos }) }}>
                               <GameSlot game={game} locked={mammalLocked && !isAdmin} flipped={flip} roundIdx={rIdx}
-                                onPick={side => handleMammalPick(region, rIdx, gIdx, side)} />
+                                onPick={side => handleMammalPick(region, rIdx, gIdx, side)}
+                                onMatchup={(a, b) => { setResearchMatchup({ teamA: a, teamB: b, label: `${region} — ${['R64','R32','S16','E8'][rIdx]}`, isMammal: true }); setTab('research'); setActiveTournament('mammals'); }} />
                             </div>
                           );
                         })}
@@ -1893,7 +1913,8 @@ export default function App() {
                             <div key={gIdx} style={{ position: 'absolute', left: 0, right: 0, ...(dir === 'top' ? { top: pos } : { bottom: pos }) }}>
                               <GameSlot game={game} locked={locked && !isAdmin} flipped={flip} roundIdx={rIdx}
                                 liveScores={liveScores}
-                                onPick={side => handlePick(region, rIdx, gIdx, side)} />
+                                onPick={side => handlePick(region, rIdx, gIdx, side)}
+                                onMatchup={(a, b) => { setResearchMatchup({ teamA: a, teamB: b, label: `${region} — ${['R64','R32','S16','E8'][rIdx]}`, isMammal: false }); setTab('research'); setActiveTournament('basketball'); }} />
                             </div>
                           );
                         })}
@@ -2118,16 +2139,60 @@ export default function App() {
           </div>
         )}
 
-        {/* ══════════════════ RESEARCH TAB ══════════════════ */}
         {tab === 'research' && (
-          <div style={{ padding: 24, maxWidth: 1080, margin: '0 auto' }}>
+          <div style={{ padding: 24, maxWidth: 1200, margin: '0 auto' }}>
             {/* Tournament switcher */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 20, background: 'rgba(255,255,255,0.04)', borderRadius: 12, padding: 4, width: 'fit-content', border: '1px solid rgba(255,255,255,0.08)' }}>
-              <button onClick={() => setActiveTournament('basketball')} style={{ padding: '7px 18px', borderRadius: 9, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 700, background: activeTournament === 'basketball' ? ACCENT : 'transparent', color: activeTournament === 'basketball' ? '#fff' : '#888', transition: 'all .15s' }}>🏀 Basketball</button>
-              <button onClick={() => setActiveTournament('mammals')} style={{ padding: '7px 18px', borderRadius: 9, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 700, background: activeTournament === 'mammals' ? '#16a34a' : 'transparent', color: activeTournament === 'mammals' ? '#fff' : '#888', transition: 'all .15s' }}>🦁 Mammal Madness</button>
+              <button onClick={() => { setActiveTournament('basketball'); setResearchMatchup(null); }} style={{ padding: '7px 18px', borderRadius: 9, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 700, background: activeTournament === 'basketball' ? ACCENT : 'transparent', color: activeTournament === 'basketball' ? '#fff' : '#888', transition: 'all .15s' }}>🏀 Basketball</button>
+              <button onClick={() => { setActiveTournament('mammals'); setResearchMatchup(null); }} style={{ padding: '7px 18px', borderRadius: 9, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 700, background: activeTournament === 'mammals' ? '#16a34a' : 'transparent', color: activeTournament === 'mammals' ? '#fff' : '#888', transition: 'all .15s' }}>🦁 Mammal Madness</button>
             </div>
 
-            {activeTournament === 'basketball' && (<>
+            {/* ── MATCHUP VIEW ── */}
+            {researchMatchup && (
+              <div style={{ marginBottom: 28 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 20, flexWrap: 'wrap' }}>
+                  <button onClick={() => setResearchMatchup(null)} style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '6px 14px', color: '#aaa', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    ← Back to Browse
+                  </button>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 11, color: '#777', letterSpacing: 1, textTransform: 'uppercase' }}>Matchup</span>
+                    <span style={{ fontSize: 13, color: '#ccc', fontWeight: 600 }}>{researchMatchup.label}</span>
+                  </div>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 0, alignItems: 'start' }}>
+                  {/* Team A */}
+                  <div style={{ borderRadius: '12px 0 0 12px', border: '1px solid rgba(99,102,241,0.3)', overflow: 'hidden' }}>
+                    <div style={{ background: 'linear-gradient(135deg,rgba(99,102,241,0.2),rgba(99,102,241,0.05))', padding: '10px 16px', borderBottom: '1px solid rgba(99,102,241,0.2)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ fontSize: 18 }}>{researchMatchup.isMammal ? '🦁' : '🏀'}</span>
+                      <span style={{ fontWeight: 800, fontSize: 16, color: '#a5b4fc', fontFamily: "'Playfair Display', serif" }}>{researchMatchup.teamA}</span>
+                    </div>
+                    <div style={{ padding: 16 }}>
+                      {(researchMatchup.isMammal ? mammalResearchData : researchData)[researchMatchup.teamA]
+                        ? <ResearchCard teamName={researchMatchup.teamA} card={(researchMatchup.isMammal ? mammalResearchData : researchData)[researchMatchup.teamA]} isAdmin={isAdmin} onFieldSave={researchMatchup.isMammal ? handleMammalResearchFieldSave : handleResearchFieldSave} compact />
+                        : <div style={{ padding: 32, textAlign: 'center', color: '#555', fontSize: 13 }}>No research data yet for {researchMatchup.teamA}</div>
+                      }
+                    </div>
+                  </div>
+                  {/* VS divider */}
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '0 12px', alignSelf: 'stretch', background: 'rgba(255,255,255,0.02)', borderTop: '1px solid rgba(255,255,255,0.08)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                    <div style={{ fontSize: 22, fontWeight: 900, color: '#444', letterSpacing: 2 }}>VS</div>
+                  </div>
+                  {/* Team B */}
+                  <div style={{ borderRadius: '0 12px 12px 0', border: '1px solid rgba(251,146,60,0.3)', overflow: 'hidden' }}>
+                    <div style={{ background: 'linear-gradient(135deg,rgba(251,146,60,0.2),rgba(251,146,60,0.05))', padding: '10px 16px', borderBottom: '1px solid rgba(251,146,60,0.2)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ fontSize: 18 }}>{researchMatchup.isMammal ? '🦁' : '🏀'}</span>
+                      <span style={{ fontWeight: 800, fontSize: 16, color: '#fdba74', fontFamily: "'Playfair Display', serif" }}>{researchMatchup.teamB}</span>
+                    </div>
+                    <div style={{ padding: 16 }}>
+                      {(researchMatchup.isMammal ? mammalResearchData : researchData)[researchMatchup.teamB]
+                        ? <ResearchCard teamName={researchMatchup.teamB} card={(researchMatchup.isMammal ? mammalResearchData : researchData)[researchMatchup.teamB]} isAdmin={isAdmin} onFieldSave={researchMatchup.isMammal ? handleMammalResearchFieldSave : handleResearchFieldSave} compact />
+                        : <div style={{ padding: 32, textAlign: 'center', color: '#555', fontSize: 13 }}>No research data yet for {researchMatchup.teamB}</div>
+                      }
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
             <h2 style={{ fontFamily: "'Playfair Display', serif", color: ACCENT2, marginBottom: 6 }}>Team Research Hub</h2>
             {isAdmin && <p style={{ color: '#777', fontSize: 13, marginBottom: 16 }}>As admin, click any field to edit it directly.</p>}
             {allTeamNames.length === 0 ? (
@@ -2164,7 +2229,7 @@ export default function App() {
             </div>
             </>)}
 
-            {activeTournament === 'mammals' && (<>
+            {!researchMatchup && activeTournament === 'mammals' && (<>
             <h2 style={{ fontFamily: "'Playfair Display', serif", color: '#86efac', marginBottom: 6 }}>🦁 Animal Research Hub</h2>
             {isAdmin && <p style={{ color: '#777', fontSize: 13, marginBottom: 16 }}>As admin, click "Generate Facts" on any animal card to auto-populate it.</p>}
             {allAnimalNames.length === 0 ? (
@@ -2204,7 +2269,8 @@ export default function App() {
               <button onClick={() => setActiveTournament('mammals')} style={{ padding: '7px 18px', borderRadius: 9, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 700, background: activeTournament === 'mammals' ? '#16a34a' : 'transparent', color: activeTournament === 'mammals' ? '#fff' : '#888', transition: 'all .15s' }}>🦁 Mammal Madness</button>
             </div>
 
-            {activeTournament === 'basketball' && (<>
+            {/* ── BROWSE MODE ── */}
+            {!researchMatchup && activeTournament === 'basketball' && (<>
             <h2 style={{ fontFamily: "'Playfair Display', serif", color: ACCENT2, marginBottom: 20 }}>Leaderboard</h2>
             <div style={S.card}>
               {studentBoard.length > 0 && <div style={{ fontSize: 11, color: '#888', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 10 }}>Students</div>}
