@@ -582,9 +582,9 @@ function TeamEntryPanel({ onTeamsSaved, onRequestGenerateResearch }) {
               {applying ? 'Applying...' : applied ? '✓ Applied!' : 'Apply to Bracket'}
             </button>
           )}
-          {applied && (
+          {(applied || roster['East']?.some(t => t.name && t.name !== '' && !t.name.startsWith('Seed'))) && (
             <button style={{ ...S.btn('#6366f1', '#fff'), padding: '8px 20px', fontSize: 13 }} onClick={() => onRequestGenerateResearch(roster)}>
-              Auto-Generate Research
+              ✨ Auto-Generate Research
             </button>
           )}
         </div>
