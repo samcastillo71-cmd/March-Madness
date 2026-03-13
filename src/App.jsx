@@ -206,7 +206,7 @@ function GameSlot({ game, onPick, locked, isChampionship, onScoreChange, flipped
   );
 
   return (
-    <div style={{ position: 'relative' }} onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}>
+    <div style={{ position: 'relative', padding: '8px 8px 0 0' }} onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}>
       <div style={{ border: `1px solid ${slotBorder}`, borderRadius: 6, overflow: 'hidden', background: slotBg, minWidth: 178 }}>
       <Team team={top} side="top" />
       <div style={{ height: 1, background: 'rgba(255,255,255,0.15)' }} />
@@ -234,8 +234,8 @@ function GameSlot({ game, onPick, locked, isChampionship, onScoreChange, flipped
       {/* Matchup research button — shows on hover when both teams present */}
       {onMatchup && top?.name && bottom?.name && !top.isFFPlaceholder && !bottom.isFFPlaceholder && hovered && (
         <button onClick={e => { e.stopPropagation(); onMatchup(top.name, bottom.name); }}
-          style={{ position: 'absolute', top: -10, right: -10, zIndex: 20, background: '#1d4ed8', border: 'none', borderRadius: '50%', width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.4)', transition: 'transform .1s' }}
-          title="Compare these teams in Research tab">
+          style={{ position: 'absolute', top: 0, right: 0, zIndex: 20, background: '#1d4ed8', border: 'none', borderRadius: '50%', width: 22, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 11, boxShadow: '0 2px 8px rgba(0,0,0,0.4)' }}
+          title="Compare in Research tab">
           📊
         </button>
       )}
@@ -664,16 +664,17 @@ function TeamEntryPanel({ onTeamsSaved, onRequestGenerateResearch }) {
 
 // ── AI RESEARCH GENERATOR ─────────────────────────────────────────────────────
 async function generateResearchForTeam(teamName, seed, region) {
-  const prompt = `You are an NCAA March Madness analyst writing a scouting report for the ${new Date().getFullYear()} tournament.
-Generate a JSON scouting report for: ${teamName} (${region} Region, Seed #${seed})
+  const prompt = `You are writing a basketball team scouting report for middle school students (grades 6-8) for the ${new Date().getFullYear()} NCAA Tournament.
+Write about: ${teamName} (${region} Region, Seed #${seed})
+Use simple, clear language that a 12-14 year old can easily understand. Avoid jargon — if you use a basketball term, briefly explain it.
 Return ONLY valid JSON, no markdown, no explanation. Use this exact structure:
-{"record":"W-L","rank":"#N AP or Unranked","coach":"Coach Name","conference":"Conference Name","kenpom":"#N","offense":"NNN.N","defense":"NN.N","pace":"NN.N","keyPlayers":[{"name":"Player Name","pos":"G/F/C","stats":"XX.X PPG / X.X RPG","note":"brief scouting note"},{"name":"Player Name","pos":"G/F/C","stats":"XX.X PPG / X.X RPG","note":"brief scouting note"}],"injuries":"injury status or None reported","odds":"+XXXX or N/A","strengths":"2-3 sentence strength summary","weaknesses":"2-3 sentence weakness summary","analystNote":"1-2 sentence sharp analyst take"}`;
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
+{"record":"W-L","rank":"#N AP or Unranked","coach":"Coach Name","conference":"Conference Name","kenpom":"#N","offense":"NNN.N","defense":"NN.N","pace":"NN.N","keyPlayers":[{"name":"Player Name","pos":"G/F/C","stats":"XX.X PPG / X.X RPG","note":"simple 1-sentence note a student would understand"},{"name":"Player Name","pos":"G/F/C","stats":"XX.X PPG / X.X RPG","note":"simple 1-sentence note a student would understand"}],"injuries":"injury status or None reported","odds":"+XXXX or N/A","strengths":"2-3 sentences explaining what this team does well, written for a middle schooler","weaknesses":"2-3 sentences explaining where this team struggles, written for a middle schooler","analystNote":"1-2 sentences on why this team could surprise people in the tournament"}`;
+  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${import.meta.env.VITE_GEMINI_KEY}`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 800, messages: [{ role: 'user', content: prompt }] }),
+    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
   });
   const data = await res.json();
-  const text = data.content?.[0]?.text || '{}';
+  const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
   try { return JSON.parse(text.replace(/```json|```/g, '').trim()); } catch { return null; }
 }
 
@@ -684,12 +685,12 @@ Generate a fun, age-appropriate JSON profile for: ${animalName} (${region} Regio
 Return ONLY valid JSON, no markdown, no explanation. Use this exact structure:
 {"habitat":"2-3 sentence description of where this animal lives","diet":"2-3 sentences on what it eats and how it hunts or forages","funFacts":["interesting fact 1","interesting fact 2","interesting fact 3"],"size":"weight and length/height","lifespan":"X-Y years","speed":"top speed if known, or movement description","superpower":"1 sentence on this animal's most impressive ability or adaptation","battleStrength":"1-2 sentence fun assessment of how this animal would do in a bracket battle and why"}
 Keep all language at a middle school reading level. Make it engaging and educational. No graphic violence descriptions.`;
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
+  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${import.meta.env.VITE_GEMINI_KEY}`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 600, messages: [{ role: 'user', content: prompt }] }),
+    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
   });
   const data = await res.json();
-  const text = data.content?.[0]?.text || '{}';
+  const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
   try { return JSON.parse(text.replace(/```json|```/g, '').trim()); } catch { return null; }
 }
 
@@ -1005,9 +1006,6 @@ export default function App() {
   const [researchData,     setResearchData]    = useState({});
   const [selectedTeam,     setSelectedTeam]    = useState(null);
   const [researchMatchup,  setResearchMatchup] = useState(null); // { teamA, teamB, label, isMammal }
-  const [researchQ,        setResearchQ]       = useState('');
-  const [researchResult,   setResearchResult]  = useState('');
-  const [researchLoading,  setResearchLoading] = useState(false);
   const [adminSubTab,      setAdminSubTab]     = useState('dashboard');
   const [generating,       setGenerating]      = useState(false);
   const [genProgress,      setGenProgress]     = useState({ done: 0, total: 0, current: '' });
@@ -1471,21 +1469,6 @@ export default function App() {
   }, [researchData]);
 
   // ── AI ASSISTANT ──────────────────────────────────────────────────────────
-  const handleResearch = async () => {
-    if (!researchQ.trim()) return;
-    setResearchLoading(true); setResearchResult('');
-    try {
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 1000,
-          messages: [{ role: 'user', content: `You are an NCAA March Madness analyst. Answer concisely (2-4 paragraphs): "${researchQ}"\nFocus on stats, matchups, tournament history, injury concerns, and bracket strategy.` }] }),
-      });
-      const data = await res.json();
-      setResearchResult(data.content?.[0]?.text || 'No response.');
-    } catch { setResearchResult('Error - please try again.'); }
-    setResearchLoading(false);
-  };
-
   const score        = calcScore(bracket, officialBracket);
   const myRank       = leaderboard.findIndex(e => e.uid === user?.uid) + 1;
   const allTeamNames = Object.keys(researchData).sort();
@@ -2212,22 +2195,6 @@ export default function App() {
                 {selectedTeam && <ResearchCard teamName={selectedTeam} card={researchData[selectedTeam]} isAdmin={isAdmin} onFieldSave={handleResearchFieldSave} />}
               </>
             )}
-            <div style={{ ...S.card, border: '1px solid rgba(22,163,74,0.25)', marginTop: 8 }}>
-              <h3 style={{ color: ACCENT2, marginBottom: 4, fontFamily: "'Playfair Display', serif" }}>AI Research Assistant</h3>
-              <p style={{ color: '#777', fontSize: 13, marginBottom: 14 }}>Ask anything about matchups, history, upsets, or bracket strategy</p>
-              <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
-                <input style={{ ...S.input, flex: 1 }} value={researchQ} onChange={e => setResearchQ(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleResearch()} placeholder="e.g. 'How does Duke match up with Auburn?' or 'Best Cinderella picks this year?'" />
-                <button style={{ ...S.btn(), flexShrink: 0 }} onClick={handleResearch} disabled={researchLoading}>{researchLoading ? '...' : 'Ask'}</button>
-              </div>
-              {researchResult && (
-                <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 8, padding: 16, fontSize: 14, color: '#ccc', lineHeight: 1.75, borderLeft: `3px solid ${ACCENT}` }}>{researchResult}</div>
-              )}
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
-                {['Best Cinderella teams','Most likely R1 upsets','Who wins the South region?','Best 3-point shooting teams'].map(q => (
-                  <button key={q} onClick={() => setResearchQ(q)} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 20, padding: '4px 12px', fontSize: 11, color: '#777', cursor: 'pointer', fontFamily: 'inherit' }}>{q}</button>
-                ))}
-              </div>
-            </div>
             </>)}
 
             {!researchMatchup && activeTournament === 'mammals' && (<>
