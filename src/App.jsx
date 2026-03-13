@@ -362,12 +362,6 @@ function ResearchCard({ teamName, card, isAdmin, onFieldSave }) {
 }
 
 // ── PLACEHOLDER ROSTERS ───────────────────────────────────────────────────────
-const PLACEHOLDER_BASKETBALL = {
-  East:    [['Lakewood State','Ridgecrest U','Valley Tech','Pinehurst A&M','Crestview College','Northgate U','Ironwood State','Maplewood U','Harborview College','Clearwater State','Foxgrove U','Stonegate College','Elmwood State','Birchwood U','Ashford College','Westbrook U'],],
-  West:    [['Pacific Ridge U','Suncrest State','Coastal Tech','Mesa Verde U','Driftwood College','Highpoint State','Timberline U','Redwood College','Sandstone State','Blue Mesa U','Cascade College','Sunridge State','Cliffside U','Pinecrest College','Lakeside State','Oceanview U'],],
-  South:   [['Magnolia State','Bayou Tech','Cypress U','Longleaf A&M','Palmetto College','Sycamore State','Willowbrook U','Peachtree College','Jasmine State','Tupelo U','Cypress Hills College','Redstone State','Gulf Coast U','Mossy Oak College','Crescent State','Tidewater U'],],
-  Midwest: [['Cornerstone U','Prairie State','Great Plains Tech','Tallgrass A&M','Wheatfield College','Bluebell State','Meadowview U','Oakdale College','Cornhusker State','Lakeshore U','Birchbark College','Rolling Hills State','Sunset Ridge U','Maple Grove College','Creekside State','Riverbend U'],],
-};
 const PLACEHOLDER_ANIMALS = {
   East:    ['African Lion','Snow Leopard','Gray Wolf','Brown Bear','Cheetah','Mountain Lion','Wolverine','Honey Badger','Arctic Fox','Red Fox','Bobcat','Lynx','Ocelot','Caracal','Serval','Clouded Leopard'],
   West:    ['African Elephant','White Rhino','Hippo','Giraffe','Cape Buffalo','Moose','Bison','Kodiak Bear','Polar Bear','Grizzly Bear','Black Bear','Jaguar','Tiger','Cougar','Leopard','Hyena'],
@@ -379,7 +373,7 @@ function makePlaceholderRoster() {
   const regions = ['East','West','South','Midwest'];
   const out = { year: new Date().getFullYear() };
   regions.forEach(r => {
-    out[r] = PLACEHOLDER_BASKETBALL[r][0].map((name, i) => ({ seed: i+1, name, espnId: '', firstFour: false }));
+    out[r] = Array(16).fill(null).map((_, i) => ({ seed: i+1, name: `Seed ${i+1}`, espnId: '', firstFour: false }));
   });
   return out;
 }
@@ -1079,7 +1073,13 @@ export default function App() {
   // ── LIVE SUBSCRIPTIONS ────────────────────────────────────────────────────
   useEffect(() => {
     if (!user) return;
-    const u1 = subscribeToOfficialBracket(b => { setOfficialBracket(b); if (isAdmin) setBracket(b); });
+    const u1 = subscribeToOfficialBracket(b => {
+      // Only use official bracket if it has real team names
+      const hasRealTeams = b && ['East','West','South','Midwest'].some(r =>
+        b[r]?.rounds?.[0]?.some(g => g?.top?.name && g.top.name !== '' && !g.top.name.startsWith('Seed ')));
+      setOfficialBracket(hasRealTeams ? b : null);
+      if (isAdmin && hasRealTeams) setBracket(b);
+    });
     const u2 = subscribeToConfig(cfg => {
       setLocked(cfg.locked ?? false);
       if (cfg.year) { setTournamentYear(cfg.year); setYearDraft(String(cfg.year)); }
