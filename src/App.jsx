@@ -490,7 +490,12 @@ function TeamEntryPanel({ onTeamsSaved, onRequestGenerateResearch }) {
     (async () => {
       try {
         const snap = await getDoc(doc(db, 'admin', 'teamRoster'));
-        if (snap.exists()) { const d = snap.data(); delete d.updatedAt; setRoster(d); }
+        if (snap.exists()) {
+          const d = snap.data(); delete d.updatedAt;
+          // Only use saved roster if it has actual team names, otherwise show placeholders
+          const hasNames = ['East','West','South','Midwest'].some(r => (d[r] || []).some(t => t.name?.trim()));
+          setRoster(hasNames ? d : makePlaceholderRoster());
+        }
       } catch {}
       setLoading(false);
     })();
@@ -1237,27 +1242,41 @@ export default function App() {
       const next = JSON.parse(JSON.stringify(prev));
       const game = next[region]?.rounds?.[rIdx]?.[gIdx];
       if (!game) return prev;
-      if (side === null) {
-        if (game.winner) {
-          const clearDownstream = (b, reg, name, fromR) => {
-            for (let r = fromR; r < 4; r++) {
-              b[reg].rounds[r].forEach(g => {
-                if (g.top?.name === name) g.top = null;
-                if (g.bottom?.name === name) g.bottom = null;
-                if (g.winner?.name === name) { clearDownstream(b, reg, name, r + 1); g.winner = null; }
-              });
-            }
-          };
-          clearDownstream(next, region, game.winner.name, rIdx + 1);
+
+      const clearMammalDownstream = (b, reg, teamName, fromRound) => {
+        for (let r = fromRound; r < 4; r++) {
+          b[reg].rounds[r].forEach(g => {
+            if (g.top?.name    === teamName) { g.top    = null; g.winner = null; }
+            if (g.bottom?.name === teamName) { g.bottom = null; g.winner = null; }
+            if (g.winner?.name === teamName)   g.winner = null;
+          });
         }
+        const fi    = { East: 0, West: 0, South: 1, Midwest: 1 }[reg];
+        const fSide = { East: 'top', West: 'bottom', South: 'top', Midwest: 'bottom' }[reg];
+        if (b.finalFour?.[fi]?.[fSide]?.name  === teamName) b.finalFour[fi][fSide]  = null;
+        if (b.finalFour?.[fi]?.winner?.name    === teamName) b.finalFour[fi].winner  = null;
+        const cSide = fi === 0 ? 'top' : 'bottom';
+        if (b.championship?.[cSide]?.name      === teamName) b.championship[cSide]   = null;
+        if (b.championship?.winner?.name       === teamName) b.championship.winner   = null;
+      };
+
+      if (side === null) {
+        if (game.winner) clearMammalDownstream(next, region, game.winner.name, rIdx + 1);
         game.winner = null;
         if (isAdmin) saveMammalOfficialBracket(next);
         return next;
       }
       const clicked = side === 'top' ? game.top : game.bottom;
       if (!clicked) return prev;
-      if (game.winner?.name === clicked.name) { game.winner = null; if (isAdmin) saveMammalOfficialBracket(next); return next; }
+      if (game.winner?.name === clicked.name) {
+        game.winner = null;
+        clearMammalDownstream(next, region, clicked.name, rIdx + 1);
+        if (isAdmin) saveMammalOfficialBracket(next);
+        return next;
+      }
       game.winner = clicked;
+      const loser = side === 'top' ? game.bottom : game.top;
+      if (loser) clearMammalDownstream(next, region, loser.name, rIdx + 1);
       if (rIdx < 3) {
         const ng = next[region].rounds[rIdx + 1]?.[Math.floor(gIdx / 2)];
         if (ng) { const nSide = gIdx % 2 === 0 ? 'top' : 'bottom'; ng[nSide] = clicked; if (ng.winner?.name !== clicked.name) ng.winner = null; }
