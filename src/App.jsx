@@ -823,7 +823,7 @@ function MammalResearchCard({ animalName, card, isAdmin, onFieldSave, onGenerate
 // ── REVEAL MODE PANEL ─────────────────────────────────────────────────────────
 const ROUND_NAMES = ['Round of 64', 'Round of 32', 'Sweet 16', 'Elite Eight'];
 
-function RevealModePanel({ bracket, mammalBracket, onRevealWinner, onRevealMammalWinner, onRevealFF, onRevealChamp, locked, mammalLocked, onLockToggle, onMammalLockToggle }) {
+function RevealModePanel({ bracket, mammalBracket, onRevealWinner, onRevealMammalWinner, onRevealFF, onRevealMammalFF, onRevealChamp, onRevealMammalChamp, locked, mammalLocked, onLockToggle, onMammalLockToggle }) {
   const [revealRound,      setRevealRound]      = useState(0);
   const [revealRegion,     setRevealRegion]      = useState('East');
   const [revealOpen,       setRevealOpen]        = useState(false);
@@ -832,6 +832,8 @@ function RevealModePanel({ bracket, mammalBracket, onRevealWinner, onRevealMamma
 
   const activeBracket  = revealTournament === 'mammals' ? mammalBracket : bracket;
   const activeOnReveal = revealTournament === 'mammals' ? onRevealMammalWinner : onRevealWinner;
+  const activeOnFF     = revealTournament === 'mammals' ? onRevealMammalFF : onRevealFF;
+  const activeOnChamp  = revealTournament === 'mammals' ? onRevealMammalChamp : onRevealChamp;
   const activeLocked   = revealTournament === 'mammals' ? mammalLocked : locked;
   const activeOnLock   = revealTournament === 'mammals' ? onMammalLockToggle : onLockToggle;
 
@@ -941,8 +943,8 @@ function RevealModePanel({ bracket, mammalBracket, onRevealWinner, onRevealMamma
                     <div style={{ fontSize: 11, color: '#34d399', fontWeight: 700, letterSpacing: 1, marginBottom: 10, textTransform: 'uppercase' }}>Final Four — {label}</div>
                     {game && [['top', game.top], ['bottom', game.bottom]].map(([side, team]) => team && (
                       <RevealTeamRow key={side} team={team} isWinner={game.winner?.name === team.name}
-                        onClick={() => onRevealFF(idx, side)}
-                        undoFn={() => onRevealFF(idx, side)} />
+                        onClick={() => activeOnFF(idx, side)}
+                        undoFn={() => activeOnFF(idx, side)} />
                     ))}
                     {(!game?.top && !game?.bottom) && <div style={{ color: '#555', fontSize: 13 }}>Teams not yet set — reveal Elite Eight first</div>}
                   </div>
@@ -958,8 +960,8 @@ function RevealModePanel({ bracket, mammalBracket, onRevealWinner, onRevealMamma
                 <div style={{ fontSize: 11, color: GOLD2, fontWeight: 700, letterSpacing: 1, marginBottom: 10, textTransform: 'uppercase' }}>🏆 Championship Game</div>
                 {activeBracket.championship && [['top', activeBracket.championship.top], ['bottom', activeBracket.championship.bottom]].map(([side, team]) => team && (
                   <RevealTeamRow key={side} team={team} isWinner={activeBracket.championship.winner?.name === team.name}
-                    onClick={() => onRevealChamp(side)}
-                    undoFn={() => onRevealChamp(side)} />
+                    onClick={() => activeOnChamp(side)}
+                    undoFn={() => activeOnChamp(side)} />
                 ))}
                 {(!activeBracket.championship?.top && !activeBracket.championship?.bottom) && <div style={{ color: '#555', fontSize: 13 }}>Teams not yet set — reveal Final Four first</div>}
                 {activeBracket.championship?.winner && (
@@ -2285,8 +2287,10 @@ export default function App() {
                   mammalBracket={mammalOfficialBracket}
                   onRevealWinner={handlePick}
                   onRevealMammalWinner={handleMammalPick}
-                  onRevealFF={revealTournament === 'mammals' ? handleMammalFFPick : handleFFPick}
-                  onRevealChamp={revealTournament === 'mammals' ? handleMammalChampPick : handleChampPick}
+                  onRevealFF={handleFFPick}
+                  onRevealMammalFF={handleMammalFFPick}
+                  onRevealChamp={handleChampPick}
+                  onRevealMammalChamp={handleMammalChampPick}
                   locked={locked}
                   mammalLocked={mammalLocked}
                   onLockToggle={async () => { const nl = !locked; setLocked(nl); await setTournamentLocked(nl); }}
