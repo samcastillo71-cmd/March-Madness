@@ -750,24 +750,20 @@ function MammalEntryPanel({ onAnimalsSaved, onRequestGenerateMammalResearch, reg
             onClick={async () => { setSaving(true); await saveMammalRoster({ ...roster, _regionNames: regionNames }); setSaving(false); setSaved(true); }} disabled={saving}>
             {saving ? 'Saving...' : saved ? '✓ Roster Saved' : 'Save Roster'}
           </button>
-          {saved && (
-            <button style={{ ...S.btn(applied ? '#22c55e' : '#f59e0b', '#000'), padding: '8px 20px', fontSize: 13 }}
-              onClick={async () => { setApplying(true); const nb = buildInitialBracketFromTeams(roster); console.log('[MMM] Applying bracket, East R0G0 top:', nb['East']?.rounds?.[0]?.[0]?.top?.name); await saveMammalOfficialBracket(nb); setApplying(false); setApplied(true); onAnimalsSaved(nb, roster); }} disabled={applying}>
-              {applying ? 'Applying...' : applied ? '✓ Applied!' : 'Apply to Bracket'}
-            </button>
-          )}
-          {applied && (
-            <button style={{ ...S.btn('#6366f1', '#fff'), padding: '8px 20px', fontSize: 13 }} onClick={() => onRequestGenerateMammalResearch(roster)}>
-              ✨ Auto-Generate Animal Facts
-            </button>
+          <button style={{ ...S.btn(applied ? '#22c55e' : '#f59e0b', '#000'), padding: '8px 20px', fontSize: 13 }}
+            onClick={async () => { setApplying(true); const nb = buildInitialBracketFromTeams(roster); console.log('[MMM] Applying, East R0G0 top:', nb['East']?.rounds?.[0]?.[0]?.top?.name); await saveMammalOfficialBracket(nb); setApplying(false); setApplied(true); onAnimalsSaved(nb, roster); }} disabled={applying}>
+            {applying ? 'Applying...' : applied ? '✓ Applied!' : 'Apply to Bracket'}
+          </button>
+          <button style={{ ...S.btn('#6366f1', '#fff'), padding: '8px 20px', fontSize: 13 }} onClick={() => onRequestGenerateMammalResearch(roster)}>
+            ✨ Auto-Generate Animal Facts
+          </button>
           <button style={{ ...S.btn('#e74c3c','#fff'), padding: '8px 14px', fontSize: 12 }} onClick={async () => {
             const snap = await getDoc(doc(db, 'admin', 'officialBracket_mammals'));
-            if (!snap.exists()) { alert('No officialBracket_mammals doc!'); return; }
+            if (!snap.exists()) { alert('No officialBracket_mammals doc in Firestore!'); return; }
             const b = JSON.parse(snap.data().bracket);
             const east0 = b['East']?.rounds?.[0]?.[0];
-            alert('East R64 G0: top=' + east0?.top?.name + ' bottom=' + east0?.bottom?.name);
-          }}>🔍 Debug</button>
-          )}
+            alert('Firestore bracket East R64 G0:\ntop=' + east0?.top?.name + '\nbottom=' + east0?.bottom?.name);
+          }}>🔍 Debug Firestore</button>
         </div>
       </div>
       <div style={{ display: 'flex', gap: 4, marginBottom: 16 }}>
