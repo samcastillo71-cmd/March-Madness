@@ -1359,45 +1359,39 @@ export default function App() {
 
   // ── EDIT RESEARCH FIELD ───────────────────────────────────────────────────
   const handleResearchFieldSave = useCallback(async (teamName, fieldPath, value) => {
-    setResearchData(prev => {
-      const next = JSON.parse(JSON.stringify(prev));
-      if (!next[teamName]) next[teamName] = {};
-      const parts = fieldPath.split('.');
-      let obj = next[teamName];
+    // Build updated card first, then update state and save — avoids stale closure
+    const applyField = (card, path, val) => {
+      const out = JSON.parse(JSON.stringify(card || {}));
+      const parts = path.split('.');
+      let obj = out;
       for (let i = 0; i < parts.length - 1; i++) { if (!obj[parts[i]]) obj[parts[i]] = {}; obj = obj[parts[i]]; }
-      obj[parts[parts.length - 1]] = value;
+      obj[parts[parts.length - 1]] = val;
+      return out;
+    };
+    setResearchData(prev => {
+      const next = { ...prev, [teamName]: applyField(prev[teamName], fieldPath, value) };
+      // Save inside setter so we always have the latest data
+      saveOneTeamResearch(teamName, next[teamName]);
       return next;
     });
-    await saveOneTeamResearch(teamName, (() => {
-      const card = JSON.parse(JSON.stringify(researchData[teamName] || {}));
-      const parts = fieldPath.split('.');
-      let obj = card;
-      for (let i = 0; i < parts.length - 1; i++) { if (!obj[parts[i]]) obj[parts[i]] = {}; obj = obj[parts[i]]; }
-      obj[parts[parts.length - 1]] = value;
-      return card;
-    })());
-  }, [researchData]);
+  }, []);
 
   // ── EDIT MAMMAL RESEARCH FIELD ───────────────────────────────────────────
   const handleMammalResearchFieldSave = useCallback(async (animalName, fieldPath, value) => {
-    setMammalResearchData(prev => {
-      const next = JSON.parse(JSON.stringify(prev));
-      if (!next[animalName]) next[animalName] = {};
-      const parts = fieldPath.split('.');
-      let obj = next[animalName];
+    const applyField = (card, path, val) => {
+      const out = JSON.parse(JSON.stringify(card || {}));
+      const parts = path.split('.');
+      let obj = out;
       for (let i = 0; i < parts.length - 1; i++) { if (!obj[parts[i]]) obj[parts[i]] = {}; obj = obj[parts[i]]; }
-      obj[parts[parts.length - 1]] = value;
+      obj[parts[parts.length - 1]] = val;
+      return out;
+    };
+    setMammalResearchData(prev => {
+      const next = { ...prev, [animalName]: applyField(prev[animalName], fieldPath, value) };
+      saveOneMammalResearch(animalName, next[animalName]);
       return next;
     });
-    await saveOneMammalResearch(animalName, (() => {
-      const card = JSON.parse(JSON.stringify(mammalResearchData[animalName] || {}));
-      const parts = fieldPath.split('.');
-      let obj = card;
-      for (let i = 0; i < parts.length - 1; i++) { if (!obj[parts[i]]) obj[parts[i]] = {}; obj = obj[parts[i]]; }
-      obj[parts[parts.length - 1]] = value;
-      return card;
-    })());
-  }, [mammalResearchData]);
+  }, []);
 
   // ── AI ASSISTANT ──────────────────────────────────────────────────────────
   const score        = calcScore(bracket, officialBracket);
@@ -1452,14 +1446,20 @@ export default function App() {
   const handleGenerateOneMammal = useCallback(async (animalName) => {
     setMammalGeneratingOne(animalName);
     try {
-      const card = await generateMammalResearch(animalName, mammalResearchData[animalName]?.seed || 1, mammalResearchData[animalName]?.region || '');
+      // Read current seed/region from state at call time via setter to avoid stale closure
+      let seed = 1, region = '';
+      setMammalResearchData(prev => { seed = prev[animalName]?.seed || 1; region = prev[animalName]?.region || ''; return prev; });
+      const card = await generateMammalResearch(animalName, seed, region);
       if (card) {
-        await saveOneMammalResearch(animalName, { ...card, seed: mammalResearchData[animalName]?.seed, region: mammalResearchData[animalName]?.region });
-        setMammalResearchData(prev => ({ ...prev, [animalName]: { ...card, seed: prev[animalName]?.seed, region: prev[animalName]?.region } }));
+        setMammalResearchData(prev => {
+          const updated = { ...card, seed: prev[animalName]?.seed, region: prev[animalName]?.region };
+          saveOneMammalResearch(animalName, updated);
+          return { ...prev, [animalName]: updated };
+        });
       }
     } catch (e) { console.warn('Failed:', animalName, e); }
     setMammalGeneratingOne(null);
-  }, [mammalResearchData]);
+  }, []);
 
   // ── LOGIN ─────────────────────────────────────────────────────────────────
   if (authLoading) return (
@@ -1642,18 +1642,52 @@ export default function App() {
                     </div>
                   );
 
-                  const S16_CENTER_X = CW * 2.5, LABEL_TOP = TOP_H / 2;
+                  // Region label box: 2 units wide x 2 units tall, fixed size with auto font
+                  const LBL_W = CW * 2, LBL_H = SH * 2;
+                  // Elite Eight left edge is at CW*3 from region start
+                  const E8_LEFT = CW * 3;
+                  // Font size scales with text length to fit the box width
+                  // Max font at short names (~4 chars), min at long (~14 chars)
+                  const labelFontSize = (name) => {
+                    const len = name.length;
+                    if (len <= 4)  return 120;
+                    if (len <= 6)  return 96;
+                    if (len <= 8)  return 76;
+                    if (len <= 10) return 60;
+                    if (len <= 12) return 50;
+                    if (len <= 14) return 42;
+                    return 34;
+                  };
+                  const LabelBox = ({ name, color, left, right, top, bottom }) => (
+                    <div style={{
+                      position: 'absolute',
+                      width: LBL_W, height: LBL_H,
+                      ...(left  !== undefined ? { left }  : {}),
+                      ...(right !== undefined ? { right } : {}),
+                      ...(top   !== undefined ? { top }   : {}),
+                      ...(bottom !== undefined ? { bottom } : {}),
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      pointerEvents: 'none', zIndex: 0, overflow: 'hidden',
+                    }}>
+                      <span style={{
+                        fontSize: labelFontSize(name),
+                        fontWeight: 900, color, opacity: 0.18,
+                        letterSpacing: 2, textTransform: 'uppercase',
+                        userSelect: 'none', lineHeight: 1,
+                        whiteSpace: 'nowrap', textAlign: 'center',
+                        transition: 'font-size 0.2s',
+                      }}>{name}</span>
+                    </div>
+                  );
 
                   return (
                     <div style={{ width: TOTAL_W, overflow: 'hidden' }}>
                       {/* TOP — East + West */}
                       <div style={{ display: 'flex', alignItems: 'flex-end', position: 'relative', overflow: 'hidden' }}>
-                        <div style={{ position: 'absolute', top: LABEL_TOP + SH, left: S16_CENTER_X + CW, transform: 'translate(-50%,-50%)', pointerEvents: 'none', zIndex: 0 }}>
-                          <span style={{ fontSize: 130, fontWeight: 900, color: RC.East, opacity: 0.18, letterSpacing: 4, textTransform: 'uppercase', userSelect: 'none', lineHeight: 1, display: 'block', whiteSpace: 'nowrap' }}>{ mammalRegionNames.East }</span>
-                        </div>
-                        <div style={{ position: 'absolute', top: LABEL_TOP + SH, right: S16_CENTER_X + CW * 2, transform: 'translate(50%,-50%)', pointerEvents: 'none', zIndex: 0 }}>
-                          <span style={{ fontSize: 130, fontWeight: 900, color: RC.West, opacity: 0.18, letterSpacing: 4, textTransform: 'uppercase', userSelect: 'none', lineHeight: 1, display: 'block', whiteSpace: 'nowrap' }}>{ mammalRegionNames.West }</span>
-                        </div>
+                        {/* East: left edge = E8 left edge, bottom = spine (bottom: 0) */}
+                        <LabelBox name={mammalRegionNames.East} color={RC.East} left={E8_LEFT} bottom={0} />
+                        {/* West: right edge = E8 right edge from right side, bottom = spine */}
+                        <LabelBox name={mammalRegionNames.West} color={RC.West} right={E8_LEFT} bottom={0} />
                         {[0,1,2,3].map(rIdx => <MRoundCol key={rIdx} region="East" rIdx={rIdx} flip={false} dir="top" />)}
                         <div style={{ width: CW * 3, flexShrink: 0, height: TOP_H }} />
                         {[3,2,1,0].map(rIdx => <MRoundCol key={rIdx} region="West" rIdx={rIdx} flip={true} dir="top" />)}
@@ -1698,12 +1732,10 @@ export default function App() {
 
                       {/* BOTTOM — South + Midwest */}
                       <div style={{ display: 'flex', alignItems: 'flex-start', position: 'relative', overflow: 'hidden' }}>
-                        <div style={{ position: 'absolute', top: LABEL_TOP - SH, left: S16_CENTER_X + CW, transform: 'translate(-50%,-50%)', pointerEvents: 'none', zIndex: 0 }}>
-                          <span style={{ fontSize: 130, fontWeight: 900, color: RC.South, opacity: 0.18, letterSpacing: 4, textTransform: 'uppercase', userSelect: 'none', lineHeight: 1, display: 'block', whiteSpace: 'nowrap' }}>{ mammalRegionNames.South }</span>
-                        </div>
-                        <div style={{ position: 'absolute', top: LABEL_TOP - SH, right: S16_CENTER_X + CW * 2.5, transform: 'translate(50%,-50%)', pointerEvents: 'none', zIndex: 0 }}>
-                          <span style={{ fontSize: 130, fontWeight: 900, color: RC.Midwest, opacity: 0.18, letterSpacing: 4, textTransform: 'uppercase', userSelect: 'none', lineHeight: 1, display: 'block', whiteSpace: 'nowrap' }}>{ mammalRegionNames.Midwest }</span>
-                        </div>
+                        {/* South: left edge = E8 left edge, top = spine (top: 0) */}
+                        <LabelBox name={mammalRegionNames.South} color={RC.South} left={E8_LEFT} top={0} />
+                        {/* Midwest: right edge = E8 right edge from right side, top = spine */}
+                        <LabelBox name={mammalRegionNames.Midwest} color={RC.Midwest} right={E8_LEFT} top={0} />
                         {[0,1,2,3].map(rIdx => <MRoundCol key={rIdx} region="South" rIdx={rIdx} flip={false} dir="bot" />)}
                         <div style={{ width: CW * 3, flexShrink: 0, height: BOT_H }} />
                         {[3,2,1,0].map(rIdx => <MRoundCol key={rIdx} region="Midwest" rIdx={rIdx} flip={true} dir="bot" />)}
