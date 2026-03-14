@@ -1237,7 +1237,6 @@ export default function App() {
     saveTimer.current = setTimeout(async () => {
       setSaving(true);
       await saveBracket(user.uid, { ...bracket, _firstFourPicks: firstFourPicks }, user.displayName, user.photoURL);
-      if (isAdmin) await saveOfficialBracket(bracket);
       const score = calcScore(bracket, officialBracket);
       await updateLeaderboardEntry(user.uid, user.displayName, user.photoURL, score, isTeacher);
       setSaving(false); setLastSaved(new Date());
@@ -1256,7 +1255,6 @@ export default function App() {
     clearTimeout(mammalSaveTimer.current);
     mammalSaveTimer.current = setTimeout(async () => {
       await saveMammalBracket(user.uid, { ...mammalBracket, _firstFourPicks: mammalFirstFourPicks }, user.displayName, user.photoURL);
-      if (isAdmin) await saveMammalOfficialBracket(mammalBracket);
       const score = calcScore(mammalBracket, mammalOfficialBracket);
       await updateMammalLeaderboardEntry(user.uid, user.displayName, user.photoURL, score, isTeacher);
     }, 3000);
