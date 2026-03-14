@@ -751,19 +751,13 @@ function MammalEntryPanel({ onAnimalsSaved, onRequestGenerateMammalResearch, reg
             {saving ? 'Saving...' : saved ? '✓ Roster Saved' : 'Save Roster'}
           </button>
           <button style={{ ...S.btn(applied ? '#22c55e' : '#f59e0b', '#000'), padding: '8px 20px', fontSize: 13 }}
-            onClick={async () => { setApplying(true); const nb = buildInitialBracketFromTeams(roster); console.log('[MMM] Applying, East R0G0 top:', nb['East']?.rounds?.[0]?.[0]?.top?.name); await saveMammalOfficialBracket(nb); setApplying(false); setApplied(true); onAnimalsSaved(nb, roster); }} disabled={applying}>
+            onClick={async () => { setApplying(true); const nb = buildInitialBracketFromTeams(roster); await saveMammalOfficialBracket(nb); setApplying(false); setApplied(true); onAnimalsSaved(nb, roster); }} disabled={applying}>
             {applying ? 'Applying...' : applied ? '✓ Applied!' : 'Apply to Bracket'}
           </button>
           <button style={{ ...S.btn('#6366f1', '#fff'), padding: '8px 20px', fontSize: 13 }} onClick={() => onRequestGenerateMammalResearch(roster)}>
             ✨ Auto-Generate Animal Facts
           </button>
-          <button style={{ ...S.btn('#e74c3c','#fff'), padding: '8px 14px', fontSize: 12 }} onClick={async () => {
-            const snap = await getDoc(doc(db, 'admin', 'officialBracket_mammals'));
-            if (!snap.exists()) { alert('No officialBracket_mammals doc in Firestore!'); return; }
-            const b = JSON.parse(snap.data().bracket);
-            const east0 = b['East']?.rounds?.[0]?.[0];
-            alert('Firestore bracket East R64 G0:\ntop=' + east0?.top?.name + '\nbottom=' + east0?.bottom?.name);
-          }}>🔍 Debug Firestore</button>
+
         </div>
       </div>
       <div style={{ display: 'flex', gap: 4, marginBottom: 16 }}>
@@ -852,164 +846,6 @@ function MammalResearchCard({ animalName, card, isAdmin, onFieldSave, onGenerate
 }
 
 // ── REVEAL MODE PANEL ─────────────────────────────────────────────────────────
-const ROUND_NAMES = ['Round of 64', 'Round of 32', 'Sweet 16', 'Elite Eight'];
-
-function RevealModePanel({ bracket, mammalBracket, onRevealWinner, onRevealMammalWinner, onRevealFF, onRevealMammalFF, onRevealChamp, onRevealMammalChamp, locked, mammalLocked, onLockToggle, onMammalLockToggle }) {
-  const [revealRound,      setRevealRound]      = useState(0);
-  const [revealRegion,     setRevealRegion]      = useState('East');
-  const [revealOpen,       setRevealOpen]        = useState(false);
-  const [revealTournament, setRevealTournament]  = useState('basketball');
-  const [revealSection,    setRevealSection]     = useState('regions'); // 'regions' | 'finalfour' | 'championship'
-
-  const activeBracket  = revealTournament === 'mammals' ? mammalBracket : bracket;
-  const activeOnReveal = revealTournament === 'mammals' ? onRevealMammalWinner : onRevealWinner;
-  const activeOnFF     = revealTournament === 'mammals' ? onRevealMammalFF : onRevealFF;
-  const activeOnChamp  = revealTournament === 'mammals' ? onRevealMammalChamp : onRevealChamp;
-  const activeLocked   = revealTournament === 'mammals' ? mammalLocked : locked;
-  const activeOnLock   = revealTournament === 'mammals' ? onMammalLockToggle : onLockToggle;
-
-  if (!activeBracket) return (
-    <div style={{ ...S.card, borderColor: 'rgba(250,204,21,0.3)', marginBottom: 16 }}>
-      <h3 style={{ color: '#facc15', marginBottom: 8, fontSize: 15 }}>🎬 Reveal Mode</h3>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 16, background: 'rgba(255,255,255,0.04)', borderRadius: 10, padding: 3, width: 'fit-content', border: '1px solid rgba(255,255,255,0.08)' }}>
-        <button onClick={() => setRevealTournament('basketball')} style={{ padding: '6px 16px', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 700, background: revealTournament === 'basketball' ? ACCENT : 'transparent', color: revealTournament === 'basketball' ? '#fff' : '#888', transition: 'all .15s' }}>🏀 Basketball</button>
-        <button onClick={() => setRevealTournament('mammals')} style={{ padding: '6px 16px', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 700, background: revealTournament === 'mammals' ? '#16a34a' : 'transparent', color: revealTournament === 'mammals' ? '#fff' : '#888', transition: 'all .15s' }}>🦁 Mammal Madness</button>
-      </div>
-      <p style={{ color: '#666', fontSize: 13, margin: 0, fontStyle: 'italic' }}>
-        {revealTournament === 'mammals'
-          ? '🦁 No Mammal Madness bracket set up yet — go to Admin → Mammal Madness to add animals first.'
-          : 'No bracket data yet.'}
-      </p>
-    </div>
-  );
-
-  const regions = ['East', 'West', 'South', 'Midwest'];
-
-  const RevealTeamRow = ({ team, isWinner, onClick, undoFn }) => (
-    <div style={{ marginBottom: 4 }}>
-      <div onClick={() => !isWinner && onClick()}
-        style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 7, cursor: isWinner ? 'default' : 'pointer', background: isWinner ? 'rgba(22,163,74,0.2)' : 'rgba(255,255,255,0.04)', border: isWinner ? '1px solid rgba(22,163,74,0.5)' : '1px solid rgba(255,255,255,0.07)', transition: 'all .12s' }}>
-        <span style={{ fontSize: 11, color: '#777', fontWeight: 700, minWidth: 20 }}>#{team?.seed}</span>
-        <span style={{ flex: 1, fontSize: 15, fontWeight: isWinner ? 700 : 400, color: isWinner ? ACCENT2 : '#ccc' }}>{team?.name || 'TBD'}</span>
-        {isWinner ? <span style={{ color: ACCENT2, fontSize: 16 }}>✓</span> : <span style={{ color: '#555', fontSize: 12 }}>click to reveal</span>}
-      </div>
-      {isWinner && undoFn && <button onClick={undoFn} style={{ fontSize: 11, color: '#e74c3c', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 0', fontFamily: 'inherit' }}>↩ undo</button>}
-    </div>
-  );
-
-  return (
-    <div style={{ ...S.card, borderColor: 'rgba(250,204,21,0.3)', marginBottom: 16 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: revealOpen ? 16 : 0, flexWrap: 'wrap', gap: 10 }}>
-        <div>
-          <h3 style={{ color: '#facc15', marginBottom: 2, fontSize: 15 }}>🎬 Reveal Mode</h3>
-          <p style={{ color: '#888', fontSize: 13, margin: 0 }}>Click winning teams one at a time — perfect for a live class reveal</p>
-        </div>
-        <button onClick={() => setRevealOpen(o => !o)} style={{ ...S.btn(revealOpen ? 'rgba(250,204,21,0.15)' : 'rgba(250,204,21,0.2)', '#facc15'), padding: '8px 18px', fontSize: 13, border: '1px solid rgba(250,204,21,0.3)' }}>
-          {revealOpen ? 'Close ▲' : 'Open ▼'}
-        </button>
-      </div>
-
-      {revealOpen && (
-        <>
-          {/* Tournament switcher */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 16, background: 'rgba(255,255,255,0.04)', borderRadius: 10, padding: 3, width: 'fit-content', border: '1px solid rgba(255,255,255,0.08)' }}>
-            <button onClick={() => setRevealTournament('basketball')} style={{ padding: '6px 16px', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 700, background: revealTournament === 'basketball' ? ACCENT : 'transparent', color: revealTournament === 'basketball' ? '#fff' : '#888', transition: 'all .15s' }}>🏀 Basketball</button>
-            <button onClick={() => setRevealTournament('mammals')} style={{ padding: '6px 16px', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 700, background: revealTournament === 'mammals' ? '#16a34a' : 'transparent', color: revealTournament === 'mammals' ? '#fff' : '#888', transition: 'all .15s' }}>🦁 Mammal Madness</button>
-          </div>
-
-          {/* Lock status */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, padding: '8px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: 8, border: '1px solid rgba(255,255,255,0.07)' }}>
-            <span style={{ fontSize: 13, color: activeLocked ? '#e74c3c' : '#22c55e' }}>{activeLocked ? '🔒 Locked' : '🟢 Open'}</span>
-            <button onClick={activeOnLock} style={{ ...S.btn(activeLocked ? '#22c55e' : '#e74c3c', '#fff'), fontSize: 11, padding: '5px 12px' }}>{activeLocked ? 'Unlock' : 'Lock Now'}</button>
-            <span style={{ fontSize: 11, color: '#555' }}>Lock before revealing</span>
-          </div>
-
-          {/* Section selector — Regions / Final Four / Championship */}
-          <div style={{ display: 'flex', gap: 4, marginBottom: 16, borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: 0 }}>
-            {[['regions','R64 – E8'],['finalfour','Final Four'],['championship','Championship']].map(([key, label]) => (
-              <button key={key} onClick={() => setRevealSection(key)} style={{ ...S.navBtn(revealSection === key), borderBottom: revealSection === key ? '2px solid #facc15' : '2px solid transparent', borderRadius: '6px 6px 0 0', padding: '7px 16px', fontSize: 12, color: revealSection === key ? '#facc15' : '#888' }}>{label}</button>
-            ))}
-          </div>
-
-          {/* ── REGIONS section ── */}
-          {revealSection === 'regions' && (<>
-            <div style={{ display: 'flex', gap: 4, marginBottom: 12, flexWrap: 'wrap' }}>
-              {ROUND_NAMES.map((name, i) => (
-                <button key={i} onClick={() => setRevealRound(i)} style={{ ...S.navBtn(revealRound === i), borderBottom: revealRound === i ? '2px solid #facc15' : '2px solid transparent', borderRadius: '6px 6px 0 0', padding: '6px 12px', fontSize: 11, color: revealRound === i ? '#facc15' : '#888' }}>{name}</button>
-              ))}
-            </div>
-            <div style={{ display: 'flex', gap: 4, marginBottom: 16 }}>
-              {regions.map(r => (
-                <button key={r} onClick={() => setRevealRegion(r)} style={{ ...S.navBtn(revealRegion === r), borderBottom: revealRegion === r ? `2px solid ${RC[r]}` : '2px solid transparent', borderRadius: '6px 6px 0 0', padding: '6px 12px', fontSize: 11 }}>
-                  <span style={{ color: RC[r], marginRight: 4 }}>●</span>{r}
-                </button>
-              ))}
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 10 }}>
-              {(activeBracket[revealRegion]?.rounds?.[revealRound] || []).map((game, gIdx) => {
-                if (!game?.top && !game?.bottom) return null;
-                const hasWinner = !!game.winner;
-                return (
-                  <div key={gIdx} style={{ background: hasWinner ? 'rgba(22,163,74,0.07)' : 'rgba(255,255,255,0.03)', border: `1px solid ${hasWinner ? 'rgba(22,163,74,0.3)' : 'rgba(255,255,255,0.08)'}`, borderRadius: 10, padding: 12 }}>
-                    <div style={{ fontSize: 10, color: '#666', letterSpacing: 1, marginBottom: 8, textTransform: 'uppercase' }}>Game {gIdx + 1}{hasWinner ? ` → ${game.winner.name}` : ''}</div>
-                    {[['top', game.top], ['bottom', game.bottom]].map(([side, team]) => team && (
-                      <RevealTeamRow key={side} team={team} isWinner={game.winner?.name === team.name}
-                        onClick={() => activeOnReveal(revealRegion, revealRound, gIdx, side)}
-                        undoFn={() => activeOnReveal(revealRegion, revealRound, gIdx, null)} />
-                    ))}
-                  </div>
-                );
-              })}
-            </div>
-          </>)}
-
-          {/* ── FINAL FOUR section ── */}
-          {revealSection === 'finalfour' && (<>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-              {(activeBracket.finalFour || []).map((game, idx) => {
-                const label = idx === 0 ? 'East vs West' : 'South vs Midwest';
-                const hasWinner = !!game?.winner;
-                return (
-                  <div key={idx} style={{ background: hasWinner ? 'rgba(22,163,74,0.07)' : 'rgba(255,255,255,0.03)', border: `1px solid ${hasWinner ? 'rgba(22,163,74,0.3)' : 'rgba(255,255,255,0.08)'}`, borderRadius: 10, padding: 14 }}>
-                    <div style={{ fontSize: 11, color: '#34d399', fontWeight: 700, letterSpacing: 1, marginBottom: 10, textTransform: 'uppercase' }}>Final Four — {label}</div>
-                    {game && [['top', game.top], ['bottom', game.bottom]].map(([side, team]) => team && (
-                      <RevealTeamRow key={side} team={team} isWinner={game.winner?.name === team.name}
-                        onClick={() => activeOnFF(idx, side)}
-                        undoFn={() => activeOnFF(idx, side)} />
-                    ))}
-                    {(!game?.top && !game?.bottom) && <div style={{ color: '#555', fontSize: 13 }}>Teams not yet set — reveal Elite Eight first</div>}
-                  </div>
-                );
-              })}
-            </div>
-          </>)}
-
-          {/* ── CHAMPIONSHIP section ── */}
-          {revealSection === 'championship' && (<>
-            <div style={{ maxWidth: 400 }}>
-              <div style={{ background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: 10, padding: 14 }}>
-                <div style={{ fontSize: 11, color: GOLD2, fontWeight: 700, letterSpacing: 1, marginBottom: 10, textTransform: 'uppercase' }}>🏆 Championship Game</div>
-                {activeBracket.championship && [['top', activeBracket.championship.top], ['bottom', activeBracket.championship.bottom]].map(([side, team]) => team && (
-                  <RevealTeamRow key={side} team={team} isWinner={activeBracket.championship.winner?.name === team.name}
-                    onClick={() => activeOnChamp(side)}
-                    undoFn={() => activeOnChamp(side)} />
-                ))}
-                {(!activeBracket.championship?.top && !activeBracket.championship?.bottom) && <div style={{ color: '#555', fontSize: 13 }}>Teams not yet set — reveal Final Four first</div>}
-                {activeBracket.championship?.winner && (
-                  <div style={{ marginTop: 12, padding: '8px 12px', background: 'rgba(245,158,11,0.15)', borderRadius: 8, border: '1px solid rgba(245,158,11,0.4)', textAlign: 'center' }}>
-                    <div style={{ fontSize: 10, color: GOLD2, letterSpacing: 1.5, marginBottom: 2 }}>🎉 CHAMPION</div>
-                    <div style={{ fontSize: 16, fontWeight: 700, color: '#fff', fontFamily: "'Playfair Display', serif" }}>{activeBracket.championship.winner.name}</div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </>)}
-        </>
-      )}
-    </div>
-  );
-}
-
 // ── MAIN APP ──────────────────────────────────────────────────────────────────
 export default function App() {
   const [user,             setUser]            = useState(null);
@@ -1100,16 +936,14 @@ export default function App() {
         if (obSnap.exists()) {
           const ob = JSON.parse(obSnap.data().bracket);
           const obSample = ob['East']?.rounds?.[0]?.[0]?.top?.name;
-          console.log('[MMM] direct load official bracket, East R64 G0 top:', obSample);
           setMammalOfficialBracket(ob);
           // If user has no saved picks, or their picks use different animals, start from official
           const userSample = savedMammal?.['East']?.rounds?.[0]?.[0]?.top?.name;
           if (!userSample || userSample !== obSample) {
-            console.log('[MMM] seeding mammalBracket from official (user had:', userSample, ')');
-            setMammalBracket(ob);
+              setMammalBracket(ob);
           }
         } else {
-          console.log('[MMM] no officialBracket_mammals doc exists yet');
+// no official bracket yet
         }
       } catch(e) { console.warn('[MMM] error loading official bracket:', e); }
       if (savedMammal) {
@@ -1157,8 +991,7 @@ export default function App() {
     });
     const u5 = subscribeToMammalOfficialBracket(b => {
       if (!b) return;
-      const sample = b['East']?.rounds?.[0]?.[0]?.top?.name;
-      console.log('[MMM] official bracket received, East R64 G0 top:', sample);
+
       setMammalOfficialBracket(b);
       // Admins always see official bracket
       if (isAdmin) { setMammalBracket(b); return; }
@@ -1166,7 +999,6 @@ export default function App() {
       setMammalBracket(prev => {
         const officialSample = b['East']?.rounds?.[0]?.[0]?.top?.name;
         const userSample = prev['East']?.rounds?.[0]?.[0]?.top?.name;
-        console.log('[MMM] user sample:', userSample, 'official sample:', officialSample);
         // If user's bracket already has the official animals, keep their picks
         if (userSample && officialSample && userSample === officialSample) return prev;
         // Otherwise seed from official (user hasn't picked yet or animals changed)
@@ -2447,22 +2279,6 @@ export default function App() {
                     <div style={{ fontSize: 12, color: '#999' }}>Currently fetching: {genProgress.current}</div>
                   </div>
                 )}
-
-                {/* Reveal Mode */}
-                <RevealModePanel
-                  bracket={officialBracket || bracket}
-                  mammalBracket={mammalOfficialBracket}
-                  onRevealWinner={handlePick}
-                  onRevealMammalWinner={handleMammalPick}
-                  onRevealFF={handleFFPick}
-                  onRevealMammalFF={handleMammalFFPick}
-                  onRevealChamp={handleChampPick}
-                  onRevealMammalChamp={handleMammalChampPick}
-                  locked={locked}
-                  mammalLocked={mammalLocked}
-                  onLockToggle={async () => { const nl = !locked; setLocked(nl); await setTournamentLocked(nl); }}
-                  onMammalLockToggle={async () => { const nl = !mammalLocked; setMammalLocked(nl); await setMammalTournamentLocked(nl); }}
-                />
 
                 {/* Tournament Year */}
                 <div style={{ ...S.card, borderColor: 'rgba(22,163,74,0.3)', marginBottom: 16 }}>
