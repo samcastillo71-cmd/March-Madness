@@ -752,7 +752,7 @@ function MammalEntryPanel({ onAnimalsSaved, onRequestGenerateMammalResearch, reg
           </button>
           {saved && (
             <button style={{ ...S.btn(applied ? '#22c55e' : '#f59e0b', '#000'), padding: '8px 20px', fontSize: 13 }}
-              onClick={async () => { setApplying(true); const nb = buildInitialBracketFromTeams(roster); await saveMammalOfficialBracket(nb); setApplying(false); setApplied(true); onAnimalsSaved(nb, roster); }} disabled={applying}>
+              onClick={async () => { setApplying(true); const nb = buildInitialBracketFromTeams(roster); console.log('[MMM] Applying bracket, East R0G0 top:', nb['East']?.rounds?.[0]?.[0]?.top?.name); await saveMammalOfficialBracket(nb); setApplying(false); setApplied(true); onAnimalsSaved(nb, roster); }} disabled={applying}>
               {applying ? 'Applying...' : applied ? '✓ Applied!' : 'Apply to Bracket'}
             </button>
           )}
@@ -760,6 +760,13 @@ function MammalEntryPanel({ onAnimalsSaved, onRequestGenerateMammalResearch, reg
             <button style={{ ...S.btn('#6366f1', '#fff'), padding: '8px 20px', fontSize: 13 }} onClick={() => onRequestGenerateMammalResearch(roster)}>
               ✨ Auto-Generate Animal Facts
             </button>
+          <button style={{ ...S.btn('#e74c3c','#fff'), padding: '8px 14px', fontSize: 12 }} onClick={async () => {
+            const snap = await getDoc(doc(db, 'admin', 'officialBracket_mammals'));
+            if (!snap.exists()) { alert('No officialBracket_mammals doc!'); return; }
+            const b = JSON.parse(snap.data().bracket);
+            const east0 = b['East']?.rounds?.[0]?.[0];
+            alert('East R64 G0: top=' + east0?.top?.name + ' bottom=' + east0?.bottom?.name);
+          }}>🔍 Debug</button>
           )}
         </div>
       </div>
@@ -1087,17 +1094,40 @@ export default function App() {
       }
       // Load mammal bracket
       const savedMammal = await loadMammalBracket(fbUser.uid);
-      // Load mammal region names
+      // Load mammal region names + official bracket directly (don't wait for subscription)
       try {
         const rSnap = await getDoc(doc(db, 'admin', 'mammalRoster'));
         if (rSnap.exists() && rSnap.data()._regionNames) setMammalRegionNames(rSnap.data()._regionNames);
       } catch {}
+      try {
+        const obSnap = await getDoc(doc(db, 'admin', 'officialBracket_mammals'));
+        if (obSnap.exists()) {
+          const ob = JSON.parse(obSnap.data().bracket);
+          const obSample = ob['East']?.rounds?.[0]?.[0]?.top?.name;
+          console.log('[MMM] direct load official bracket, East R64 G0 top:', obSample);
+          setMammalOfficialBracket(ob);
+          // If user has no saved picks, or their picks use different animals, start from official
+          const userSample = savedMammal?.['East']?.rounds?.[0]?.[0]?.top?.name;
+          if (!userSample || userSample !== obSample) {
+            console.log('[MMM] seeding mammalBracket from official (user had:', userSample, ')');
+            setMammalBracket(ob);
+          }
+        } else {
+          console.log('[MMM] no officialBracket_mammals doc exists yet');
+        }
+      } catch(e) { console.warn('[MMM] error loading official bracket:', e); }
       if (savedMammal) {
-        if (savedMammal._firstFourPicks) {
-          setMammalFirstFourPicks(savedMammal._firstFourPicks);
-          const { _firstFourPicks, ...bracketOnly } = savedMammal;
-          setMammalBracket(bracketOnly);
-        } else { setMammalBracket(savedMammal); }
+        const obSnap2 = await getDoc(doc(db, 'admin', 'officialBracket_mammals'));
+        const obSample2 = obSnap2.exists() ? JSON.parse(obSnap2.data().bracket)?.['East']?.rounds?.[0]?.[0]?.top?.name : null;
+        const userSample2 = savedMammal?.['East']?.rounds?.[0]?.[0]?.top?.name;
+        // Only restore user's saved bracket if animals match official (picks are still valid)
+        if (!obSample2 || userSample2 === obSample2) {
+          if (savedMammal._firstFourPicks) {
+            setMammalFirstFourPicks(savedMammal._firstFourPicks);
+            const { _firstFourPicks, ...bracketOnly } = savedMammal;
+            setMammalBracket(bracketOnly);
+          } else { setMammalBracket(savedMammal); }
+        }
       }
     } else { setUser(null); setIsAdmin(false); setIsTeacher(false); setBracket(buildInitialBracket()); setMammalBracket(buildInitialBracketFromTeams(makePlaceholderMammalRoster())); }
     setAuthLoading(false);
@@ -1130,23 +1160,22 @@ export default function App() {
       if (!selectedTeam && Object.keys(data).length > 0) setSelectedTeam(Object.keys(data)[0]);
     });
     const u5 = subscribeToMammalOfficialBracket(b => {
-      setMammalOfficialBracket(b);
       if (!b) return;
-      if (isAdmin) {
-        setMammalBracket(b);
-      } else {
-        // For non-admins: show official bracket's animals but preserve their winner picks
-        setMammalBracket(prev => {
-          // Check if user's bracket already has the same animals as the official bracket
-          // by comparing a sample team name from round 0
-          const officialSample = b['East']?.rounds?.[0]?.[0]?.top?.name;
-          const userSample = prev['East']?.rounds?.[0]?.[0]?.top?.name;
-          // If user's animals already match official, keep their picks
-          if (officialSample && userSample && officialSample === userSample) return prev;
-          // Otherwise load the official bracket (first time, or admin changed animals)
-          return b;
-        });
-      }
+      const sample = b['East']?.rounds?.[0]?.[0]?.top?.name;
+      console.log('[MMM] official bracket received, East R64 G0 top:', sample);
+      setMammalOfficialBracket(b);
+      // Admins always see official bracket
+      if (isAdmin) { setMammalBracket(b); return; }
+      // Non-admins: use official bracket as base if their saved picks don't have matching animals
+      setMammalBracket(prev => {
+        const officialSample = b['East']?.rounds?.[0]?.[0]?.top?.name;
+        const userSample = prev['East']?.rounds?.[0]?.[0]?.top?.name;
+        console.log('[MMM] user sample:', userSample, 'official sample:', officialSample);
+        // If user's bracket already has the official animals, keep their picks
+        if (userSample && officialSample && userSample === officialSample) return prev;
+        // Otherwise seed from official (user hasn't picked yet or animals changed)
+        return b;
+      });
     });
     const u6 = subscribeToMammalConfig(cfg => { setMammalLocked(cfg.locked ?? false); });
     const u7 = subscribeToMammalLeaderboard(setMammalLeaderboard);
