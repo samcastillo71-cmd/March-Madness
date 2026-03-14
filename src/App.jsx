@@ -1131,15 +1131,20 @@ export default function App() {
     });
     const u5 = subscribeToMammalOfficialBracket(b => {
       setMammalOfficialBracket(b);
-      if (isAdmin && b) {
+      if (!b) return;
+      if (isAdmin) {
         setMammalBracket(b);
-      } else if (b) {
-        // For non-admins: keep their saved picks but use official bracket's team names
-        // (their saved bracket already has the right teams if they picked from it)
+      } else {
+        // For non-admins: show official bracket's animals but preserve their winner picks
         setMammalBracket(prev => {
-          const hasRealAnimals = ['East','West','South','Midwest'].some(r =>
-            prev[r]?.rounds?.[0]?.some(g => g?.top?.name && g.top.name !== ''));
-          return hasRealAnimals ? prev : b;
+          // Check if user's bracket already has the same animals as the official bracket
+          // by comparing a sample team name from round 0
+          const officialSample = b['East']?.rounds?.[0]?.[0]?.top?.name;
+          const userSample = prev['East']?.rounds?.[0]?.[0]?.top?.name;
+          // If user's animals already match official, keep their picks
+          if (officialSample && userSample && officialSample === userSample) return prev;
+          // Otherwise load the official bracket (first time, or admin changed animals)
+          return b;
         });
       }
     });
@@ -2499,7 +2504,7 @@ export default function App() {
                   </div>
                 </div>
                 <MammalEntryPanel
-                  onAnimalsSaved={(nb, roster) => { setMammalBracket(nb); }}
+                  onAnimalsSaved={(nb, roster) => { setMammalBracket(nb); setMammalOfficialBracket(nb); }}
                   onRequestGenerateMammalResearch={handleGenerateMammalResearch}
                   regionNames={mammalRegionNames}
                   onRegionNamesChange={setMammalRegionNames}
