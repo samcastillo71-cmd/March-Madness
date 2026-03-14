@@ -1131,8 +1131,17 @@ export default function App() {
     });
     const u5 = subscribeToMammalOfficialBracket(b => {
       setMammalOfficialBracket(b);
-      // Only overwrite bracket state for admins; non-admins keep their own picks
-      if (isAdmin && b) setMammalBracket(b);
+      if (isAdmin && b) {
+        setMammalBracket(b);
+      } else if (b) {
+        // For non-admins: keep their saved picks but use official bracket's team names
+        // (their saved bracket already has the right teams if they picked from it)
+        setMammalBracket(prev => {
+          const hasRealAnimals = ['East','West','South','Midwest'].some(r =>
+            prev[r]?.rounds?.[0]?.some(g => g?.top?.name && g.top.name !== ''));
+          return hasRealAnimals ? prev : b;
+        });
+      }
     });
     const u6 = subscribeToMammalConfig(cfg => { setMammalLocked(cfg.locked ?? false); });
     const u7 = subscribeToMammalLeaderboard(setMammalLeaderboard);
@@ -1744,7 +1753,7 @@ export default function App() {
                     [133.5,489.5],
                     [311.5],
                   ];
-                  const activeMammal = mammalOfficialBracket || mammalBracket;
+                  const activeMammal = isAdmin ? (mammalOfficialBracket || mammalBracket) : mammalBracket;
 
                   const MRoundCol = ({ region, rIdx, flip, dir }) => {
                     const games = activeMammal[region]?.rounds[rIdx] || [];
