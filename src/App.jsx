@@ -1584,7 +1584,8 @@ export default function App() {
           const slotSeed = Number(slot?.seed);
           if (slotSeed === Number(seed)) {
             if (isUnpick) {
-              // Restore original placeholder
+              // Clear from round 1 onwards — we handle R64 slot manually below
+              clearTeamDownstream(next, region, winner.name, 1);
               const original = ffPlaceholders[key];
               if (original) game[side] = { ...original };
             } else if (slot?.isFFPlaceholder || slot?.name === winner.name) {
@@ -1596,7 +1597,7 @@ export default function App() {
       if (isAdmin) saveOfficialBracket(next).catch(console.warn);
       return next;
     });
-  }, [locked, isAdmin, firstFourPicks, ffPlaceholders]);
+  }, [locked, isAdmin, firstFourPicks, ffPlaceholders, clearTeamDownstream]);
 
   // ── MAMMAL PICK HANDLERS ──────────────────────────────────────────────────
   const handleMammalPick = useCallback((region, rIdx, gIdx, side) => {
@@ -1680,6 +1681,7 @@ export default function App() {
           const slotSeed = Number(slot?.seed);
           if (slotSeed === Number(seed)) {
             if (isUnpick) {
+              clearMammalDownstream(next, region, winner.name, 1);
               const original = mammalFfPlaceholders[key];
               if (original) game[side] = { ...original };
             } else if (slot?.isFFPlaceholder || slot?.name === winner.name) {
@@ -1699,7 +1701,7 @@ export default function App() {
         return next;
       });
     }
-  }, [mammalLocked, isAdmin, mammalFirstFourPicks, mammalFfPlaceholders]);
+  }, [mammalLocked, isAdmin, mammalFirstFourPicks, mammalFfPlaceholders, clearMammalDownstream]);
 
   // ── CLEAR ALL PICKS ───────────────────────────────────────────────────────
   const handleClearPicks = useCallback((isMammal) => {
