@@ -1114,6 +1114,26 @@ function ConfirmDialog({ message, onConfirm, onCancel }) {
   );
 }
 
+
+// ── EXTRACT FF PLACEHOLDERS FROM BRACKET ──────────────────────────────────────
+// Scans R64 games for isFFPlaceholder slots and returns a map of
+// "Region-seed" -> placeholder team object (with ffTeams array).
+// Called once on bracket load to seed the ffPlaceholders state.
+function extractFFPlaceholders(bracket) {
+  const out = {};
+  ['East','West','South','Midwest'].forEach(region => {
+    (bracket[region]?.rounds?.[0] || []).forEach(game => {
+      ['top','bottom'].forEach(side => {
+        const slot = game[side];
+        if (slot?.isFFPlaceholder && slot.ffTeams) {
+          out[`${region}-${slot.seed}`] = slot;
+        }
+      });
+    });
+  });
+  return out;
+}
+
 // ── APPLY FIRST FOUR PICKS TO BRACKET ────────────────────────────────────────
 // After loading a saved bracket + firstFourPicks from Firestore, the placeholder
 // slots in R64 still show "First Four Winner". This function re-applies the picks.
@@ -1165,6 +1185,10 @@ export default function App() {
   const [genProgress,      setGenProgress]     = useState({ done: 0, total: 0, current: '' });
   const [genError,         setGenError]        = useState('');
   const [firstFourPicks,   setFirstFourPicks]  = useState({});
+  // Stores original FF placeholder objects keyed by "Region-seed"
+  // Set once on bracket load, never overwritten — used to restore placeholders on un-pick
+  const [ffPlaceholders,      setFfPlaceholders]      = useState({});
+  const [mammalFfPlaceholders,setMammalFfPlaceholders]= useState({});
   const [tournamentYear,   setTournamentYear]  = useState(CURRENT_YEAR);
   const [yearDraft,        setYearDraft]       = useState(String(CURRENT_YEAR));
   const [yearSaving,       setYearSaving]      = useState(false);
@@ -1215,41 +1239,21 @@ export default function App() {
   const myRank       = useMemo(() => leaderboard.findIndex(e => e.uid === user?.uid) + 1, [leaderboard, user]);
   const mammalMyRank = useMemo(() => mammalLeaderboard.findIndex(e => e.uid === user?.uid) + 1, [mammalLeaderboard, user]);
 
-  // FF games lists (memoized)
+  // FF games lists — read from ffPlaceholders state so banner always shows
+  // regardless of whether picks have been applied to the bracket
   const ffGamesList = useMemo(() => {
-    const list = [];
-    ['East','West','South','Midwest'].forEach(region => {
-      (bracket[region]?.rounds[0] || []).forEach(game => {
-        const hasFF = game?.top?.isFFPlaceholder || game?.bottom?.isFFPlaceholder;
-        if (hasFF) {
-          const ffTeam = game.top?.isFFPlaceholder ? game.top : game.bottom;
-          const key = `${region}-${ffTeam.seed}`;
-          if (!list.find(f => f.key === key) && ffTeam.ffTeams) {
-            list.push({ region, seed: ffTeam.seed, ffTeams: ffTeam.ffTeams, key });
-          }
-        }
-      });
+    return Object.entries(ffPlaceholders).map(([key, slot]) => {
+      const [region] = key.split('-');
+      return { region, seed: slot.seed, ffTeams: slot.ffTeams, key };
     });
-    return list;
-  }, [bracket]);
+  }, [ffPlaceholders]);
 
   const mammalFFGamesList = useMemo(() => {
-    const activeMammal = isAdmin ? (mammalOfficialBracket || mammalBracket) : mammalBracket;
-    const list = [];
-    ['East','West','South','Midwest'].forEach(region => {
-      (activeMammal[region]?.rounds[0] || []).forEach(game => {
-        const hasFF = game?.top?.isFFPlaceholder || game?.bottom?.isFFPlaceholder;
-        if (hasFF) {
-          const ffTeam = game.top?.isFFPlaceholder ? game.top : game.bottom;
-          const key = `${region}-${ffTeam.seed}`;
-          if (!list.find(f => f.key === key) && ffTeam.ffTeams) {
-            list.push({ region, seed: ffTeam.seed, ffTeams: ffTeam.ffTeams, key });
-          }
-        }
-      });
+    return Object.entries(mammalFfPlaceholders).map(([key, slot]) => {
+      const [region] = key.split('-');
+      return { region, seed: slot.seed, ffTeams: slot.ffTeams, key };
     });
-    return list;
-  }, [mammalBracket, mammalOfficialBracket, isAdmin]);
+  }, [mammalFfPlaceholders]);
 
   // ── LOAD YEAR + SOURCES ──────────────────────────────────────────────────
   useEffect(() => {
@@ -1293,8 +1297,12 @@ export default function App() {
           if (saved._firstFourPicks) {
             const { _firstFourPicks, ...b } = saved;
             setFirstFourPicks(_firstFourPicks);
+            setFfPlaceholders(extractFFPlaceholders(b));
             setBracket(applyFirstFourPicks(b, _firstFourPicks));
-          } else setBracket(saved);
+          } else {
+            setFfPlaceholders(extractFFPlaceholders(saved));
+            setBracket(saved);
+          }
         }
       } catch (e) { console.warn('Failed to load bracket:', e); }
 
@@ -1317,17 +1325,28 @@ export default function App() {
             if (savedMammal._firstFourPicks) {
               const { _firstFourPicks, ...b } = savedMammal;
               setMammalFirstFourPicks(_firstFourPicks);
+              setMammalFfPlaceholders(extractFFPlaceholders(b));
               setMammalBracket(applyFirstFourPicks(b, _firstFourPicks));
-            } else setMammalBracket(savedMammal);
-          } else { setMammalBracket(ob); }
+            } else {
+              setMammalFfPlaceholders(extractFFPlaceholders(savedMammal));
+              setMammalBracket(savedMammal);
+            }
+          } else {
+            setMammalFfPlaceholders(extractFFPlaceholders(ob));
+            setMammalBracket(ob);
+          }
         } else {
           const savedMammal = await loadMammalBracket(fbUser.uid).catch(() => null);
           if (savedMammal) {
             if (savedMammal._firstFourPicks) {
               const { _firstFourPicks, ...b } = savedMammal;
               setMammalFirstFourPicks(_firstFourPicks);
+              setMammalFfPlaceholders(extractFFPlaceholders(b));
               setMammalBracket(applyFirstFourPicks(b, _firstFourPicks));
-            } else setMammalBracket(savedMammal);
+            } else {
+              setMammalFfPlaceholders(extractFFPlaceholders(savedMammal));
+              setMammalBracket(savedMammal);
+            }
           }
         }
       } catch (e) { console.warn('[MMM] error loading:', e); }
@@ -1345,9 +1364,12 @@ export default function App() {
     const u1 = subscribeToOfficialBracket(b => {
       const hasRealTeams = b && ['East','West','South','Midwest'].some(r => b[r]?.rounds?.[0]?.some(g => g?.top?.name && !g.top.name.startsWith('Seed ')));
       setOfficialBracket(hasRealTeams ? b : null);
-      if (isAdmin) setBracket(hasRealTeams ? b : buildInitialBracket());
-      else setBracket(prev => {
+      if (isAdmin) {
+        setBracket(hasRealTeams ? b : buildInitialBracket());
+        if (hasRealTeams) setFfPlaceholders(extractFFPlaceholders(b));
+      } else setBracket(prev => {
         const userHasTeams = ['East','West','South','Midwest'].some(r => prev[r]?.rounds?.[0]?.some(g => g?.top?.name && !g.top.name.startsWith('Seed ')));
+        if (!userHasTeams && hasRealTeams) setFfPlaceholders(extractFFPlaceholders(b));
         return userHasTeams ? prev : (hasRealTeams ? prev : buildInitialBracket());
       });
     });
@@ -1364,6 +1386,7 @@ export default function App() {
     const u5 = subscribeToMammalOfficialBracket(b => {
       if (!b) return;
       setMammalOfficialBracket(b);
+      setMammalFfPlaceholders(extractFFPlaceholders(b));
       if (isAdmin) { setMammalBracket(b); return; }
       setMammalBracket(prev => {
         const officialSample = b['East']?.rounds?.[0]?.[0]?.top?.name;
@@ -1560,6 +1583,7 @@ export default function App() {
 
   const handleFirstFourPick = useCallback((key, winner, region, seed) => {
     if (locked && !isAdmin) return;
+    const isUnpick = firstFourPicks[key] === winner.name;
     setFirstFourPicks(prev => {
       if (prev[key] === winner.name) { const n = { ...prev }; delete n[key]; return n; }
       return { ...prev, [key]: winner.name };
@@ -1569,12 +1593,24 @@ export default function App() {
       const r64 = next[region]?.rounds[0];
       if (!r64) return prev;
       r64.forEach(game => {
-        if (game.top?.isFFPlaceholder && Number(game.top.seed) === Number(seed)) game.top = { ...winner, isFFPlaceholder: false };
-        if (game.bottom?.isFFPlaceholder && Number(game.bottom.seed) === Number(seed)) game.bottom = { ...winner, isFFPlaceholder: false };
+        ['top','bottom'].forEach(side => {
+          const slot = game[side];
+          const slotSeed = Number(slot?.seed);
+          if (slotSeed === Number(seed)) {
+            if (isUnpick) {
+              // Restore original placeholder
+              const original = ffPlaceholders[key];
+              if (original) game[side] = { ...original };
+            } else if (slot?.isFFPlaceholder || slot?.name === winner.name) {
+              game[side] = { ...winner, isFFPlaceholder: false };
+            }
+          }
+        });
       });
+      if (isAdmin) saveOfficialBracket(next).catch(console.warn);
       return next;
     });
-  }, [locked, isAdmin]);
+  }, [locked, isAdmin, firstFourPicks, ffPlaceholders]);
 
   // ── MAMMAL PICK HANDLERS ──────────────────────────────────────────────────
   const handleMammalPick = useCallback((region, rIdx, gIdx, side) => {
@@ -1642,6 +1678,7 @@ export default function App() {
 
   const handleMammalFirstFourPick = useCallback((key, winner, region, seed) => {
     if (mammalLocked && !isAdmin) return;
+    const isUnpick = mammalFirstFourPicks[key] === winner.name;
     setMammalFirstFourPicks(prev => {
       if (prev[key] === winner.name) { const n = { ...prev }; delete n[key]; return n; }
       return { ...prev, [key]: winner.name };
@@ -1652,17 +1689,23 @@ export default function App() {
       const r64 = next[region]?.rounds[0];
       if (!r64) return prev;
       r64.forEach(game => {
-        if (game.top?.isFFPlaceholder && Number(game.top.seed) === Number(seed)) game.top = { ...winner, isFFPlaceholder: false };
-        if (game.bottom?.isFFPlaceholder && Number(game.bottom.seed) === Number(seed)) game.bottom = { ...winner, isFFPlaceholder: false };
+        ['top','bottom'].forEach(side => {
+          const slot = game[side];
+          const slotSeed = Number(slot?.seed);
+          if (slotSeed === Number(seed)) {
+            if (isUnpick) {
+              const original = mammalFfPlaceholders[key];
+              if (original) game[side] = { ...original };
+            } else if (slot?.isFFPlaceholder || slot?.name === winner.name) {
+              game[side] = { ...winner, isFFPlaceholder: false };
+            }
+          }
+        });
       });
       return next;
     };
 
-    // Always update mammalBracket (user's bracket)
     setMammalBracket(applyPick);
-
-    // Admin: also update mammalOfficialBracket (what the panel reads from)
-    // and persist to Firestore
     if (isAdmin) {
       setMammalOfficialBracket(prev => {
         const next = applyPick(prev || {});
@@ -1670,7 +1713,7 @@ export default function App() {
         return next;
       });
     }
-  }, [mammalLocked, isAdmin]);
+  }, [mammalLocked, isAdmin, mammalFirstFourPicks, mammalFfPlaceholders]);
 
   // ── CLEAR ALL PICKS ───────────────────────────────────────────────────────
   const handleClearPicks = useCallback((isMammal) => {
