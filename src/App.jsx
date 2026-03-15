@@ -297,6 +297,49 @@ const GameSlot = memo(function GameSlot({ game, onPick, locked, isChampionship, 
   );
 });
 
+// ── FF GAME CARD ──────────────────────────────────────────────────────────────
+function FFGameCard({ region, seed, ffTeams, pick, isLocked, onFirstFourPick, keyStr, regionNames, canMatchup, onMatchup }) {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <div style={{ position: 'relative' }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}>
+      <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: 10, padding: '12px 14px', minWidth: 210 }}>
+        <div style={{ fontSize: 10, color: RC[region], fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 8 }}>
+          {(regionNames && regionNames[region]) || region} — #{seed} seed play-in
+        </div>
+        {ffTeams.map(team => {
+          const isPick = pick === team.name;
+          return (
+            <div key={team.name}
+              onClick={e => { e.stopPropagation(); !isLocked && onFirstFourPick(keyStr, team, region, seed); }}
+              role="button" tabIndex={isLocked ? -1 : 0} aria-pressed={isPick}
+              aria-label={`Pick ${team.name}`}
+              onKeyDown={e => { if ((e.key === 'Enter' || e.key === ' ') && !isLocked) { e.preventDefault(); onFirstFourPick(keyStr, team, region, seed); } }}
+              style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', borderRadius: 7, marginBottom: 5, cursor: isLocked ? 'default' : 'pointer', background: isPick ? 'rgba(99,102,241,0.2)' : 'rgba(255,255,255,0.03)', border: isPick ? '1px solid rgba(99,102,241,0.5)' : '1px solid rgba(255,255,255,0.07)', transition: 'all .12s', outline: 'none' }}>
+              <TeamLogo espnId={team.espnId} name={team.name} size={20} />
+              <span style={{ fontSize: 10, color: '#777', fontWeight: 700, minWidth: 14 }}>{team.seed}</span>
+              <span style={{ fontSize: team.name?.length > 18 ? 11 : team.name?.length > 13 ? 13 : 12, fontWeight: isPick ? 700 : 400, color: isPick ? '#a5b4fc' : '#bbb', flex: 1 }}>{team.name}</span>
+              {isPick && <span style={{ color: '#818cf8', fontSize: 13 }} aria-hidden="true">✓</span>}
+            </div>
+          );
+        })}
+        {pick
+          ? <div style={{ fontSize: 10, color: '#777', textAlign: 'center', marginTop: 4 }}>{pick} advances as #{seed} seed</div>
+          : <div style={{ fontSize: 10, color: '#888', textAlign: 'center', marginTop: 4 }}>pick a winner</div>}
+      </div>
+      {canMatchup && hovered && ffTeams.length >= 2 && (
+        <button onClick={e => { e.stopPropagation(); onMatchup(ffTeams[0].name, ffTeams[1].name); }}
+          aria-label={`Compare ${ffTeams[0].name} vs ${ffTeams[1].name} in Research tab`}
+          style={{ position: 'absolute', top: 0, right: 0, zIndex: 20, background: '#1d4ed8', border: 'none', borderRadius: '50%', width: 22, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 11, boxShadow: '0 2px 8px rgba(0,0,0,0.4)' }}
+          title="Compare in Research tab">
+          📊
+        </button>
+      )}
+    </div>
+  );
+}
+
 // ── EDITABLE FIELD ────────────────────────────────────────────────────────────
 function EditableField({ value, onSave, color = '#ccc', large = false, multiline = false, label = '' }) {
   const [editing, setEditing] = useState(false);
@@ -2481,33 +2524,12 @@ Keep all language at a middle school reading level. Make it engaging and educati
             const pick = activeFirstFourPicks[key];
             const canMatchup = onMatchup && ffTeams.length >= 2;
             return (
-              <div key={key}
-                onMouseEnter={() => canMatchup && onMatchup(ffTeams[0].name, ffTeams[1].name)}
-                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: 10, padding: '12px 14px', minWidth: 210, cursor: canMatchup ? 'pointer' : 'default', position: 'relative' }}>
-                <div style={{ fontSize: 10, color: RC[region], fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 8 }}>
-                  {regionNames[region] || region} — #{seed} seed play-in
-                </div>
-                {ffTeams.map(team => {
-                  const isPick = pick === team.name;
-                  return (
-                    <div key={team.name} onClick={e => { e.stopPropagation(); !isLocked && onFirstFourPick(key, team, region, seed); }}
-                      role="button" tabIndex={isLocked ? -1 : 0} aria-pressed={isPick}
-                      aria-label={`Pick ${team.name}`}
-                      onKeyDown={e => { if ((e.key === 'Enter' || e.key === ' ') && !isLocked) { e.preventDefault(); onFirstFourPick(key, team, region, seed); } }}
-                      style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', borderRadius: 7, marginBottom: 5, cursor: isLocked ? 'default' : 'pointer', background: isPick ? 'rgba(99,102,241,0.2)' : 'rgba(255,255,255,0.03)', border: isPick ? '1px solid rgba(99,102,241,0.5)' : '1px solid rgba(255,255,255,0.07)', transition: 'all .12s', outline: 'none' }}>
-                      <TeamLogo espnId={team.espnId} name={team.name} size={20} />
-                      <span style={{ fontSize: 10, color: '#777', fontWeight: 700, minWidth: 14 }}>{team.seed}</span>
-                      <span style={{ fontSize: 12, fontWeight: isPick ? 700 : 400, color: isPick ? '#a5b4fc' : '#bbb', flex: 1 }}>{team.name}</span>
-                      {isPick && <span style={{ color: '#818cf8', fontSize: 13 }} aria-hidden="true">✓</span>}
-                    </div>
-                  );
-                })}
-                {pick
-                  ? <div style={{ fontSize: 10, color: '#777', textAlign: 'center', marginTop: 4 }}>{pick} advances as #{seed} seed</div>
-                  : <div style={{ fontSize: 10, color: '#888', textAlign: 'center', marginTop: 4 }}>pick a winner</div>}
-              </div>
+              <FFGameCard key={key} region={region} seed={seed} ffTeams={ffTeams} pick={pick}
+                isLocked={isLocked} onFirstFourPick={onFirstFourPick} keyStr={key}
+                regionNames={regionNames} canMatchup={canMatchup} onMatchup={onMatchup} />
             );
           })}
+
         </div>
       </div>
     );
@@ -2669,10 +2691,7 @@ Keep all language at a middle school reading level. Make it engaging and educati
                 <>
                   {renderScoreBar(false)}
                   {renderScrollBracket(false, 'bscroll-bb')}
-                  {renderFirstFourPanel(false, (a, b) => {
-                    setResearchMatchup({ teamA: a, teamB: b, label: 'First Four Play-in', isMammal: false });
-                    setTab('research');
-                  })}
+                  {renderFirstFourPanel(false, (a, b) => setResearchMatchup({ teamA: a, teamB: b, label: 'First Four Play-in', isMammal: false }))}
                 </>
               )}
 
@@ -2691,10 +2710,7 @@ Keep all language at a middle school reading level. Make it engaging and educati
                     </div>
                   )}
                   {renderScrollBracket(true, 'bscroll-mm')}
-                  {renderFirstFourPanel(true, (a, b) => {
-                    setResearchMatchup({ teamA: a, teamB: b, label: 'First Four Play-in', isMammal: true });
-                    setTab('research');
-                  })}
+                  {renderFirstFourPanel(true, (a, b) => setResearchMatchup({ teamA: a, teamB: b, label: 'First Four Play-in', isMammal: true }))}
                 </>
               )}
             </div>
