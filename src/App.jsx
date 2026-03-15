@@ -1230,6 +1230,17 @@ export default function App() {
   // ── MEMOIZED DERIVED STATE ────────────────────────────────────────────────
   const allTeamNames   = useMemo(() => Object.keys(researchData).sort(), [researchData]);
   const allAnimalNames = useMemo(() => Object.keys(mammalResearchData).sort(), [mammalResearchData]);
+  // First Four team names from placeholders (flat list of all ffTeams)
+  const ffTeamNames = useMemo(() => {
+    const names = new Set();
+    Object.values(ffPlaceholders).forEach(slot => (slot.ffTeams || []).forEach(t => names.add(t.name)));
+    return [...names].sort();
+  }, [ffPlaceholders]);
+  const mammalFfTeamNames = useMemo(() => {
+    const names = new Set();
+    Object.values(mammalFfPlaceholders).forEach(slot => (slot.ffTeams || []).forEach(t => names.add(t.name)));
+    return [...names].sort();
+  }, [mammalFfPlaceholders]);
   const score          = useMemo(() => calcScore(bracket, officialBracket), [bracket, officialBracket]);
   const mammalScore    = useMemo(() => calcScore(mammalBracket, mammalOfficialBracket), [mammalBracket, mammalOfficialBracket]);
   const teacherBoard        = useMemo(() => leaderboard.filter(e => e.isTeacher), [leaderboard]);
@@ -2454,7 +2465,7 @@ Keep all language at a middle school reading level. Make it engaging and educati
   };
 
   // ── FIRST FOUR PANELL (above bracket, for mobile/overview) ─────────────────
-  const renderFirstFourPanel = (isMammal) => {
+  const renderFirstFourPanel = (isMammal, onMatchup = null) => {
     const activeFF = isMammal ? mammalFFGamesList : ffGamesList;
     const activeFirstFourPicks = isMammal ? mammalFirstFourPicks : firstFourPicks;
     const regionNames = isMammal ? mammalRegionNames : bbRegionNames;
@@ -2468,15 +2479,18 @@ Keep all language at a middle school reading level. Make it engaging and educati
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
           {activeFF.map(({ region, seed, ffTeams, key }) => {
             const pick = activeFirstFourPicks[key];
+            const canMatchup = onMatchup && ffTeams.length >= 2;
             return (
-              <div key={key} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: 10, padding: '12px 14px', minWidth: 210 }}>
+              <div key={key}
+                onMouseEnter={() => canMatchup && onMatchup(ffTeams[0].name, ffTeams[1].name)}
+                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: 10, padding: '12px 14px', minWidth: 210, cursor: canMatchup ? 'pointer' : 'default', position: 'relative' }}>
                 <div style={{ fontSize: 10, color: RC[region], fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 8 }}>
                   {regionNames[region] || region} — #{seed} seed play-in
                 </div>
                 {ffTeams.map(team => {
                   const isPick = pick === team.name;
                   return (
-                    <div key={team.name} onClick={() => !isLocked && onFirstFourPick(key, team, region, seed)}
+                    <div key={team.name} onClick={e => { e.stopPropagation(); !isLocked && onFirstFourPick(key, team, region, seed); }}
                       role="button" tabIndex={isLocked ? -1 : 0} aria-pressed={isPick}
                       aria-label={`Pick ${team.name}`}
                       onKeyDown={e => { if ((e.key === 'Enter' || e.key === ' ') && !isLocked) { e.preventDefault(); onFirstFourPick(key, team, region, seed); } }}
@@ -2655,7 +2669,10 @@ Keep all language at a middle school reading level. Make it engaging and educati
                 <>
                   {renderScoreBar(false)}
                   {renderScrollBracket(false, 'bscroll-bb')}
-                  {renderFirstFourPanel(false)}
+                  {renderFirstFourPanel(false, (a, b) => {
+                    setResearchMatchup({ teamA: a, teamB: b, label: 'First Four Play-in', isMammal: false });
+                    setTab('research');
+                  })}
                 </>
               )}
 
@@ -2674,7 +2691,10 @@ Keep all language at a middle school reading level. Make it engaging and educati
                     </div>
                   )}
                   {renderScrollBracket(true, 'bscroll-mm')}
-                  {renderFirstFourPanel(true)}
+                  {renderFirstFourPanel(true, (a, b) => {
+                    setResearchMatchup({ teamA: a, teamB: b, label: 'First Four Play-in', isMammal: true });
+                    setTab('research');
+                  })}
                 </>
               )}
             </div>
@@ -2754,6 +2774,17 @@ Keep all language at a middle school reading level. Make it engaging and educati
                     </div>
                   ) : (
                     <>
+                      {ffTeamNames.length > 0 && (
+                        <div style={{ marginBottom: 16 }}>
+                          <div style={{ fontSize: 10, color: '#818cf8', letterSpacing: 2, textTransform: 'uppercase', fontWeight: 700, marginBottom: 8 }}>First Four Play-in Teams</div>
+                          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }} role="list">
+                            {ffTeamNames.map(t => (
+                              <button key={t} role="listitem" style={{ ...S.btn(selectedTeam === t ? '#6366f1' : 'rgba(99,102,241,0.1)', selectedTeam === t ? '#fff' : '#a5b4fc'), padding: '7px 16px', fontSize: 13, border: '1px solid rgba(99,102,241,0.3)' }}
+                                aria-pressed={selectedTeam === t} onClick={() => setSelectedTeam(t)}>{t}</button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 24 }} role="list" aria-label="Team list">
                         {allTeamNames.map(t => (
                           <button key={t} role="listitem" style={{ ...S.btn(selectedTeam === t ? ACCENT : 'rgba(255,255,255,0.05)', selectedTeam === t ? '#fff' : '#aaa'), padding: '7px 16px', fontSize: 13 }}
@@ -2791,6 +2822,17 @@ Keep all language at a middle school reading level. Make it engaging and educati
                     </div>
                   ) : (
                     <>
+                      {mammalFfTeamNames.length > 0 && (
+                        <div style={{ marginBottom: 16 }}>
+                          <div style={{ fontSize: 10, color: '#818cf8', letterSpacing: 2, textTransform: 'uppercase', fontWeight: 700, marginBottom: 8 }}>First Four Play-in Organisms</div>
+                          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }} role="list">
+                            {mammalFfTeamNames.map(a => (
+                              <button key={a} role="listitem" style={{ ...S.btn(mammalSelectedAnimal === a ? '#6366f1' : 'rgba(99,102,241,0.1)', mammalSelectedAnimal === a ? '#fff' : '#a5b4fc'), padding: '7px 16px', fontSize: 13, border: '1px solid rgba(99,102,241,0.3)' }}
+                                aria-pressed={mammalSelectedAnimal === a} onClick={() => setMammalSelectedAnimal(a)}>{a}</button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 24 }} role="list" aria-label="Animal list">
                         {allAnimalNames.map(a => (
                           <button key={a} role="listitem" style={{ ...S.btn(mammalSelectedAnimal === a ? '#16a34a' : 'rgba(255,255,255,0.05)', mammalSelectedAnimal === a ? '#fff' : '#aaa'), padding: '7px 16px', fontSize: 13 }}
