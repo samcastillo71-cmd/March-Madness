@@ -1297,12 +1297,8 @@ export default function App() {
           if (saved._firstFourPicks) {
             const { _firstFourPicks, ...b } = saved;
             setFirstFourPicks(_firstFourPicks);
-            setFfPlaceholders(extractFFPlaceholders(b));
             setBracket(applyFirstFourPicks(b, _firstFourPicks));
-          } else {
-            setFfPlaceholders(extractFFPlaceholders(saved));
-            setBracket(saved);
-          }
+          } else setBracket(saved);
         }
       } catch (e) { console.warn('Failed to load bracket:', e); }
 
@@ -1325,28 +1321,17 @@ export default function App() {
             if (savedMammal._firstFourPicks) {
               const { _firstFourPicks, ...b } = savedMammal;
               setMammalFirstFourPicks(_firstFourPicks);
-              setMammalFfPlaceholders(extractFFPlaceholders(b));
               setMammalBracket(applyFirstFourPicks(b, _firstFourPicks));
-            } else {
-              setMammalFfPlaceholders(extractFFPlaceholders(savedMammal));
-              setMammalBracket(savedMammal);
-            }
-          } else {
-            setMammalFfPlaceholders(extractFFPlaceholders(ob));
-            setMammalBracket(ob);
-          }
+            } else setMammalBracket(savedMammal);
+          } else { setMammalBracket(ob); }
         } else {
           const savedMammal = await loadMammalBracket(fbUser.uid).catch(() => null);
           if (savedMammal) {
             if (savedMammal._firstFourPicks) {
               const { _firstFourPicks, ...b } = savedMammal;
               setMammalFirstFourPicks(_firstFourPicks);
-              setMammalFfPlaceholders(extractFFPlaceholders(b));
               setMammalBracket(applyFirstFourPicks(b, _firstFourPicks));
-            } else {
-              setMammalFfPlaceholders(extractFFPlaceholders(savedMammal));
-              setMammalBracket(savedMammal);
-            }
+            } else setMammalBracket(savedMammal);
           }
         }
       } catch (e) { console.warn('[MMM] error loading:', e); }
