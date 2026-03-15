@@ -1725,7 +1725,7 @@ export default function App() {
     //   top team row height: 36px
     //   divider: 1px (midpoint at 0.5px)
     //   → offset = 8 + 36 + 0.5 = 44.5px from game's absolute top
-    const GAME_MID_OFFSET     = 44.5;
+    const GAME_MID_OFFSET     = 50;
     const GAME_MID_OFFSET_BOT = SH - GAME_MID_OFFSET;
     const LINE_COLORS = ['#60a5fa', '#a78bfa', '#fbbf24', '#ef4444']; // R64→R32, R32→S16, S16→E8, E8→FF
     const STUB = CW * 0.45;
@@ -1834,7 +1834,7 @@ export default function App() {
       return (
         <svg
           width={TOTAL_W} height={H}
-          style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none', zIndex: 0 }}
+          style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none', zIndex: -1 }}
           aria-hidden="true"
         >
           {lines}
