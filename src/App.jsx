@@ -554,7 +554,7 @@ async function callAI(prompt) {
     }
     if (!res.ok) {
       const errText = await res.text().catch(() => '');
-      throw new Error('Gemini proxy error ' + res.status + ': ' + errText.slice(0, 100));
+      throw new Error('AI proxy error ' + res.status + ': ' + errText.slice(0, 500));
     }
     rateLimitAttempt = 0;
     let data;
