@@ -56,7 +56,7 @@ export default async function handler(req, res) {
   if (!claudeRes.ok) {
     const errText = await claudeRes.text().catch(() => '');
     return res.status(claudeRes.status).json({
-      error: `Claude API error ${claudeRes.status}: ${errText.slice(0, 200)}`,
+      error: `Claude API error ${claudeRes.status}: ${errText.slice(0, 500)}`,
     });
   }
 
