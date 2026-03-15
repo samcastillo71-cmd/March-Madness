@@ -457,7 +457,7 @@ function MammalResearchCard({ animalName, card, isAdmin, onFieldSave, onGenerate
       {/* ── Banner: region-colored gradient + PhyloPic silhouette ── */}
       <div style={{ position: 'relative', height: 160, borderRadius: '12px 12px 0 0', overflow: 'hidden', background: `linear-gradient(135deg, ${bgDark} 0%, ${bgLight} 100%)` }}>
         {/* PhyloPic silhouette centered */}
-        {phyloPicUrl && !imgErrors['phylopic'] ? (
+        {phyloPicUrl && !imgErrors['phylopic'] && (
           <img src={phyloPicUrl} alt={`${animalName} silhouette`}
             onError={() => handleImgError('phylopic')}
             style={{ position: 'absolute', right: 40, top: '50%', transform: 'translateY(-50%)', height: 120, opacity: 0.35, filter: 'brightness(0)', objectFit: 'contain' }} />
