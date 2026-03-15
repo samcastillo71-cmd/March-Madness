@@ -223,7 +223,7 @@ const GameSlot = memo(function GameSlot({ game, onPick, locked, isChampionship, 
         <TeamLogo espnId={team.espnId} name={team.name} size={20} />
         <span style={{ fontSize: 10, color: isW ? ACCENT2 : '#666', fontWeight: 700, minWidth: 14, textDecoration: isL ? 'line-through' : 'none' }}>{team.seed}</span>
         <span style={{ fontSize: 17, fontWeight: isW ? 700 : 500, color: isW ? ACCENT2 : isL ? '#3a3a3a' : '#d0d0d0', textDecoration: isL ? 'line-through' : 'none', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: hasLive ? 80 : 140, flex: 1 }}>
-          {isFF ? 'FF Winner →' : team.name}
+          {isFF ? 'First Four Winner' : team.name}
         </span>
         {hasLive && live && <span style={{ fontSize: 13, fontWeight: 800, color: isFinal && live.winner ? ACCENT2 : isLiveGame && isLiveWinning ? '#facc15' : '#888', minWidth: 24, textAlign: 'right', marginLeft: 2, flexShrink: 0 }}>{live.score}</span>}
         {isW && !hasLive && <span style={{ marginLeft: flipped ? 0 : 'auto', marginRight: flipped ? 'auto' : 0, color: ACCENT2, fontSize: 11 }} aria-hidden="true">✓</span>}
@@ -1527,8 +1527,8 @@ export default function App() {
       const r64 = next[region]?.rounds[0];
       if (!r64) return prev;
       r64.forEach(game => {
-        if (game.top?.isFFPlaceholder && game.top.seed === seed) game.top = { ...winner, isFFPlaceholder: false };
-        if (game.bottom?.isFFPlaceholder && game.bottom.seed === seed) game.bottom = { ...winner, isFFPlaceholder: false };
+        if (game.top?.isFFPlaceholder && Number(game.top.seed) === Number(seed)) game.top = { ...winner, isFFPlaceholder: false };
+        if (game.bottom?.isFFPlaceholder && Number(game.bottom.seed) === Number(seed)) game.bottom = { ...winner, isFFPlaceholder: false };
       });
       return next;
     });
@@ -1609,8 +1609,8 @@ export default function App() {
       const r64 = next[region]?.rounds[0];
       if (!r64) return prev;
       r64.forEach(game => {
-        if (game.top?.isFFPlaceholder && game.top.seed === seed) game.top = { ...winner, isFFPlaceholder: false };
-        if (game.bottom?.isFFPlaceholder && game.bottom.seed === seed) game.bottom = { ...winner, isFFPlaceholder: false };
+        if (game.top?.isFFPlaceholder && Number(game.top.seed) === Number(seed)) game.top = { ...winner, isFFPlaceholder: false };
+        if (game.bottom?.isFFPlaceholder && Number(game.bottom.seed) === Number(seed)) game.bottom = { ...winner, isFFPlaceholder: false };
       });
       return next;
     });
@@ -1792,9 +1792,9 @@ export default function App() {
           const data = await res.json();
           if (data.result && allData[name]) {
             allData[name] = { ...allData[name], ...data.result };
-            // Save incrementally so progress isn't lost
             await saveWithRetry(saveMammalResearchData, allData, name);
-            setMammalResearchData({ ...allData });
+            // Merge into existing state rather than replacing to avoid stale data
+            setMammalResearchData(prev => ({ ...prev, [name]: allData[name] }));
           }
         }
       } catch (e) { console.warn('Image refetch failed for', name, e); }
