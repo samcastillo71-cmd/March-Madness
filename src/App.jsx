@@ -2666,8 +2666,8 @@ Keep all language at a middle school reading level. Make it engaging and educati
               {activeTournament === 'basketball' && (
                 <>
                   {renderScoreBar(false)}
-                  {renderFirstFourPanel(false)}
                   {renderScrollBracket(false, 'bscroll-bb')}
+                  {renderFirstFourPanel(false)}
                 </>
               )}
 
@@ -2685,8 +2685,8 @@ Keep all language at a middle school reading level. Make it engaging and educati
                       </div>
                     </div>
                   )}
-                  {renderFirstFourPanel(true)}
                   {renderScrollBracket(true, 'bscroll-mm')}
+                  {renderFirstFourPanel(true)}
                 </>
               )}
             </div>
