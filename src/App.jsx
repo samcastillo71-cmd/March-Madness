@@ -521,42 +521,51 @@ async function importFromESPN() {
   return { ...regionMap, year: new Date().getFullYear() };
 }
 
-// ── GEMINI API WITH RATE LIMIT HANDLING ───────────────────────────────────────
-// Retries indefinitely on per-minute rate limits using progressive backoff.
-// Only throws on daily quota exhaustion or non-recoverable errors.
+// ── GEMINI API VIA VERCEL PROXY ──────────────────────────────────────────────
+// Calls /api/gemini (serverless function) so the API key never hits the browser.
+// Retries indefinitely on per-minute rate limits with progressive backoff.
+// Only throws on daily quota exhaustion or unrecoverable errors.
 async function callGemini(prompt) {
   const BACKOFF_MS = [60000, 90000, 120000]; // 1min, 1.5min, 2min progressive
   let rateLimitAttempt = 0;
   while (true) {
     let res;
     try {
-      res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${import.meta.env.VITE_GEMINI_KEY}`,
-        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }) }
-      );
+      res = await fetch('/api/gemini', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt }),
+      });
     } catch (e) {
-      console.warn('Gemini network error, retrying in 15s:', e.message);
+      console.warn('Network error calling /api/gemini, retrying in 15s:', e.message);
       await new Promise(r => setTimeout(r, 15000));
       continue;
     }
     if (res.status === 429) {
       let errBody = '';
       try { errBody = await res.text(); } catch {}
-      const isDaily = errBody.toLowerCase().includes('quota') && errBody.toLowerCase().includes('day');
+      const isDaily = errBody.toLowerCase().includes('daily') || errBody.toLowerCase().includes('tomorrow');
       if (isDaily) throw new Error('Daily Gemini quota reached. Resets at midnight Pacific. Try again tomorrow.');
       const wait = BACKOFF_MS[Math.min(rateLimitAttempt, BACKOFF_MS.length - 1)];
-      console.warn(`Rate limited (attempt ${rateLimitAttempt + 1}), waiting ${wait / 1000}s...`);
+      console.warn('Rate limited (attempt ' + (rateLimitAttempt + 1) + '), waiting ' + (wait/1000) + 's...');
       rateLimitAttempt++;
       await new Promise(r => setTimeout(r, wait));
       continue;
     }
-    if (!res.ok) throw new Error(`Gemini API error: ${res.status}`);
+    if (!res.ok) {
+      const errText = await res.text().catch(() => '');
+      throw new Error('Gemini proxy error ' + res.status + ': ' + errText.slice(0, 100));
+    }
     rateLimitAttempt = 0;
     let data;
-    try { data = await res.json(); } catch { throw new Error('Gemini returned invalid JSON response'); }
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
-    try { return JSON.parse(text.replace(/```json|```/g, '').trim()); }
-    catch (e) { console.warn('JSON parse failed:', text.slice(0, 200)); return null; }
+    try { data = await res.json(); } catch { throw new Error('Proxy returned invalid JSON'); }
+    // Proxy returns { result: parsedJSON } or { error: string }
+    if (data.error) {
+      const isDaily = data.error.toLowerCase().includes('daily') || data.error.toLowerCase().includes('tomorrow');
+      if (isDaily) throw new Error('Daily Gemini quota reached. Resets at midnight Pacific. Try again tomorrow.');
+      throw new Error(data.error);
+    }
+    return data.result ?? null;
   }
 }
 
@@ -685,9 +694,15 @@ function TeamEntryPanel({ onTeamsSaved, onRequestGenerateResearch, regionNames, 
             </button>
           )}
           {(applied || roster['East']?.some(t => t.name && t.name !== '' && !t.name.startsWith('Seed'))) && (
-            <button style={{ ...S.btn('#6366f1', '#fff'), padding: '8px 20px', fontSize: 13 }} onClick={() => onRequestGenerateResearch(roster)}>
-              ✨ Auto-Generate Research
-            </button>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 11, color: '#999', alignSelf: 'center', marginRight: 2 }}>✨ Generate Research:</span>
+              {['East','West','South','Midwest'].map(r => (
+                <button key={r} style={{ ...S.btn('rgba(99,102,241,0.3)', '#a5b4fc'), padding: '6px 14px', fontSize: 12, border: '1px solid rgba(99,102,241,0.5)' }}
+                  onClick={() => onRequestGenerateResearch(roster, r)}>
+                  {regionNames[r] || r}
+                </button>
+              ))}
+            </div>
           )}
         </div>
       </div>
@@ -807,9 +822,15 @@ function MammalEntryPanel({ onAnimalsSaved, onRequestGenerateMammalResearch, reg
             onClick={async () => { setApplying(true); try { const nb = buildInitialBracketFromTeams(roster); await saveMammalOfficialBracket(nb); setApplied(true); onAnimalsSaved(nb, roster); } catch(e) { alert('Apply failed: ' + e.message); } setApplying(false); }} disabled={applying}>
             {applying ? 'Applying...' : applied ? '✓ Applied!' : 'Apply to Bracket'}
           </button>
-          <button style={{ ...S.btn('#6366f1', '#fff'), padding: '8px 20px', fontSize: 13 }} onClick={() => onRequestGenerateMammalResearch(roster)}>
-            ✨ Auto-Generate Animal Facts
-          </button>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+            <span style={{ fontSize: 11, color: '#999', alignSelf: 'center', marginRight: 2 }}>✨ Generate Facts:</span>
+            {['East','West','South','Midwest'].map(r => (
+              <button key={r} style={{ ...S.btn('rgba(99,102,241,0.3)', '#a5b4fc'), padding: '6px 14px', fontSize: 12, border: '1px solid rgba(99,102,241,0.5)' }}
+                onClick={() => onRequestGenerateMammalResearch(roster, r)}>
+                {regionNames[r] || r}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
       <div style={{ display: 'flex', gap: 4, marginBottom: 16 }}>
@@ -1399,10 +1420,11 @@ export default function App() {
     return false;
   }, []);
 
-  // ── GENERATE ALL RESEARCH ─────────────────────────────────────────────────
-  const handleGenerateResearch = useCallback(async (roster) => {
+  // ── GENERATE RESEARCH (per region or all) ────────────────────────────────
+  const handleGenerateResearch = useCallback(async (roster, onlyRegion) => {
+    const regions = onlyRegion ? [onlyRegion] : ['East','West','South','Midwest'];
     const teams = [];
-    ['East','West','South','Midwest'].forEach(region => {
+    regions.forEach(region => {
       (roster[region] || []).forEach(t => { if (!t.firstFour && t.name && !t.name.startsWith('Seed')) teams.push({ name: t.name, seed: t.seed, region }); });
     });
     if (!teams.length) return;
@@ -1437,10 +1459,11 @@ export default function App() {
     if (Object.keys(allData).length > 0) setSelectedTeam(Object.keys(allData)[0]);
   }, [saveWithRetry]);
 
-  // ── GENERATE ALL MAMMAL RESEARCH ──────────────────────────────────────────
-  const handleGenerateMammalResearch = useCallback(async (roster) => {
+  // ── GENERATE MAMMAL RESEARCH (per region or all) ────────────────────────
+  const handleGenerateMammalResearch = useCallback(async (roster, onlyRegion) => {
+    const regions = onlyRegion ? [onlyRegion] : ['East','West','South','Midwest'];
     const animals = [];
-    ['East','West','South','Midwest'].forEach(region => {
+    regions.forEach(region => {
       (roster[region] || []).forEach(a => { if (!a.firstFour && a.name) animals.push({ name: a.name, seed: a.seed, region }); });
     });
     if (!animals.length) return;
@@ -1654,8 +1677,8 @@ export default function App() {
     );
 
     // Final Four labels using custom region names
-    const ff0Label = `Final Four — ${regionNames.East || 'East'} vs ${regionNames.West || 'West'}`;
-    const ff1Label = `Final Four — ${regionNames.South || 'South'} vs ${regionNames.Midwest || 'Midwest'}`;
+    const ff0Label = `Final Four — ${regionNames.East || 'East'} vs. ${regionNames.West || 'West'}`;
+    const ff1Label = `Final Four — ${regionNames.South || 'South'} vs. ${regionNames.Midwest || 'Midwest'}`;
 
     // ── Layout constants (continued) ─────────────────────────────────────────
     // No FF columns in the bracket — FF games only appear in the top banner.
@@ -1691,64 +1714,78 @@ export default function App() {
     );
 
     // ── Connector lines ───────────────────────────────────────────────────────
-    const GAME_MID_OFFSET     = 44.5; // px from game top to team divider
-    const GAME_MID_OFFSET_BOT = SH - GAME_MID_OFFSET;
+    // Single full-width SVG overlay per half. Solid colors, 3px thick, fully
+    // opaque so they are definitely visible. Connects each game's team divider
+    // (midpoint) to the parent game in the next round with bracket-style lines.
+    //
+    // Game midpoint y from top of game position:
+    //   8px outer padding + 36px top team + 0.5px = 44.5px
+    const GAME_MID_OFFSET     = 44.5;
+    const GAME_MID_OFFSET_BOT = SH - GAME_MID_OFFSET; // = 44.5 (symmetric)
+    // Round colors (solid, fully opaque)
+    const LINE_COLORS = ['#60a5fa', '#a78bfa', '#fbbf24'];
+    const STUB = CW * 0.45; // horizontal stub half-width
 
     const BracketConnectors = ({ dir }) => {
-      const W = CW * 4;
+      // One SVG spanning the full bracket width (TOTAL_W) and half height (TOP_H).
+      // Coordinates are absolute within the SVG — no relative positioning needed.
+      // Left region (East/South): columns 0-3 from left (x = 0 to CW*4)
+      // Right region (West/Midwest): columns 7-10 from left (x = CW*7 to CW*11)
       const H = TOP_H;
-      const STUB = CW * 0.4;
+      const lines = [];
 
-      const makeLinesForRegion = (flip) => {
-        const lines = [];
+      const getMid = (pos) =>
+        dir === 'top' ? pos + GAME_MID_OFFSET : H - pos - GAME_MID_OFFSET_BOT;
+
+      // Draw connectors for one region
+      // xBase: left x of this region's R64 column within the full SVG
+      // flip: false = R64 leftmost (East/South), true = R64 rightmost (West/Midwest)
+      const addRegionLines = (xBase, flip) => {
         for (let rIdx = 0; rIdx < 3; rIdx++) {
+          const color = LINE_COLORS[rIdx];
           const fromPositions = ROUND_ABS[rIdx];
           const toPositions   = ROUND_ABS[rIdx + 1];
-          const gradId = `conn-${isMammal?'m':'b'}-${dir}-${flip?'f':'n'}-${rIdx}`;
-          const color1 = ['#60a5fa','#a78bfa','#fbbf24'][rIdx];
-          const color2 = ['#a78bfa','#fbbf24','#ef4444'][rIdx];
-          const xFrom   = flip ? W - (rIdx + 1) * CW : (rIdx + 1) * CW;
-          const xStub   = flip ? xFrom - STUB : xFrom + STUB;
-          const xParent = flip ? xFrom - CW + STUB : xFrom + CW - STUB;
+
+          // x of the right edge of fromCol within this region (0-based)
+          // flip=false: cols go 0,1,2,3 left→right; right edge of col rIdx = (rIdx+1)*CW
+          // flip=true:  cols go 3,2,1,0 left→right; right edge of col rIdx from RIGHT = (rIdx+1)*CW from right
+          const xFromLocal = flip ? (3 - rIdx) * CW : (rIdx + 1) * CW;
+          const xFrom      = xBase + xFromLocal;
+          const xStubLeft  = flip ? xFrom - STUB : xFrom + STUB;
+          const xParent    = flip ? xFrom - CW + STUB : xFrom + CW - STUB;
 
           toPositions.forEach((toPos, tIdx) => {
             const c1 = fromPositions[tIdx * 2];
             const c2 = fromPositions[tIdx * 2 + 1];
             if (c1 == null || c2 == null) return;
-            const getMid = pos => dir === 'top' ? pos + GAME_MID_OFFSET : H - pos - GAME_MID_OFFSET_BOT;
             const y1   = getMid(c1);
             const y2   = getMid(c2);
             const yMid = getMid(toPos);
             lines.push(
-              <g key={`${rIdx}-${tIdx}`}>
-                <line x1={xFrom}  y1={y1}   x2={xStub}   y2={y1}   stroke={`url(#${gradId})`} strokeWidth="1.5" strokeLinecap="round" />
-                <line x1={xFrom}  y1={y2}   x2={xStub}   y2={y2}   stroke={`url(#${gradId})`} strokeWidth="1.5" strokeLinecap="round" />
-                <line x1={xStub}  y1={y1}   x2={xStub}   y2={y2}   stroke={`url(#${gradId})`} strokeWidth="1.5" strokeLinecap="round" />
-                <line x1={xStub}  y1={yMid} x2={xParent}  y2={yMid} stroke={`url(#${gradId})`} strokeWidth="1.5" strokeLinecap="round" />
+              <g key={`${xBase}-${rIdx}-${tIdx}`} stroke={color} strokeWidth="3" strokeLinecap="round" fill="none">
+                <line x1={xFrom}     y1={y1}   x2={xStubLeft} y2={y1}   />
+                <line x1={xFrom}     y1={y2}   x2={xStubLeft} y2={y2}   />
+                <line x1={xStubLeft} y1={y1}   x2={xStubLeft} y2={y2}   />
+                <line x1={xStubLeft} y1={yMid} x2={xParent}   y2={yMid} />
               </g>
             );
           });
-          lines.push(
-            <defs key={`def-${rIdx}`}>
-              <linearGradient id={gradId} x1={flip?'100%':'0%'} y1="0%" x2={flip?'0%':'100%'} y2="0%">
-                <stop offset="0%"   stopColor={color1} stopOpacity="0.55" />
-                <stop offset="100%" stopColor={color2} stopOpacity="0.55" />
-              </linearGradient>
-            </defs>
-          );
         }
-        return lines;
       };
 
+      // Left region: East (top) / South (bot) — R64 starts at x=0
+      addRegionLines(0, false);
+      // Right region: West (top) / Midwest (bot) — R64 starts at x=CW*7
+      addRegionLines(CW * 7, true);
+
       return (
-        <>
-          <svg width={CW*4} height={H} style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none', zIndex: 3, overflow: 'visible' }} aria-hidden="true">
-            {makeLinesForRegion(false)}
-          </svg>
-          <svg width={CW*4} height={H} style={{ position: 'absolute', top: 0, right: 0, pointerEvents: 'none', zIndex: 3, overflow: 'visible' }} aria-hidden="true">
-            {makeLinesForRegion(true)}
-          </svg>
-        </>
+        <svg
+          width={TOTAL_W} height={H}
+          style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none', zIndex: 3 }}
+          aria-hidden="true"
+        >
+          {lines}
+        </svg>
       );
     };
 
