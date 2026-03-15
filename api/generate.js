@@ -113,7 +113,26 @@ export default async function handler(req, res) {
     catch { return res.status(400).json({ error: 'Invalid JSON body' }); }
   }
 
-  const { prompt, sources = [] } = body || {};
+  const { prompt, sources = [], textOnly = false, fetchImagesOnly = false, latinName: fetchLatinName } = body || {};
+
+  // ── fetchImagesOnly mode: skip Claude, just fetch images for a given Latin name ──
+  if (fetchImagesOnly && fetchLatinName) {
+    console.log('[generate] fetchImagesOnly mode for:', fetchLatinName);
+    const [phyloPicUrl, wikiImageUrl, inatImages, wikiMediaImg, gbifImg] = await Promise.all([
+      fetchPhyloPic(fetchLatinName),
+      fetchWikipediaImage(fetchLatinName),
+      fetchINaturalistImages(fetchLatinName, 2),
+      fetchWikimediaImage(fetchLatinName),
+      fetchGBIFImage(fetchLatinName),
+    ]);
+    const gallery = [];
+    inatImages.forEach(img => gallery.push(img));
+    if (wikiMediaImg) gallery.push(wikiMediaImg);
+    if (gbifImg)      gallery.push(gbifImg);
+    if (wikiImageUrl) gallery.unshift({ url: wikiImageUrl, source: 'Wikipedia' });
+    return res.status(200).json({ result: { phyloPicUrl: phyloPicUrl || null, wikiImageUrl: wikiImageUrl || null, galleryImages: gallery } });
+  }
+
   if (!prompt || typeof prompt !== 'string' || prompt.trim().length === 0) {
     console.log('[generate] ERROR: missing prompt');
     return res.status(400).json({ error: 'Missing or invalid prompt' });
@@ -221,8 +240,8 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'Failed to generate valid JSON from Claude' });
   }
 
-  // ── Fetch images if Latin name is present (mammals) ───────────────────────
-  if (parsed.latinName) {
+  // ── Fetch images if Latin name is present and not textOnly mode ─────────
+  if (parsed.latinName && !textOnly) {
     const latin = parsed.latinName;
     console.log('[generate] Fetching images for Latin name:', latin);
 
