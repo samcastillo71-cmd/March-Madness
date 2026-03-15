@@ -27,32 +27,45 @@ async function fetchSourceText(url, maxChars = 3000) {
 // ── Fetch PhyloPic silhouette URL for a Latin name ───────────────────────────
 async function fetchPhyloPic(latinName) {
   try {
-    // Step 1: search for the taxon by name
-    const search = await fetch(`https://api.phylopic.org/autocomplete?query=${encodeURIComponent(latinName)}&limit=5`);
-    if (!search.ok) return null;
-    const suggestions = await search.json();
-    if (!suggestions?.length) return null;
+    // Step 1: get current build number (required for all PhyloPic v2 API calls)
+    const rootRes = await fetch('https://api.phylopic.org');
+    if (!rootRes.ok) return null;
+    const rootData = await rootRes.json();
+    const build = rootData?.build;
+    if (!build) return null;
 
-    // Find the best match — prefer exact genus match
-    const genus = latinName.split(' ')[0].toLowerCase();
-    const best = suggestions.find(s =>
-      (s.title || '').toLowerCase().startsWith(genus)
-    ) || suggestions[0];
-    if (!best?.href) return null;
+    // Step 2: search for nodes matching this Latin name
+    const nodesRes = await fetch(
+      `https://api.phylopic.org/nodes?build=${build}&filter_name=${encodeURIComponent(latinName)}&embed_primaryImage=true&page=0`
+    );
+    if (!nodesRes.ok) return null;
+    const nodesData = await nodesRes.json();
 
-    // Step 2: fetch the node to get its primary image
-    const nodeUrl = `https://api.phylopic.org${best.href}?embed_primaryImage=true`;
-    const node = await fetch(nodeUrl);
-    if (!node.ok) return null;
-    const nodeData = await node.json();
+    // Find the first node that has a primary image
+    const items = nodesData?._embedded?.items || [];
+    for (const item of items) {
+      const imgUuid = item?._embedded?.primaryImage?.uuid
+        || item?._links?.primaryImage?.href?.split('/').pop();
+      if (imgUuid) {
+        return `https://images.phylopic.org/images/${imgUuid}/vector.svg`;
+      }
+    }
 
-    // Primary image UUID can be in different locations depending on API version
-    const imgUuid = nodeData?._embedded?.primaryImage?.uuid
-      || nodeData?.primaryImage?.uuid
-      || nodeData?._links?.primaryImage?.href?.split('/').filter(Boolean).pop();
-    if (!imgUuid) return null;
+    // Step 3: fallback — try images search directly by name
+    const imgRes = await fetch(
+      `https://api.phylopic.org/images?build=${build}&filter_name=${encodeURIComponent(latinName)}&page=0`
+    );
+    if (!imgRes.ok) return null;
+    const imgData = await imgRes.json();
+    const imgItems = imgData?._embedded?.items || [];
+    const firstImg = imgItems[0];
+    const fallbackUuid = firstImg?.uuid
+      || firstImg?._links?.self?.href?.split('/').pop();
+    if (fallbackUuid) {
+      return `https://images.phylopic.org/images/${fallbackUuid}/vector.svg`;
+    }
 
-    return `https://images.phylopic.org/images/${imgUuid}/vector.svg`;
+    return null;
   } catch (e) {
     console.log('[PhyloPic] Error:', e.message);
     return null;
