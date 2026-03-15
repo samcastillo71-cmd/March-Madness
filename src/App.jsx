@@ -521,23 +521,23 @@ async function importFromESPN() {
   return { ...regionMap, year: new Date().getFullYear() };
 }
 
-// ── GEMINI API VIA VERCEL PROXY ──────────────────────────────────────────────
-// Calls /api/gemini (serverless function) so the API key never hits the browser.
+// ── CLAUDE HAIKU VIA VERCEL PROXY ────────────────────────────────────────────
+// Calls /api/generate (serverless function) so the API key never hits the browser.
 // Retries indefinitely on per-minute rate limits with progressive backoff.
 // Only throws on daily quota exhaustion or unrecoverable errors.
-async function callGemini(prompt) {
+async function callAI(prompt) {
   const BACKOFF_MS = [60000, 90000, 120000]; // 1min, 1.5min, 2min progressive
   let rateLimitAttempt = 0;
   while (true) {
     let res;
     try {
-      res = await fetch('/api/gemini', {
+      res = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt }),
       });
     } catch (e) {
-      console.warn('Network error calling /api/gemini, retrying in 15s:', e.message);
+      console.warn('Network error calling /api/generate, retrying in 15s:', e.message);
       await new Promise(r => setTimeout(r, 15000));
       continue;
     }
@@ -575,7 +575,7 @@ Write about: ${teamName} (${region} Region, Seed #${seed})
 Use simple, clear language that a 12-14 year old can easily understand. Avoid jargon — if you use a basketball term, briefly explain it.
 Return ONLY valid JSON, no markdown, no explanation. Use this exact structure:
 {"record":"W-L","rank":"#N AP or Unranked","coach":"Coach Name","conference":"Conference Name","kenpom":"#N","offense":"NNN.N","defense":"NN.N","pace":"NN.N","keyPlayers":[{"name":"Player Name","pos":"G/F/C","stats":"XX.X PPG / X.X RPG","note":"simple 1-sentence note a student would understand"},{"name":"Player Name","pos":"G/F/C","stats":"XX.X PPG / X.X RPG","note":"simple 1-sentence note a student would understand"}],"injuries":"injury status or None reported","odds":"+XXXX or N/A","strengths":"2-3 sentences explaining what this team does well, written for a middle schooler","weaknesses":"2-3 sentences explaining where this team struggles, written for a middle schooler","analystNote":"1-2 sentences on why this team could surprise people in the tournament"}`;
-  return callGemini(prompt);
+  return callAI(prompt);
 }
 
 async function generateMammalResearch(animalName, seed, region) {
@@ -584,7 +584,7 @@ Generate a fun, age-appropriate JSON profile for: ${animalName} (${region} Regio
 Return ONLY valid JSON, no markdown, no explanation. Use this exact structure:
 {"habitat":"2-3 sentence description of where this animal lives","diet":"2-3 sentences on what it eats and how it hunts or forages","funFacts":["interesting fact 1","interesting fact 2","interesting fact 3"],"size":"weight and length/height","lifespan":"X-Y years","speed":"top speed if known, or movement description","superpower":"1 sentence on this animal's most impressive ability or adaptation","battleStrength":"1-2 sentence fun assessment of how this animal would do in a bracket battle and why"}
 Keep all language at a middle school reading level. Make it engaging and educational. No graphic violence descriptions.`;
-  return callGemini(prompt);
+  return callAI(prompt);
 }
 
 // ── ADMIN TEAM ENTRY PANEL ────────────────────────────────────────────────────
@@ -1646,7 +1646,7 @@ export default function App() {
       const games     = activeBracket[region]?.rounds[rIdx] || [];
       const positions = ROUND_ABS[rIdx];
       return (
-        <div style={{ width: CW, flexShrink: 0, height: TOP_H, position: 'relative', boxSizing: 'border-box' }}>
+        <div style={{ width: CW, flexShrink: 0, height: TOP_H, position: 'relative', boxSizing: 'border-box', zIndex: 1 }}>
           {games.map((game, gIdx) => {
             const pos = positions[gIdx] ?? gIdx * SH;
             return (
@@ -1833,7 +1833,7 @@ export default function App() {
       return (
         <svg
           width={TOTAL_W} height={H}
-          style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none', zIndex: 1 }}
+          style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none', zIndex: 0 }}
           aria-hidden="true"
         >
           {lines}
@@ -1856,7 +1856,7 @@ export default function App() {
           {[0,1,2,3].map(rIdx => <RoundCol key={rIdx} region="East" rIdx={rIdx} flip={false} dir="top" />)}
 
           {/* Center — FF[0] game sits FF_GAP above the spine (at bottom of this column) */}
-          <div style={{ width: CW * 3, flexShrink: 0, height: FF_CENTER_H, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'center', paddingBottom: FF_GAP }}>
+          <div style={{ width: CW * 3, flexShrink: 0, height: FF_CENTER_H, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'center', paddingBottom: FF_GAP, position: 'relative', zIndex: 1 }}>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
               <div style={{ fontSize: 13, fontWeight: 800, color: '#34d399', letterSpacing: 1.5, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{ff0Label}</div>
               <ScaledGame>
@@ -1912,7 +1912,7 @@ export default function App() {
           {[0,1,2,3].map(rIdx => <RoundCol key={rIdx} region="South" rIdx={rIdx} flip={false} dir="bot" />)}
 
           {/* Center — FF[1] game sits FF_GAP below the spine (at top of this column) */}
-          <div style={{ width: CW * 3, flexShrink: 0, height: FF_CENTER_H, display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'center', paddingTop: FF_GAP }}>
+          <div style={{ width: CW * 3, flexShrink: 0, height: FF_CENTER_H, display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'center', paddingTop: FF_GAP, position: 'relative', zIndex: 1 }}>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
               <ScaledGame>
                 <GameSlot game={activeBracket.finalFour?.[1]} onPick={s => onFFPick(1, s)} locked={isLocked && !isAdmin} roundIdx={4} liveScores={isMammal ? {} : liveScores} />
