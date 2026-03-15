@@ -522,25 +522,42 @@ async function importFromESPN() {
 }
 
 // ── GEMINI API WITH RATE LIMIT HANDLING ───────────────────────────────────────
-async function callGemini(prompt, retries = 3) {
-  for (let attempt = 0; attempt < retries; attempt++) {
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${import.meta.env.VITE_GEMINI_KEY}`,
-      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }) }
-    );
+// Retries indefinitely on per-minute rate limits using progressive backoff.
+// Only throws on daily quota exhaustion or non-recoverable errors.
+async function callGemini(prompt) {
+  const BACKOFF_MS = [60000, 90000, 120000]; // 1min, 1.5min, 2min progressive
+  let rateLimitAttempt = 0;
+  while (true) {
+    let res;
+    try {
+      res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${import.meta.env.VITE_GEMINI_KEY}`,
+        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }) }
+      );
+    } catch (e) {
+      console.warn('Gemini network error, retrying in 15s:', e.message);
+      await new Promise(r => setTimeout(r, 15000));
+      continue;
+    }
     if (res.status === 429) {
-      // Rate limited — back off 30s before retry
-      console.warn(`Rate limited (attempt ${attempt + 1}), waiting 30s...`);
-      if (attempt < retries - 1) await new Promise(r => setTimeout(r, 30000));
+      let errBody = '';
+      try { errBody = await res.text(); } catch {}
+      const isDaily = errBody.toLowerCase().includes('quota') && errBody.toLowerCase().includes('day');
+      if (isDaily) throw new Error('Daily Gemini quota reached. Resets at midnight Pacific. Try again tomorrow.');
+      const wait = BACKOFF_MS[Math.min(rateLimitAttempt, BACKOFF_MS.length - 1)];
+      console.warn(`Rate limited (attempt ${rateLimitAttempt + 1}), waiting ${wait / 1000}s...`);
+      rateLimitAttempt++;
+      await new Promise(r => setTimeout(r, wait));
       continue;
     }
     if (!res.ok) throw new Error(`Gemini API error: ${res.status}`);
-    const data = await res.json();
+    rateLimitAttempt = 0;
+    let data;
+    try { data = await res.json(); } catch { throw new Error('Gemini returned invalid JSON response'); }
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
     try { return JSON.parse(text.replace(/```json|```/g, '').trim()); }
-    catch (e) { console.warn('JSON parse failed:', text.slice(0,200)); return null; }
+    catch (e) { console.warn('JSON parse failed:', text.slice(0, 200)); return null; }
   }
-  throw new Error('Gemini rate limit — too many requests. Try again in a minute.');
 }
 
 async function generateResearchForTeam(teamName, seed, region) {
@@ -1369,6 +1386,19 @@ export default function App() {
     catch (e) { console.warn('Failed to save bb region names:', e); }
   };
 
+  // ── FIRESTORE SAVE WITH RETRY (handles ad blocker / network blips) ──────────
+  const saveWithRetry = useCallback(async (saveFn, data, label) => {
+    for (let attempt = 0; attempt < 4; attempt++) {
+      try { await saveFn(data); return true; }
+      catch (e) {
+        console.warn('Firestore save failed (' + label + ', attempt ' + (attempt+1) + '):', e.message);
+        if (attempt < 3) await new Promise(r => setTimeout(r, 3000 * (attempt + 1)));
+      }
+    }
+    console.error('Firestore save permanently failed for ' + label + ' -- data kept in memory only');
+    return false;
+  }, []);
+
   // ── GENERATE ALL RESEARCH ─────────────────────────────────────────────────
   const handleGenerateResearch = useCallback(async (roster) => {
     const teams = [];
@@ -1378,7 +1408,6 @@ export default function App() {
     if (!teams.length) return;
     setGenerating(true); setGenError('');
     setGenProgress({ done: 0, total: teams.length, current: teams[0].name });
-    // Snapshot current data to avoid stale closure
     const allData = {};
     try {
       const snap = await getDoc(doc(db, 'admin', 'researchData'));
@@ -1391,21 +1420,22 @@ export default function App() {
         const card = await generateResearchForTeam(name, seed, region);
         if (card) {
           allData[name] = { ...card, seed, region };
-          await saveResearchData(allData);
+          await saveWithRetry(saveResearchData, allData, name);
           setResearchData({ ...allData });
         }
       } catch (e) {
+        const isDaily = e.message.includes('Daily') || e.message.includes('tomorrow');
         setGenError(e.message);
         console.warn('Research gen failed:', name, e);
-        break;
+        if (isDaily) break;
       }
-      // 6s between requests = 10/min, safely under 15/min limit
-      if (i < teams.length - 1) await new Promise(r => setTimeout(r, 6000));
+      // 8s between requests = 7.5/min, under 15/min free tier limit
+      if (i < teams.length - 1) await new Promise(r => setTimeout(r, 8000));
     }
     setGenProgress(prev => ({ ...prev, done: teams.length, current: '' }));
     setGenerating(false);
     if (Object.keys(allData).length > 0) setSelectedTeam(Object.keys(allData)[0]);
-  }, []);
+  }, [saveWithRetry]);
 
   // ── GENERATE ALL MAMMAL RESEARCH ──────────────────────────────────────────
   const handleGenerateMammalResearch = useCallback(async (roster) => {
@@ -1416,7 +1446,6 @@ export default function App() {
     if (!animals.length) return;
     setMammalGenerating(true); setMammalGenError('');
     setMammalGenProgress({ done: 0, total: animals.length, current: animals[0].name });
-    // Snapshot current data
     const allData = {};
     try {
       const snap = await getDoc(doc(db, 'admin', 'researchData_mammals'));
@@ -1429,20 +1458,23 @@ export default function App() {
         const card = await generateMammalResearch(name, seed, region);
         if (card) {
           allData[name] = { ...card, seed, region };
-          await saveMammalResearchData(allData);
+          await saveWithRetry(saveMammalResearchData, allData, name);
           setMammalResearchData({ ...allData });
         }
       } catch (e) {
+        const isDaily = e.message.includes('Daily') || e.message.includes('tomorrow');
         setMammalGenError(e.message);
         console.warn('Mammal research gen failed:', name, e);
-        break;
+        if (isDaily) break;
+        // Skip this animal and continue for non-daily errors
       }
-      if (i < animals.length - 1) await new Promise(r => setTimeout(r, 6000));
+      // 8s between requests = 7.5/min, under 15/min free tier limit
+      if (i < animals.length - 1) await new Promise(r => setTimeout(r, 8000));
     }
     setMammalGenProgress(prev => ({ ...prev, done: animals.length, current: '' }));
     setMammalGenerating(false);
     if (Object.keys(allData).length > 0) { setMammalSelectedAnimal(Object.keys(allData)[0]); setTab('research'); setActiveTournament('mammals'); }
-  }, []);
+  }, [saveWithRetry]);
 
   // ── GENERATE ONE MAMMAL ───────────────────────────────────────────────────
   const handleGenerateOneMammal = useCallback(async (animalName) => {
@@ -1539,16 +1571,12 @@ export default function App() {
     // Champ box content: title row (~30px) + scaled horizontal slot (~FF_H * 0.75) + winner badge (~32px)
     const CHAMP_BOX_H = 30 + Math.round(FF_H * 0.75) + 32 + 20; // ~182px with padding
     const SPINE_H = CHAMP_BOX_H + 16; // add top+bottom padding inside spine bar
-    // FF games float above/below the spine with exactly SH (1 unit) of gap.
-    // The FF game top edge is (SPINE_H/2 + SH) above the spine center,
-    // so bottom edge of the FF[0] wrapper = -(SPINE_H/2 + SH) from spine top.
-    const FF_GAP = SH; // 1 unit clearance between spine edge and FF game edge
+    // FF games sit SH/2 (half a unit) from the spine edge
+    const FF_GAP = Math.round(SH / 2); // 0.5 unit clearance
     const TOP_H = 8 * SH;   // 712px — height of each bracket half
     const BOT_H = TOP_H;
-    const E8_LEFT = CW * 3;
 
     const activeBracket        = isMammal ? (isAdmin ? (mammalOfficialBracket || mammalBracket) : mammalBracket) : bracket;
-    const activeFF             = isMammal ? mammalFFGamesList : ffGamesList;
     const regionNames          = isMammal ? mammalRegionNames : bbRegionNames;
     const onPick               = isMammal ? handleMammalPick : handlePick;
     const onFFPick             = isMammal ? handleMammalFFPick : handleFFPick;
@@ -1561,9 +1589,7 @@ export default function App() {
     const champEmoji           = isMammal ? '🦁' : '🏆';
     const champGoldColor       = isMammal ? '#86efac' : GOLD2;
 
-    const hasLeftFF  = activeFF.some(f => f.region === 'East'  || f.region === 'South');
-    const hasRightFF = activeFF.some(f => f.region === 'West'  || f.region === 'Midwest');
-    const TOTAL_W    = (hasLeftFF ? CW : 0) + CW * 4 + CW * 3 + CW * 4 + (hasRightFF ? CW : 0);
+
 
     const ROUND_ABS = [
       [0, 89, 178, 267, 356, 445, 534, 623],
@@ -1617,33 +1643,6 @@ export default function App() {
       );
     };
 
-    // ── First Four play-in card ───────────────────────────────────────────────
-    const FFCard = ({ region, seed, ffTeams, ffKey }) => {
-      const isLockd = isLocked && !isAdmin;
-      return (
-        <div style={{ background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.3)', borderRadius: 8, padding: '8px 10px' }}>
-          <div style={{ fontSize: 12, color: '#818cf8', fontWeight: 700, marginBottom: 6, textAlign: 'center' }}>
-            {regionNames[region] || region} #{seed} Play-In
-          </div>
-          {ffTeams.map(team => {
-            const isPick = activeFirstFourPicks[ffKey] === team.name;
-            return (
-              <div key={team.name} onClick={() => !isLockd && onFirstFourPick(ffKey, team, region, seed)}
-                role="button" tabIndex={isLockd ? -1 : 0} aria-pressed={isPick}
-                aria-label={`Pick ${team.name} for ${region} #${seed} play-in`}
-                onKeyDown={e => { if ((e.key === 'Enter' || e.key === ' ') && !isLockd) { e.preventDefault(); onFirstFourPick(ffKey, team, region, seed); } }}
-                style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', borderRadius: 6, marginBottom: 4, cursor: isLockd ? 'default' : 'pointer', background: isPick ? 'rgba(99,102,241,0.2)' : 'rgba(0,0,0,0.2)', border: isPick ? '1px solid rgba(99,102,241,0.5)' : '1px solid rgba(255,255,255,0.06)', transition: 'all .12s', outline: 'none' }}>
-                <TeamLogo espnId={team.espnId} name={team.name} size={24} />
-                <span style={{ fontSize: 13, color: '#999', fontWeight: 700, minWidth: 18 }}>{team.seed}</span>
-                <span style={{ fontSize: 14, fontWeight: isPick ? 700 : 400, color: isPick ? '#a5b4fc' : '#bbb', flex: 1 }}>{team.name}</span>
-                {isPick && <span style={{ color: '#818cf8' }} aria-hidden="true">✓</span>}
-              </div>
-            );
-          })}
-        </div>
-      );
-    };
-
     // ── Spine cell — 1.5× label font ─────────────────────────────────────────
     const SpineCell = ({ label, sub, color, borderLeft = true }) => (
       <div style={{ width: CW, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderLeft: borderLeft ? '1px solid rgba(255,255,255,0.08)' : 'none', background: 'rgba(255,255,255,0.04)' }}>
@@ -1659,16 +1658,15 @@ export default function App() {
     const ff1Label = `Final Four — ${regionNames.South || 'South'} vs ${regionNames.Midwest || 'Midwest'}`;
 
     // ── Layout constants (continued) ─────────────────────────────────────────
-    const FF_ZONE        = FF_GAP + FF_H;
-    const TOP_CENTER_H   = TOP_H + FF_ZONE;
-    const BOT_CENTER_H   = BOT_H + FF_ZONE;
-    const LEFT_R64_X     = (hasLeftFF ? CW : 0);   // x of East/South R64 left edge
+    // No FF columns in the bracket — FF games only appear in the top banner.
+    // Total bracket width is always 4+3+4 columns.
+    const TOTAL_W = CW * 11;
 
-    // Region labels sit at the S16/E8 boundary (E8 col left edge = R64_X + CW*3)
-    // East/South: left-aligned to their E8 left edge
-    // West/Midwest: right-aligned to their E8 right edge
-    const LEFT_LBL_X  = LEFT_R64_X + CW * 3;                    // East/South label left = E8 left
-    const RIGHT_LBL_X = TOTAL_W - LEFT_R64_X - CW * 3 - CW * 2; // West/Midwest label right offset from right
+    // Region labels sit at the S16/E8 boundary (3 cols from each region's outer edge).
+    // East/South: left edge aligned to their E8 left edge  = CW*3 from left
+    // West/Midwest: right edge aligned to their E8 right edge = CW*3 from right
+    const LEFT_LBL_X  = CW * 3;          // East/South left edge
+    const RIGHT_LBL_X = CW * 3;          // West/Midwest right edge (from right)
 
     const RegionLabel = ({ name, color, isRight, isBottom }) => (
       <div style={{
@@ -1693,7 +1691,7 @@ export default function App() {
     );
 
     // ── Connector lines ───────────────────────────────────────────────────────
-    const GAME_MID_OFFSET     = 44.5;
+    const GAME_MID_OFFSET     = 44.5; // px from game top to team divider
     const GAME_MID_OFFSET_BOT = SH - GAME_MID_OFFSET;
 
     const BracketConnectors = ({ dir }) => {
@@ -1744,34 +1742,32 @@ export default function App() {
 
       return (
         <>
-          <svg width={CW*4} height={H} style={{ position: 'absolute', top: 0, left: LEFT_R64_X, pointerEvents: 'none', zIndex: 3, overflow: 'visible' }} aria-hidden="true">
+          <svg width={CW*4} height={H} style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none', zIndex: 3, overflow: 'visible' }} aria-hidden="true">
             {makeLinesForRegion(false)}
           </svg>
-          <svg width={CW*4} height={H} style={{ position: 'absolute', top: 0, right: LEFT_R64_X, pointerEvents: 'none', zIndex: 3, overflow: 'visible' }} aria-hidden="true">
+          <svg width={CW*4} height={H} style={{ position: 'absolute', top: 0, right: 0, pointerEvents: 'none', zIndex: 3, overflow: 'visible' }} aria-hidden="true">
             {makeLinesForRegion(true)}
           </svg>
         </>
       );
     };
 
+    // FF games sit FF_GAP below/above the spine in the center column.
+    // Center column is TOP_H tall; FF game sits at bottom with FF_GAP padding.
+    const FF_CENTER_H = TOP_H; // same height as region columns — no extra space needed
+
     return (
       <div style={{ width: TOTAL_W }}>
 
         {/* ── TOP HALF ── */}
-        <div style={{ display: 'flex', alignItems: 'flex-end', position: 'relative', height: TOP_CENTER_H }}>
+        <div style={{ display: 'flex', alignItems: 'flex-end', position: 'relative', height: TOP_H }}>
           <RegionLabel name={regionNames.East || 'East'} color={RC.East} isRight={false} isBottom={false} />
           <RegionLabel name={regionNames.West || 'West'} color={RC.West} isRight={true}  isBottom={false} />
 
-          {/* Left FF column — East only, no spine spacer needed since it's inside top half */}
-          {hasLeftFF && (
-            <div style={{ width: CW, flexShrink: 0, height: TOP_CENTER_H, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', gap: 8, paddingBottom: FF_GAP + FF_H + 8 }}>
-              {activeFF.filter(f => f.region === 'East').map(g => <FFCard key={g.key} {...g} ffKey={g.key} />)}
-            </div>
-          )}
-
           {[0,1,2,3].map(rIdx => <RoundCol key={rIdx} region="East" rIdx={rIdx} flip={false} dir="top" />)}
 
-          <div style={{ width: CW * 3, flexShrink: 0, height: TOP_CENTER_H, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'center', paddingBottom: FF_GAP }}>
+          {/* Center — FF[0] game sits FF_GAP above the spine (at bottom of this column) */}
+          <div style={{ width: CW * 3, flexShrink: 0, height: FF_CENTER_H, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'center', paddingBottom: FF_GAP }}>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
               <div style={{ fontSize: 13, fontWeight: 800, color: '#34d399', letterSpacing: 1.5, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{ff0Label}</div>
               <ScaledGame>
@@ -1781,20 +1777,11 @@ export default function App() {
           </div>
 
           {[3,2,1,0].map(rIdx => <RoundCol key={rIdx} region="West" rIdx={rIdx} flip={true} dir="top" />)}
-
-          {hasRightFF && (
-            <div style={{ width: CW, flexShrink: 0, height: TOP_CENTER_H, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', gap: 8, paddingBottom: FF_GAP + FF_H + 8 }}>
-              {activeFF.filter(f => f.region === 'West').map(g => <FFCard key={g.key} {...g} ffKey={g.key} />)}
-            </div>
-          )}
-
           <BracketConnectors dir="top" />
         </div>
 
-        {/* ── SPINE ── FF not shown here — spine always starts at R64 */}
+        {/* ── SPINE ── */}
         <div style={{ display: 'flex', alignItems: 'stretch', borderTop: '2px solid rgba(255,255,255,0.15)', borderBottom: '2px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.03)' }}>
-          {/* Blank spacer to align with FF column if present */}
-          {hasLeftFF && <div style={{ width: CW, flexShrink: 0, background: 'rgba(255,255,255,0.03)', borderRight: '1px solid rgba(255,255,255,0.06)' }} />}
           <SpineCell label="Round of 64" sub='"First Round"'   color={ROUND_BORDER_COLORS[0]} borderLeft={false} />
           <SpineCell label="Round of 32" sub='"Second Round"'  color={ROUND_BORDER_COLORS[1]} />
           <SpineCell label="Sweet 16"    sub='"Sweet Sixteen"' color={ROUND_BORDER_COLORS[2]} />
@@ -1826,24 +1813,17 @@ export default function App() {
           <SpineCell label="Sweet 16"    sub='"Sweet Sixteen"' color={ROUND_BORDER_COLORS[2]} />
           <SpineCell label="Round of 32" sub='"Second Round"'  color={ROUND_BORDER_COLORS[1]} />
           <SpineCell label="Round of 64" sub='"First Round"'   color={ROUND_BORDER_COLORS[0]} />
-          {hasRightFF && <div style={{ width: CW, flexShrink: 0, background: 'rgba(255,255,255,0.03)', borderLeft: '1px solid rgba(255,255,255,0.06)' }} />}
         </div>
 
         {/* ── BOTTOM HALF ── */}
-        <div style={{ display: 'flex', alignItems: 'flex-start', position: 'relative', height: BOT_CENTER_H }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', position: 'relative', height: TOP_H }}>
           <RegionLabel name={regionNames.South   || 'South'}   color={RC.South}   isRight={false} isBottom={true} />
           <RegionLabel name={regionNames.Midwest || 'Midwest'} color={RC.Midwest} isRight={true}  isBottom={true} />
 
-          {/* Left FF column — South only */}
-          {hasLeftFF && (
-            <div style={{ width: CW, flexShrink: 0, height: BOT_CENTER_H, display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', gap: 8, paddingTop: FF_GAP + FF_H + 8 }}>
-              {activeFF.filter(f => f.region === 'South').map(g => <FFCard key={g.key} {...g} ffKey={g.key} />)}
-            </div>
-          )}
-
           {[0,1,2,3].map(rIdx => <RoundCol key={rIdx} region="South" rIdx={rIdx} flip={false} dir="bot" />)}
 
-          <div style={{ width: CW * 3, flexShrink: 0, height: BOT_CENTER_H, display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'center', paddingTop: FF_GAP }}>
+          {/* Center — FF[1] game sits FF_GAP below the spine (at top of this column) */}
+          <div style={{ width: CW * 3, flexShrink: 0, height: FF_CENTER_H, display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'center', paddingTop: FF_GAP }}>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
               <ScaledGame>
                 <GameSlot game={activeBracket.finalFour?.[1]} onPick={s => onFFPick(1, s)} locked={isLocked && !isAdmin} roundIdx={4} liveScores={isMammal ? {} : liveScores} />
@@ -1853,14 +1833,6 @@ export default function App() {
           </div>
 
           {[3,2,1,0].map(rIdx => <RoundCol key={rIdx} region="Midwest" rIdx={rIdx} flip={true} dir="bot" />)}
-
-          {/* Right FF column — Midwest only */}
-          {hasRightFF && (
-            <div style={{ width: CW, flexShrink: 0, height: BOT_CENTER_H, display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', gap: 8, paddingTop: FF_GAP + FF_H + 8 }}>
-              {activeFF.filter(f => f.region === 'Midwest').map(g => <FFCard key={g.key} {...g} ffKey={g.key} />)}
-            </div>
-          )}
-
           <BracketConnectors dir="bot" />
         </div>
 
@@ -1868,7 +1840,7 @@ export default function App() {
     );
   };
 
-  // ── FIRST FOUR PANEL (above bracket, for mobile/overview) ─────────────────
+  // ── FIRST FOUR PANELL (above bracket, for mobile/overview) ─────────────────
   const renderFirstFourPanel = (isMammal) => {
     const activeFF = isMammal ? mammalFFGamesList : ffGamesList;
     const activeFirstFourPicks = isMammal ? mammalFirstFourPicks : firstFourPicks;
