@@ -340,8 +340,7 @@ Start your response with { and end with }. Nothing else.`;
   if (!parsed) {
     console.log('[generate] Retry also failed — returning fallback skeleton card');
     parsed = {
-      latinName: prompt.match(/for:\s*([^
-(]+)/)?.[1]?.trim() || 'Unknown',
+      latinName: 'Unknown',
       habitat: 'Limited information available for this organism.',
       diet: 'Limited information available.',
       funFacts: ['This organism has limited documentation in scientific literature.'],
