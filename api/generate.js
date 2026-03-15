@@ -267,7 +267,7 @@ export default async function handler(req, res) {
       claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
-        body: JSON.stringify({ model, max_tokens: 1024, messages: [{ role: 'user', content: fullPrompt }] }),
+        body: JSON.stringify({ model, max_tokens: 2048, messages: [{ role: 'user', content: fullPrompt }] }),
       });
     } catch (e) {
       return res.status(502).json({ error: 'Failed to reach Anthropic API: ' + e.message });
@@ -308,7 +308,49 @@ export default async function handler(req, res) {
   }
 
   if (!parsed) {
-    return res.status(500).json({ error: 'Failed to generate valid JSON from Claude' });
+    // Retry once with a stricter prompt
+    console.log('[generate] JSON parse failed — retrying with strict prompt');
+    const strictPrompt = `${fullPrompt}
+
+CRITICAL: You MUST respond with ONLY a valid JSON object. No explanations, no apologies, no markdown.
+If you have limited or no information about this organism, still return the JSON structure with your best estimates and note "Limited information available" in the relevant fields.
+Start your response with { and end with }. Nothing else.`;
+
+    for (const model of MODELS) {
+      let retryRes;
+      try {
+        retryRes = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+          body: JSON.stringify({ model, max_tokens: 2048, messages: [{ role: 'user', content: strictPrompt }] }),
+        });
+      } catch { continue; }
+      if (!retryRes.ok) continue;
+      const retryBody = await retryRes.text();
+      let retryData; try { retryData = JSON.parse(retryBody); } catch { continue; }
+      const retryText = retryData.content?.[0]?.text || '{}';
+      let retryCleaned = retryText.replace(/```json/gi, '').replace(/```/g, '').trim();
+      const rfb = retryCleaned.indexOf('{'), rlb = retryCleaned.lastIndexOf('}');
+      if (rfb !== -1 && rlb > rfb) retryCleaned = retryCleaned.slice(rfb, rlb + 1);
+      try { parsed = JSON.parse(retryCleaned); break; } catch { continue; }
+    }
+  }
+
+  // Final fallback — return skeleton card so generation loop doesn't crash
+  if (!parsed) {
+    console.log('[generate] Retry also failed — returning fallback skeleton card');
+    parsed = {
+      latinName: prompt.match(/for:\s*([^
+(]+)/)?.[1]?.trim() || 'Unknown',
+      habitat: 'Limited information available for this organism.',
+      diet: 'Limited information available.',
+      funFacts: ['This organism has limited documentation in scientific literature.'],
+      size: 'Unknown',
+      lifespan: 'Unknown',
+      speed: 'Unknown',
+      superpower: 'Limited information available.',
+      battleStrength: 'Insufficient data to assess battle strength.',
+    };
   }
 
   // ── Fetch images if Latin name is present and not textOnly mode ─────────
