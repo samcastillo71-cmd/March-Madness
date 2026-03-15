@@ -2691,7 +2691,7 @@ Keep all language at a middle school reading level. Make it engaging and educati
                 <>
                   {renderScoreBar(false)}
                   {renderScrollBracket(false, 'bscroll-bb')}
-                  {renderFirstFourPanel(false, (a, b) => setResearchMatchup({ teamA: a, teamB: b, label: 'First Four Play-in', isMammal: false }))}
+                  {renderFirstFourPanel(false, (a, b) => { setResearchMatchup({ teamA: a, teamB: b, label: 'First Four Play-in', isMammal: false }); setTab('research'); setActiveTournament('basketball'); })}
                 </>
               )}
 
@@ -2710,7 +2710,7 @@ Keep all language at a middle school reading level. Make it engaging and educati
                     </div>
                   )}
                   {renderScrollBracket(true, 'bscroll-mm')}
-                  {renderFirstFourPanel(true, (a, b) => setResearchMatchup({ teamA: a, teamB: b, label: 'First Four Play-in', isMammal: true }))}
+                  {renderFirstFourPanel(true, (a, b) => { setResearchMatchup({ teamA: a, teamB: b, label: 'First Four Play-in', isMammal: true }); setTab('research'); setActiveTournament('mammals'); })}
                 </>
               )}
             </div>
