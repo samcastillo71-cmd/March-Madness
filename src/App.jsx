@@ -1849,7 +1849,7 @@ export default function App() {
       <div style={{ width: TOTAL_W }}>
 
         {/* ── TOP HALF ── */}
-        <div style={{ display: 'flex', alignItems: 'flex-end', position: 'relative', height: TOP_H }}>
+        <div style={{ display: 'flex', alignItems: 'flex-end', position: 'relative', height: TOP_H, isolation: 'isolate' }}>
           <RegionLabel name={regionNames.East || 'East'} color={RC.East} isRight={false} isBottom={false} />
           <RegionLabel name={regionNames.West || 'West'} color={RC.West} isRight={true}  isBottom={false} />
 
@@ -1905,7 +1905,7 @@ export default function App() {
         </div>
 
         {/* ── BOTTOM HALF ── */}
-        <div style={{ display: 'flex', alignItems: 'flex-start', position: 'relative', height: TOP_H }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', position: 'relative', height: TOP_H, isolation: 'isolate' }}>
           <RegionLabel name={regionNames.South   || 'South'}   color={RC.South}   isRight={false} isBottom={true} />
           <RegionLabel name={regionNames.Midwest || 'Midwest'} color={RC.Midwest} isRight={true}  isBottom={true} />
 
