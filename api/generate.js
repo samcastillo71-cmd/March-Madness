@@ -106,21 +106,6 @@ async function fetchWikimediaImage(latinName) {
   } catch { return null; }
 }
 
-// ── Fetch GBIF image ─────────────────────────────────────────────────────────
-async function fetchGBIFImage(latinName) {
-  try {
-    const search = await fetch(`https://api.gbif.org/v1/species?name=${encodeURIComponent(latinName)}&limit=1`);
-    if (!search.ok) return null;
-    const sData = await search.json();
-    const key = sData?.results?.[0]?.key;
-    if (!key) return null;
-    const media = await fetch(`https://api.gbif.org/v1/species/${key}/media?limit=3&type=StillImage`);
-    if (!media.ok) return null;
-    const mData = await media.json();
-    const img = mData?.results?.find(r => r.identifier && (r.identifier.includes('.jpg') || r.identifier.includes('.jpeg') || r.identifier.includes('.png')));
-    return img ? { url: img.identifier, source: 'GBIF' } : null;
-  } catch { return null; }
-}
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -144,18 +129,16 @@ export default async function handler(req, res) {
   // ── fetchImagesOnly mode: skip Claude, just fetch images for a given Latin name ──
   if (fetchImagesOnly && fetchLatinName) {
     console.log('[generate] fetchImagesOnly mode for:', fetchLatinName);
-    const [phyloPicUrl, wikiImageUrl, inatImages, wikiMediaImg, gbifImg] = await Promise.all([
+    const [phyloPicUrl, wikiImageUrl, inatImages, wikiMediaImg] = await Promise.all([
       fetchPhyloPic(fetchLatinName),
       fetchWikipediaImage(fetchLatinName),
       fetchINaturalistImages(fetchLatinName, 2),
       fetchWikimediaImage(fetchLatinName),
-      fetchGBIFImage(fetchLatinName),
     ]);
     const gallery = [];
+    if (wikiImageUrl) gallery.push({ url: wikiImageUrl, source: 'Wikipedia' });
     inatImages.forEach(img => gallery.push(img));
     if (wikiMediaImg) gallery.push(wikiMediaImg);
-    if (gbifImg)      gallery.push(gbifImg);
-    if (wikiImageUrl) gallery.unshift({ url: wikiImageUrl, source: 'Wikipedia' });
     return res.status(200).json({ result: { phyloPicUrl: phyloPicUrl || null, wikiImageUrl: wikiImageUrl || null, galleryImages: gallery } });
   }
 
@@ -271,24 +254,21 @@ export default async function handler(req, res) {
     const latin = parsed.latinName;
     console.log('[generate] Fetching images for Latin name:', latin);
 
-    const [phyloPicUrl, wikiImageUrl, inatImages, wikiMediaImg, gbifImg] = await Promise.all([
+    const [phyloPicUrl, wikiImageUrl, inatImages, wikiMediaImg] = await Promise.all([
       fetchPhyloPic(latin),
       fetchWikipediaImage(latin),
       fetchINaturalistImages(latin, 2),
       fetchWikimediaImage(latin),
-      fetchGBIFImage(latin),
     ]);
 
     parsed.phyloPicUrl  = phyloPicUrl  || null;
     parsed.wikiImageUrl = wikiImageUrl || null;
 
-    // Build gallery from iNaturalist + Wikimedia + GBIF
+    // Build gallery from Wikipedia + iNaturalist + Wikimedia Commons
     const gallery = [];
+    if (wikiImageUrl) gallery.push({ url: wikiImageUrl, source: 'Wikipedia' });
     inatImages.forEach(img => gallery.push(img));
     if (wikiMediaImg) gallery.push(wikiMediaImg);
-    if (gbifImg)      gallery.push(gbifImg);
-    // Add wiki image to gallery too if available
-    if (wikiImageUrl) gallery.unshift({ url: wikiImageUrl, source: 'Wikipedia' });
 
     parsed.galleryImages = gallery;
     console.log('[generate] Images: phylopic=', !!phyloPicUrl, '| wiki=', !!wikiImageUrl, '| gallery=', gallery.length);
