@@ -1644,24 +1644,6 @@ export default function App() {
       );
     };
 
-    const FFCol = ({ regionTop, regionBot }) => {
-      const topGames = activeFF.filter(f => f.region === regionTop);
-      const botGames = activeFF.filter(f => f.region === regionBot);
-      // FFCol must span both TOP_H + SPINE_H + BOT_H to sit alongside both halves
-      return (
-        <div style={{ width: CW, flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
-          <div style={{ height: TOP_H, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', gap: 8, paddingBottom: 4 }}>
-            {topGames.map(g => <FFCard key={g.key} {...g} ffKey={g.key} />)}
-          </div>
-          {/* spacer matching spine height so FFCol aligns with both halves */}
-          <div style={{ height: SPINE_H, flexShrink: 0 }} />
-          <div style={{ height: BOT_H, display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', gap: 8, paddingTop: 4 }}>
-            {botGames.map(g => <FFCard key={g.key} {...g} ffKey={g.key} />)}
-          </div>
-        </div>
-      );
-    };
-
     // ── Spine cell — 1.5× label font ─────────────────────────────────────────
     const SpineCell = ({ label, sub, color, borderLeft = true }) => (
       <div style={{ width: CW, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderLeft: borderLeft ? '1px solid rgba(255,255,255,0.08)' : 'none', background: 'rgba(255,255,255,0.04)' }}>
@@ -1677,128 +1659,77 @@ export default function App() {
     const ff1Label = `Final Four — ${regionNames.South || 'South'} vs ${regionNames.Midwest || 'Midwest'}`;
 
     // ── Layout constants (continued) ─────────────────────────────────────────
-    const FF_ZONE        = FF_GAP + FF_H;       // extra height reserved per half for FF games
+    const FF_ZONE        = FF_GAP + FF_H;
     const TOP_CENTER_H   = TOP_H + FF_ZONE;
     const BOT_CENTER_H   = BOT_H + FF_ZONE;
-    const REGION_LEFT_X  = (hasLeftFF ? CW : 0);                 // x of East R64 left edge
-    const REGION_RIGHT_X = REGION_LEFT_X + CW * 4 + CW * 3;     // x of West R64 left edge
+    const LEFT_R64_X     = (hasLeftFF ? CW : 0);   // x of East/South R64 left edge
 
-    // ── Region watermark label ────────────────────────────────────────────────
-    // East & South: left-aligned to their R64 left edge
-    // West & Midwest: right-aligned to their R64 right edge (= TOTAL_W - REGION_LEFT_X)
-    // Height = 2 * SH, positioned at the half's spine-adjacent edge
-    const LBL_H = SH * 2;
-    const RegionLabel = ({ name, color, isRight, isBottom }) => {
-      const fs = labelFontSize(name);
-      return (
-        <div style={{
-          position: 'absolute',
-          width: CW * 4,
-          height: LBL_H,
-          ...(isRight ? { right: REGION_LEFT_X } : { left: REGION_LEFT_X }),
-          ...(isBottom ? { top: 0 } : { bottom: 0 }),
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: isRight ? 'flex-end' : 'flex-start',
-          pointerEvents: 'none',
-          zIndex: 0,
-          overflow: 'hidden',
-        }}>
-          <span style={{
-            fontSize: fs, fontWeight: 900, color, opacity: 0.18,
-            letterSpacing: 2, textTransform: 'uppercase', userSelect: 'none',
-            lineHeight: 1, whiteSpace: 'nowrap',
-          }}>{name}</span>
-        </div>
-      );
-    };
+    // Region labels sit at the S16/E8 boundary (E8 col left edge = R64_X + CW*3)
+    // East/South: left-aligned to their E8 left edge
+    // West/Midwest: right-aligned to their E8 right edge
+    const LEFT_LBL_X  = LEFT_R64_X + CW * 3;                    // East/South label left = E8 left
+    const RIGHT_LBL_X = TOTAL_W - LEFT_R64_X - CW * 3 - CW * 2; // West/Midwest label right offset from right
 
-    // ── Connector lines (SVG overlay, position:absolute inside each half) ─────
-    // Lines connect the midpoint (team divider) of each game to the midpoint
-    // of the parent game in the next round.
-    //
-    // Game slot layout (SH = 89px):
-    //   padding-top: 8px  (from GameSlot outer div)
-    //   top team row: 36px
-    //   divider: 1px        ← this is the midpoint we connect to
-    //   bottom team row: 36px
-    //   total inner: 73px + 8px padding = 81px rendered, ~SH in the absolute grid
-    //
-    // Midpoint of game gIdx in round rIdx (top-half, top-aligned):
-    //   y_mid = ROUND_ABS[rIdx][gIdx] + 8 + 36 + 0.5  ≈ pos + 44.5
-    //   (8px outer padding + 36px top team + 0.5px for the 1px divider)
-    const GAME_MID_OFFSET = 44.5; // px from top of game's absolute position to its divider
+    const RegionLabel = ({ name, color, isRight, isBottom }) => (
+      <div style={{
+        position: 'absolute',
+        width: CW * 2,
+        height: SH * 2,
+        ...(isRight  ? { right: RIGHT_LBL_X } : { left: LEFT_LBL_X }),
+        ...(isBottom ? { top: 0 }             : { bottom: 0 }),
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: isRight ? 'flex-end' : 'flex-start',
+        pointerEvents: 'none',
+        zIndex: 0,
+        overflow: 'hidden',
+      }}>
+        <span style={{
+          fontSize: labelFontSize(name), fontWeight: 900, color, opacity: 0.18,
+          letterSpacing: 2, textTransform: 'uppercase', userSelect: 'none',
+          lineHeight: 1, whiteSpace: 'nowrap',
+        }}>{name}</span>
+      </div>
+    );
 
-    // For the 'bot' half the games are bottom-aligned, so the position is measured
-    // from the BOTTOM of the column. The divider from the bottom =
-    //   SH - GAME_MID_OFFSET  (because the slot is flipped)
-    //   = 89 - 44.5 = 44.5 (symmetrical — same value)
-    const GAME_MID_OFFSET_BOT = SH - GAME_MID_OFFSET; // = 44.5
+    // ── Connector lines ───────────────────────────────────────────────────────
+    const GAME_MID_OFFSET     = 44.5;
+    const GAME_MID_OFFSET_BOT = SH - GAME_MID_OFFSET;
 
     const BracketConnectors = ({ dir }) => {
-      // dir: 'top' | 'bot'
-      // For each round transition (R64→R32, R32→S16, S16→E8), draw:
-      //   - horizontal stub from game midpoint outward
-      //   - vertical line connecting two game midpoints
-      //   - horizontal stub from vertical midpoint to parent game midpoint
-      //
-      // We draw one SVG per region (East/South on left, West/Midwest on right).
-      // The SVG is CW*4 wide and TOP_H tall, positioned at the region's left edge.
-
       const W = CW * 4;
       const H = TOP_H;
-      const STUB = CW * 0.4; // horizontal stub length
+      const STUB = CW * 0.4;
 
       const makeLinesForRegion = (flip) => {
-        // flip=false: R64 is leftmost (East/South), lines go right toward spine
-        // flip=true:  R64 is rightmost (West/Midwest), lines go left toward spine
         const lines = [];
-
         for (let rIdx = 0; rIdx < 3; rIdx++) {
           const fromPositions = ROUND_ABS[rIdx];
           const toPositions   = ROUND_ABS[rIdx + 1];
           const gradId = `conn-${isMammal?'m':'b'}-${dir}-${flip?'f':'n'}-${rIdx}`;
           const color1 = ['#60a5fa','#a78bfa','#fbbf24'][rIdx];
           const color2 = ['#a78bfa','#fbbf24','#ef4444'][rIdx];
-
-          // x positions of game right/left edges
-          // flip=false: col rIdx has left edge at rIdx*CW, right edge at (rIdx+1)*CW
-          // flip=true:  col rIdx (from right) has right edge at W - rIdx*CW, left edge at W - (rIdx+1)*CW
-          const xFrom = flip ? W - (rIdx + 1) * CW : (rIdx + 1) * CW; // right edge of fromCol (= left edge of toCol)
-          const xTo   = flip ? W - (rIdx + 2) * CW : (rIdx + 2) * CW; // right edge of toCol
-
-          // Stub goes from game edge into the gap between columns
-          const xStub = flip ? xFrom - STUB : xFrom + STUB;
-          // Parent game stub goes to toCol edge
-          const xParent = flip ? xTo + STUB : xTo - STUB;
+          const xFrom   = flip ? W - (rIdx + 1) * CW : (rIdx + 1) * CW;
+          const xStub   = flip ? xFrom - STUB : xFrom + STUB;
+          const xParent = flip ? xFrom - CW + STUB : xFrom + CW - STUB;
 
           toPositions.forEach((toPos, tIdx) => {
-            const child1Pos = fromPositions[tIdx * 2];
-            const child2Pos = fromPositions[tIdx * 2 + 1];
-            if (child1Pos == null || child2Pos == null) return;
-
-            // Midpoints (y) — for 'top' half games are top-aligned
-            const getMid = (pos) => dir === 'top'
-              ? pos + GAME_MID_OFFSET
-              : H - pos - GAME_MID_OFFSET_BOT; // 'bot' half: pos is distance from bottom
-
-            const y1   = getMid(child1Pos);
-            const y2   = getMid(child2Pos);
+            const c1 = fromPositions[tIdx * 2];
+            const c2 = fromPositions[tIdx * 2 + 1];
+            if (c1 == null || c2 == null) return;
+            const getMid = pos => dir === 'top' ? pos + GAME_MID_OFFSET : H - pos - GAME_MID_OFFSET_BOT;
+            const y1   = getMid(c1);
+            const y2   = getMid(c2);
             const yMid = getMid(toPos);
-
             lines.push(
               <g key={`${rIdx}-${tIdx}`}>
-                {/* Stubs from child games to vertical connector */}
-                <line x1={xFrom} y1={y1}   x2={xStub}  y2={y1}   stroke={`url(#${gradId})`} strokeWidth="1.5" strokeLinecap="round" />
-                <line x1={xFrom} y1={y2}   x2={xStub}  y2={y2}   stroke={`url(#${gradId})`} strokeWidth="1.5" strokeLinecap="round" />
-                {/* Vertical connector between the two child stubs */}
-                <line x1={xStub} y1={y1}   x2={xStub}  y2={y2}   stroke={`url(#${gradId})`} strokeWidth="1.5" strokeLinecap="round" />
-                {/* Stub from vertical midpoint to parent game */}
-                <line x1={xStub} y1={yMid} x2={xParent} y2={yMid} stroke={`url(#${gradId})`} strokeWidth="1.5" strokeLinecap="round" />
+                <line x1={xFrom}  y1={y1}   x2={xStub}   y2={y1}   stroke={`url(#${gradId})`} strokeWidth="1.5" strokeLinecap="round" />
+                <line x1={xFrom}  y1={y2}   x2={xStub}   y2={y2}   stroke={`url(#${gradId})`} strokeWidth="1.5" strokeLinecap="round" />
+                <line x1={xStub}  y1={y1}   x2={xStub}   y2={y2}   stroke={`url(#${gradId})`} strokeWidth="1.5" strokeLinecap="round" />
+                <line x1={xStub}  y1={yMid} x2={xParent}  y2={yMid} stroke={`url(#${gradId})`} strokeWidth="1.5" strokeLinecap="round" />
               </g>
             );
           });
-
           lines.push(
             <defs key={`def-${rIdx}`}>
               <linearGradient id={gradId} x1={flip?'100%':'0%'} y1="0%" x2={flip?'0%':'100%'} y2="0%">
@@ -1813,16 +1744,10 @@ export default function App() {
 
       return (
         <>
-          {/* Left region (East top / South bot) */}
-          <svg width={W} height={H}
-            style={{ position: 'absolute', top: 0, left: REGION_LEFT_X, pointerEvents: 'none', zIndex: 3, overflow: 'visible' }}
-            aria-hidden="true">
+          <svg width={CW*4} height={H} style={{ position: 'absolute', top: 0, left: LEFT_R64_X, pointerEvents: 'none', zIndex: 3, overflow: 'visible' }} aria-hidden="true">
             {makeLinesForRegion(false)}
           </svg>
-          {/* Right region (West top / Midwest bot) */}
-          <svg width={W} height={H}
-            style={{ position: 'absolute', top: 0, right: REGION_LEFT_X, pointerEvents: 'none', zIndex: 3, overflow: 'visible' }}
-            aria-hidden="true">
+          <svg width={CW*4} height={H} style={{ position: 'absolute', top: 0, right: LEFT_R64_X, pointerEvents: 'none', zIndex: 3, overflow: 'visible' }} aria-hidden="true">
             {makeLinesForRegion(true)}
           </svg>
         </>
@@ -1832,19 +1757,20 @@ export default function App() {
     return (
       <div style={{ width: TOTAL_W }}>
 
-        {/* ── TOP HALF ─────────────────────────────────────────────────────── */}
+        {/* ── TOP HALF ── */}
         <div style={{ display: 'flex', alignItems: 'flex-end', position: 'relative', height: TOP_CENTER_H }}>
-          {/* Region watermarks — left/right aligned to their R64 edge, spine-adjacent */}
           <RegionLabel name={regionNames.East || 'East'} color={RC.East} isRight={false} isBottom={false} />
           <RegionLabel name={regionNames.West || 'West'} color={RC.West} isRight={true}  isBottom={false} />
 
-          {/* Left FF column */}
-          {hasLeftFF && <FFCol regionTop="East" regionBot="South" />}
+          {/* Left FF column — East only, no spine spacer needed since it's inside top half */}
+          {hasLeftFF && (
+            <div style={{ width: CW, flexShrink: 0, height: TOP_CENTER_H, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', gap: 8, paddingBottom: FF_GAP + FF_H + 8 }}>
+              {activeFF.filter(f => f.region === 'East').map(g => <FFCard key={g.key} {...g} ffKey={g.key} />)}
+            </div>
+          )}
 
-          {/* East region — 4 rounds, bottom-aligned */}
           {[0,1,2,3].map(rIdx => <RoundCol key={rIdx} region="East" rIdx={rIdx} flip={false} dir="top" />)}
 
-          {/* Center — FF game [0] sits at the very bottom with FF_GAP clearance */}
           <div style={{ width: CW * 3, flexShrink: 0, height: TOP_CENTER_H, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'center', paddingBottom: FF_GAP }}>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
               <div style={{ fontSize: 13, fontWeight: 800, color: '#34d399', letterSpacing: 1.5, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{ff0Label}</div>
@@ -1854,25 +1780,26 @@ export default function App() {
             </div>
           </div>
 
-          {/* West region — 4 rounds reversed, bottom-aligned */}
           {[3,2,1,0].map(rIdx => <RoundCol key={rIdx} region="West" rIdx={rIdx} flip={true} dir="top" />)}
 
-          {/* Right FF column */}
-          {hasRightFF && <FFCol regionTop="West" regionBot="Midwest" />}
+          {hasRightFF && (
+            <div style={{ width: CW, flexShrink: 0, height: TOP_CENTER_H, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', gap: 8, paddingBottom: FF_GAP + FF_H + 8 }}>
+              {activeFF.filter(f => f.region === 'West').map(g => <FFCard key={g.key} {...g} ffKey={g.key} />)}
+            </div>
+          )}
 
-          {/* Connector lines overlay */}
           <BracketConnectors dir="top" />
         </div>
 
-        {/* ── SPINE ────────────────────────────────────────────────────────── */}
+        {/* ── SPINE ── FF not shown here — spine always starts at R64 */}
         <div style={{ display: 'flex', alignItems: 'stretch', borderTop: '2px solid rgba(255,255,255,0.15)', borderBottom: '2px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.03)' }}>
-          {hasLeftFF && <SpineCell label="First Four" sub='"Play-In"' color="#818cf8" borderLeft={false} />}
-          <SpineCell label="Round of 64" sub='"First Round"'   color={ROUND_BORDER_COLORS[0]} borderLeft={!hasLeftFF} />
+          {/* Blank spacer to align with FF column if present */}
+          {hasLeftFF && <div style={{ width: CW, flexShrink: 0, background: 'rgba(255,255,255,0.03)', borderRight: '1px solid rgba(255,255,255,0.06)' }} />}
+          <SpineCell label="Round of 64" sub='"First Round"'   color={ROUND_BORDER_COLORS[0]} borderLeft={false} />
           <SpineCell label="Round of 32" sub='"Second Round"'  color={ROUND_BORDER_COLORS[1]} />
           <SpineCell label="Sweet 16"    sub='"Sweet Sixteen"' color={ROUND_BORDER_COLORS[2]} />
           <SpineCell label="Elite Eight" sub='"Elite Eight"'   color={ROUND_BORDER_COLORS[3]} />
 
-          {/* Center — Championship */}
           <div style={{ width: CW * 3, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '8px 12px', borderLeft: '1px solid rgba(255,255,255,0.08)' }}>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '10px 16px', background: champBg, border: `2px solid ${champColor}`, borderRadius: 12, animation: 'champGlow 3s ease-in-out infinite', minWidth: FF_W + 24 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -1899,20 +1826,23 @@ export default function App() {
           <SpineCell label="Sweet 16"    sub='"Sweet Sixteen"' color={ROUND_BORDER_COLORS[2]} />
           <SpineCell label="Round of 32" sub='"Second Round"'  color={ROUND_BORDER_COLORS[1]} />
           <SpineCell label="Round of 64" sub='"First Round"'   color={ROUND_BORDER_COLORS[0]} />
-          {hasRightFF && <SpineCell label="First Four" sub='"Play-In"' color="#818cf8" />}
+          {hasRightFF && <div style={{ width: CW, flexShrink: 0, background: 'rgba(255,255,255,0.03)', borderLeft: '1px solid rgba(255,255,255,0.06)' }} />}
         </div>
 
-        {/* ── BOTTOM HALF ──────────────────────────────────────────────────── */}
+        {/* ── BOTTOM HALF ── */}
         <div style={{ display: 'flex', alignItems: 'flex-start', position: 'relative', height: BOT_CENTER_H }}>
-          {/* Region watermarks — left/right aligned, spine-adjacent (top of this half) */}
           <RegionLabel name={regionNames.South   || 'South'}   color={RC.South}   isRight={false} isBottom={true} />
           <RegionLabel name={regionNames.Midwest || 'Midwest'} color={RC.Midwest} isRight={true}  isBottom={true} />
 
-          {hasLeftFF && <FFCol regionTop="East" regionBot="South" />}
+          {/* Left FF column — South only */}
+          {hasLeftFF && (
+            <div style={{ width: CW, flexShrink: 0, height: BOT_CENTER_H, display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', gap: 8, paddingTop: FF_GAP + FF_H + 8 }}>
+              {activeFF.filter(f => f.region === 'South').map(g => <FFCard key={g.key} {...g} ffKey={g.key} />)}
+            </div>
+          )}
 
           {[0,1,2,3].map(rIdx => <RoundCol key={rIdx} region="South" rIdx={rIdx} flip={false} dir="bot" />)}
 
-          {/* Center — FF game [1] at the very top with FF_GAP clearance */}
           <div style={{ width: CW * 3, flexShrink: 0, height: BOT_CENTER_H, display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'center', paddingTop: FF_GAP }}>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
               <ScaledGame>
@@ -1924,7 +1854,12 @@ export default function App() {
 
           {[3,2,1,0].map(rIdx => <RoundCol key={rIdx} region="Midwest" rIdx={rIdx} flip={true} dir="bot" />)}
 
-          {hasRightFF && <FFCol regionTop="West" regionBot="Midwest" />}
+          {/* Right FF column — Midwest only */}
+          {hasRightFF && (
+            <div style={{ width: CW, flexShrink: 0, height: BOT_CENTER_H, display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', gap: 8, paddingTop: FF_GAP + FF_H + 8 }}>
+              {activeFF.filter(f => f.region === 'Midwest').map(g => <FFCard key={g.key} {...g} ffKey={g.key} />)}
+            </div>
+          )}
 
           <BracketConnectors dir="bot" />
         </div>
