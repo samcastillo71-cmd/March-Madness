@@ -422,7 +422,7 @@ function ResearchCard({ teamName, card, isAdmin, onFieldSave }) {
       </div>
 
       {/* ── Stats Grid ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 16 }}>
+      <div className="research-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 16 }}>
         <div style={S.card}>
           <h3 style={{ color: ACCENT2, marginBottom: 14, fontFamily: "'Playfair Display', serif" }}>Team Stats</h3>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
@@ -541,7 +541,7 @@ function MammalResearchCard({ animalName, card, isAdmin, onFieldSave, onGenerate
         </div>
       ) : (
         <div style={{ ...S.card, borderRadius: '0 0 12px 12px', borderTop: 'none', borderColor: `${bgLight}44` }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+          <div className="research-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
             {/* Info boxes */}
             {[['Habitat','habitat'],['Diet & Hunting','diet'],['Superpower','superpower'],['Battle Strength','battleStrength']].map(([label, fld]) => (
               <div key={fld} style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 8, padding: 14, border: '1px solid rgba(255,255,255,0.07)' }}>
@@ -1085,6 +1085,76 @@ function SourcesPanel({ sources, onChange, label }) {
   );
 }
 
+// ── VIEW BRACKET MODAL ───────────────────────────────────────────────────────
+function ViewBracketModal({ data, onClose }) {
+  const { displayName, bracket, isMammal } = data;
+  const regions = ['East', 'West', 'South', 'Midwest'];
+  const rounds = isMammal ? ['R64','R32','S16','E8'] : ['R64','R32','S16','E8'];
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.88)', zIndex: 1000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: 20, overflowY: 'auto' }}
+      role="dialog" aria-modal="true" aria-label={`${displayName}'s bracket`}>
+      <div style={{ ...S.card, maxWidth: 700, width: '100%', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+          <h2 style={{ fontFamily: "'Playfair Display', serif", color: isMammal ? '#86efac' : ACCENT2, margin: 0 }}>{displayName}'s Bracket</h2>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#888', fontSize: 20, cursor: 'pointer', padding: '0 4px' }} aria-label="Close">×</button>
+        </div>
+        <div style={{ overflowY: 'auto', flex: 1 }}>
+          {regions.map(region => {
+            const regionRounds = bracket[region]?.rounds || [];
+            return (
+              <div key={region} style={{ marginBottom: 24 }}>
+                <div style={{ fontSize: 11, color: isMammal ? '#86efac' : ACCENT2, letterSpacing: 2, textTransform: 'uppercase', fontWeight: 700, marginBottom: 10 }}>{region}</div>
+                {regionRounds.slice(0, 4).map((roundGames, rIdx) => (
+                  <div key={rIdx} style={{ marginBottom: 8 }}>
+                    <div style={{ fontSize: 10, color: '#555', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4 }}>{rounds[rIdx]}</div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                      {roundGames.map((game, gIdx) => game.winner && (
+                        <div key={gIdx} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px', background: 'rgba(255,255,255,0.04)', borderRadius: 6, border: '1px solid rgba(255,255,255,0.08)', fontSize: 12 }}>
+                          {!isMammal && <TeamLogo espnId={game.winner?.espnId} name={game.winner?.name} size={16} />}
+                          <span style={{ color: isMammal ? '#86efac' : ACCENT2, fontWeight: 600 }}>#{game.winner.seed}</span>
+                          <span style={{ color: '#ccc' }}>{game.winner.name}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+                {/* Final Four */}
+                {bracket.finalFour && bracket.finalFour.map((ff, i) => {
+                  const ffRegion = [['East','West'],['South','Midwest']];
+                  if (!ffRegion[i]?.includes(region)) return null;
+                  return ff.winner ? (
+                    <div key={`ff-${i}`} style={{ marginBottom: 8 }}>
+                      <div style={{ fontSize: 10, color: '#555', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4 }}>Final Four</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px', background: 'rgba(245,158,11,0.08)', borderRadius: 6, border: '1px solid rgba(245,158,11,0.2)', fontSize: 12, width: 'fit-content' }}>
+                        {!isMammal && <TeamLogo espnId={ff.winner?.espnId} name={ff.winner?.name} size={16} />}
+                        <span style={{ color: GOLD2, fontWeight: 600 }}>#{ff.winner.seed}</span>
+                        <span style={{ color: '#ccc' }}>{ff.winner.name}</span>
+                      </div>
+                    </div>
+                  ) : null;
+                })}
+              </div>
+            );
+          })}
+          {bracket.championship?.winner && (
+            <div style={{ marginTop: 8, padding: 16, background: 'rgba(245,158,11,0.08)', borderRadius: 10, border: '1px solid rgba(245,158,11,0.3)', textAlign: 'center' }}>
+              <div style={{ fontSize: 11, color: GOLD2, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 8 }}>🏆 Champion</div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+                {!isMammal && <TeamLogo espnId={bracket.championship.winner?.espnId} name={bracket.championship.winner?.name} size={32} />}
+                <div style={{ fontSize: 20, fontWeight: 700, color: GOLD2, fontFamily: "'Playfair Display', serif" }}>{bracket.championship.winner.name}</div>
+              </div>
+            </div>
+          )}
+        </div>
+        <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 16, marginTop: 16, textAlign: 'right' }}>
+          <button style={{ ...S.btn('rgba(255,255,255,0.07)', '#888'), padding: '7px 20px' }} onClick={onClose}>Close</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── LATIN NAME REVIEW MODAL ──────────────────────────────────────────────────
 function LatinNameReviewModal({ review, onConfirm, onCancel }) {
   const [animals, setAnimals] = useState(review.animals.map(a => ({ ...a })));
@@ -1262,6 +1332,14 @@ export default function App() {
   // Users list (admin only)
   const [allUsers,             setAllUsers]             = useState([]);
   const [removingUser,         setRemovingUser]         = useState(null);
+  // Roster mismatch warning
+  const [rosterMismatch,       setRosterMismatch]       = useState(false);
+  const [mammalRosterMismatch, setMammalRosterMismatch] = useState(false);
+  // View bracket modal
+  const [viewingBracket,       setViewingBracket]       = useState(null); // { uid, displayName, bracket, isMammal }
+  const [loadingBracket,       setLoadingBracket]       = useState(null); // uid being loaded
+  // Saved indicator for mammals too
+  const [mammalLastSaved,      setMammalLastSaved]      = useState(null);
 
   const saveTimer         = useRef(null);
   const prevBracket       = useRef(null);
@@ -1411,6 +1489,18 @@ export default function App() {
       });
       // Only populate ffPlaceholders once — never overwrite once set
       if (hasRealTeams) setFfPlaceholders(prev => Object.keys(prev).length > 0 ? prev : extractFFPlaceholders(b));
+      // Detect roster mismatch for non-admin users
+      if (!isAdmin && hasRealTeams) {
+        setBracket(prev => {
+          const officialTeams = new Set(['East','West','South','Midwest'].flatMap(r => b[r]?.rounds?.[0]?.map(g => [g.top?.name, g.bottom?.name]).flat().filter(Boolean) || []));
+          const userTeams = new Set(['East','West','South','Midwest'].flatMap(r => prev[r]?.rounds?.[0]?.map(g => [g.top?.name, g.bottom?.name]).flat().filter(n => n && !n.startsWith('Seed ') && n !== 'First Four Winner') || []));
+          if (userTeams.size > 0 && officialTeams.size > 0) {
+            const hasMismatch = [...userTeams].some(t => !officialTeams.has(t));
+            if (hasMismatch) setRosterMismatch(true);
+          }
+          return prev;
+        });
+      }
     });
     const u2 = subscribeToConfig(cfg => {
       setLocked(cfg.locked ?? false);
@@ -1431,6 +1521,13 @@ export default function App() {
       setMammalBracket(prev => {
         const officialSample = b['East']?.rounds?.[0]?.[0]?.top?.name;
         const userSample = prev['East']?.rounds?.[0]?.[0]?.top?.name;
+        // Detect mammal roster mismatch
+        const officialTeams = new Set(['East','West','South','Midwest'].flatMap(r => b[r]?.rounds?.[0]?.map(g => [g.top?.name, g.bottom?.name]).flat().filter(Boolean) || []));
+        const userTeams = new Set(['East','West','South','Midwest'].flatMap(r => prev[r]?.rounds?.[0]?.map(g => [g.top?.name, g.bottom?.name]).flat().filter(n => n && !n.startsWith('Seed ') && n !== 'First Four Winner') || []));
+        if (userTeams.size > 0 && officialTeams.size > 0) {
+          const hasMismatch = [...userTeams].some(t => !officialTeams.has(t));
+          if (hasMismatch) setMammalRosterMismatch(true);
+        }
         return (userSample && officialSample && userSample === officialSample) ? prev : b;
       });
     });
@@ -1510,6 +1607,7 @@ export default function App() {
       try {
         await saveMammalBracket(user.uid, { ...mammalBracket, _firstFourPicks: mammalFirstFourPicks }, user.displayName, user.photoURL);
         await updateMammalLeaderboardEntry(user.uid, user.displayName, user.photoURL, mammalScore, isTeacher);
+        setMammalLastSaved(new Date());
       } catch (e) { console.warn('Mammal save failed:', e); }
     }, 3000);
     return () => clearTimeout(mammalSaveTimer.current);
@@ -1765,10 +1863,10 @@ export default function App() {
         setConfirmDialog(null);
         if (isMammal) {
           const fresh = mammalOfficialBracket ? JSON.parse(JSON.stringify(mammalOfficialBracket)) : buildInitialBracketFromTeams(makePlaceholderMammalRoster());
-          setMammalBracket(fresh); setMammalFirstFourPicks({});
+          setMammalBracket(fresh); setMammalFirstFourPicks({}); setMammalRosterMismatch(false);
         } else {
           const fresh = officialBracket ? JSON.parse(JSON.stringify(officialBracket)) : buildInitialBracket();
-          setBracket(fresh); setFirstFourPicks({});
+          setBracket(fresh); setFirstFourPicks({}); setRosterMismatch(false);
         }
       }
     });
@@ -1819,6 +1917,20 @@ export default function App() {
       ]);
     } catch (e) { console.warn('Failed to remove user:', e); }
     setRemovingUser(null);
+  }, []);
+
+  // ── VIEW USER BRACKET ────────────────────────────────────────────────────
+  const handleViewBracket = useCallback(async (uid, displayName, isMammal) => {
+    setLoadingBracket(uid + (isMammal ? '-mm' : ''));
+    try {
+      const snap = await getDoc(doc(db, isMammal ? 'brackets_mammals' : 'brackets', uid));
+      if (snap.exists()) {
+        const raw = snap.data().bracket;
+        const bracket = raw ? JSON.parse(raw) : null;
+        if (bracket) setViewingBracket({ uid, displayName, bracket, isMammal });
+      }
+    } catch (e) { console.warn('Failed to load bracket:', e); }
+    setLoadingBracket(null);
   }, []);
 
   // ── CLEAR BASKETBALL ROSTER ───────────────────────────────────────────────
@@ -2607,9 +2719,9 @@ Keep all language at a middle school reading level. Make it engaging and educati
             aria-label="Clear all picks" onClick={() => handleClearPicks(isMammal)}>
             Clear Picks
           </button>
-          {!isMammal && (saving
+          {saving
             ? <span style={{ fontSize: 11, color: '#777' }}>Saving...</span>
-            : lastSaved && <span style={{ fontSize: 11, color: '#166534' }}>✓ Saved</span>)}
+            : (isMammal ? mammalLastSaved : lastSaved) && <span style={{ fontSize: 11, color: '#166534' }}>✓ Saved</span>}
         </div>
       </div>
     );
@@ -2636,6 +2748,9 @@ Keep all language at a middle school reading level. Make it engaging and educati
           @media (max-width: 600px) {
             .bracket-tab-padding { padding: 10px !important; }
             .score-bar-font { font-size: 28px !important; }
+            .research-grid { grid-template-columns: 1fr !important; }
+            .research-card-header { font-size: 20px !important; }
+            .leaderboard-container { padding: 12px !important; }
           }
         `}</style>
 
@@ -2654,6 +2769,9 @@ Keep all language at a middle school reading level. Make it engaging and educati
             onConfirm={handleFetchMammalImages}
             onCancel={() => setLatinReview(null)}
           />
+        )}
+        {viewingBracket && (
+          <ViewBracketModal data={viewingBracket} onClose={() => setViewingBracket(null)} />
         )}
 
         <header style={S.header}>
@@ -2690,6 +2808,15 @@ Keep all language at a middle school reading level. Make it engaging and educati
               {activeTournament === 'basketball' && (
                 <>
                   {renderScoreBar(false)}
+                  {rosterMismatch && !isAdmin && (
+                    <div style={{ marginBottom: 16, padding: '12px 16px', borderRadius: 10, background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: GOLD2, marginBottom: 2 }}>⚠️ Roster Updated</div>
+                        <div style={{ fontSize: 12, color: '#aaa' }}>The team roster has changed since you last saved. Use "Clear Picks" to reset to the new bracket.</div>
+                      </div>
+                      <button style={{ ...S.btn('#92400e', GOLD2), padding: '6px 14px', fontSize: 12, flexShrink: 0 }} onClick={() => handleClearPicks(false)}>Clear Picks</button>
+                    </div>
+                  )}
                   {renderScrollBracket(false, 'bscroll-bb')}
                   {renderFirstFourPanel(false, (a, b) => { setResearchMatchup({ teamA: a, teamB: b, label: 'First Four Play-in', isMammal: false }); setTab('research'); setActiveTournament('basketball'); })}
                 </>
@@ -2786,7 +2913,7 @@ Keep all language at a middle school reading level. Make it engaging and educati
                     <div style={{ ...S.card, textAlign: 'center', padding: 48, color: '#777' }}>
                       <div style={{ fontSize: 40, marginBottom: 16 }} aria-hidden="true">📊</div>
                       <div style={{ fontSize: 16, marginBottom: 8 }}>No research data yet</div>
-                      <div style={{ fontSize: 13 }}>{isAdmin ? 'Go to Admin → Set Up Teams → Auto-Generate Research' : 'Check back after the admin generates research'}</div>
+                      <div style={{ fontSize: 13 }}>{isAdmin ? 'Go to Admin → 🏀 Basketball → Generate Facts' : 'Check back after the admin generates research'}</div>
                     </div>
                   ) : (
                     <>
@@ -2899,6 +3026,10 @@ Keep all language at a middle school reading level. Make it engaging and educati
                           <span style={{ fontSize: 17, fontWeight: 700, color: i === 0 ? ACCENT2 : i === 1 ? '#aaa' : i === 2 ? '#cd7f32' : '#444', minWidth: 30, fontFamily: "'Playfair Display', serif" }}>#{i+1}</span>
                           {e.photoURL ? <img src={e.photoURL} alt={`${e.displayName} avatar`} width={26} height={26} style={{ borderRadius: '50%' }} /> : <div style={{ width: 26, height: 26, borderRadius: '50%', background: '#111', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: '#777' }} aria-hidden="true">?</div>}
                           <span style={{ flex: 1, fontWeight: e.uid === user?.uid ? 700 : 400, color: e.uid === user?.uid ? ACCENT2 : '#bbb', fontSize: 14 }}>{formatName(e.displayName)}{e.uid === user?.uid ? ' (You)' : ''}</span>
+                          <button onClick={() => handleViewBracket(e.uid, e.displayName, false)} disabled={loadingBracket === e.uid}
+                            style={{ ...S.btn('rgba(22,163,74,0.12)', '#86efac'), padding: '3px 10px', fontSize: 11, border: '1px solid rgba(22,163,74,0.25)', flexShrink: 0 }}>
+                            {loadingBracket === e.uid ? '...' : 'View'}
+                          </button>
                           <span style={{ fontSize: 20, fontWeight: 700, color: ACCENT2, fontFamily: "'Playfair Display', serif" }}>{e.score}</span>
                         </div>
                       ))}
@@ -2934,6 +3065,10 @@ Keep all language at a middle school reading level. Make it engaging and educati
                           <span style={{ fontSize: 17, fontWeight: 700, color: i === 0 ? '#86efac' : i === 1 ? '#aaa' : i === 2 ? '#cd7f32' : '#444', minWidth: 30, fontFamily: "'Playfair Display', serif" }}>#{i+1}</span>
                           {e.photoURL ? <img src={e.photoURL} alt={`${e.displayName} avatar`} width={26} height={26} style={{ borderRadius: '50%' }} /> : <div style={{ width: 26, height: 26, borderRadius: '50%', background: '#111' }}>?</div>}
                           <span style={{ flex: 1, fontWeight: e.uid === user?.uid ? 700 : 400, color: e.uid === user?.uid ? '#86efac' : '#bbb', fontSize: 14 }}>{formatName(e.displayName)}{e.uid === user?.uid ? ' (You)' : ''}</span>
+                          <button onClick={() => handleViewBracket(e.uid, e.displayName, true)} disabled={loadingBracket === e.uid + '-mm'}
+                            style={{ ...S.btn('rgba(134,239,172,0.12)', '#86efac'), padding: '3px 10px', fontSize: 11, border: '1px solid rgba(134,239,172,0.25)', flexShrink: 0 }}>
+                            {loadingBracket === e.uid + '-mm' ? '...' : 'View'}
+                          </button>
                           <span style={{ fontSize: 20, fontWeight: 700, color: '#86efac', fontFamily: "'Playfair Display', serif" }}>{e.score}</span>
                         </div>
                       ))}
@@ -3003,7 +3138,7 @@ Keep all language at a middle school reading level. Make it engaging and educati
                   <div style={{ ...S.card, borderColor: 'rgba(231,76,60,0.2)', marginBottom: 16 }}>
                     <p style={{ color: '#999', fontSize: 14, lineHeight: 1.7, margin: 0 }}>
                       Use the <strong style={{ color: ACCENT2 }}>Bracket tab</strong> to enter official game results — your picks become the answer key and update all scores live.<br /><br />
-                      Use <strong style={{ color: ACCENT2 }}>Basketball</strong> every March after Selection Sunday. No code editing needed.
+                      Use <strong style={{ color: ACCENT2 }}>Admin → 🏀 Basketball</strong> every March after Selection Sunday to enter teams. No code editing needed.
                     </p>
                   </div>
 
@@ -3192,12 +3327,24 @@ Keep all language at a middle school reading level. Make it engaging and educati
                       4. They sign out and back in — Teacher badge appears automatically.
                     </p>
                   </div>
-                  <div style={{ ...S.card, borderColor: 'rgba(239,68,68,0.2)' }}>
-                    <h3 style={{ color: '#f87171', marginBottom: 14 }}>⚠️ Security Note</h3>
+                  <div style={{ ...S.card, borderColor: 'rgba(99,102,241,0.25)' }}>
+                    <h3 style={{ color: '#a5b4fc', marginBottom: 14 }}>🤖 AI Research Generation</h3>
                     <p style={{ color: '#888', fontSize: 14, lineHeight: 1.75 }}>
-                      The Gemini API key is embedded in the client bundle. To protect your quota:<br />
-                      1. Go to Google Cloud Console → Credentials → restrict your API key to your app's domain.<br />
-                      2. Set HTTP referrer restrictions so the key only works from your Vercel URL.
+                      Research is generated using the Claude API via a secure Vercel serverless function. Your API key is never exposed to the browser.<br /><br />
+                      To update your Claude API key: go to Vercel → your project → Settings → Environment Variables → update <code style={{ background: 'rgba(255,255,255,0.07)', padding: '1px 5px', borderRadius: 3 }}>ANTHROPIC_KEY</code>.<br /><br />
+                      Credits are managed at <strong style={{ color: '#a5b4fc' }}>console.anthropic.com</strong> → Plans &amp; Billing. $5 of credits covers approximately 60–80 full generation runs.
+                    </p>
+                  </div>
+                  <div style={{ ...S.card, borderColor: 'rgba(22,163,74,0.2)' }}>
+                    <h3 style={{ color: ACCENT2, marginBottom: 14 }}>📅 New Season Checklist</h3>
+                    <p style={{ color: '#888', fontSize: 14, lineHeight: 1.75 }}>
+                      At the start of each new tournament season:<br /><br />
+                      1. Update the tournament year in Admin → Dashboard.<br />
+                      2. Go to Admin → 🏀 Basketball → Danger Zone → Clear Roster &amp; Bracket, then re-enter teams after Selection Sunday.<br />
+                      3. Go to Admin → 🦁 Mammal Madness → Danger Zone → Clear Roster &amp; Bracket, then re-enter the new animals.<br />
+                      4. Use Admin → 👥 Users → Remove to clear out old student brackets, or use the "Clear All Brackets" buttons.<br />
+                      5. Generate fresh research for both tournaments.<br />
+                      6. Unlock brackets when ready for students to submit picks.
                     </p>
                   </div>
                 </div>
