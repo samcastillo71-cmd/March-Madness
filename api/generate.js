@@ -9,17 +9,28 @@ export default async function handler(req, res) {
 
   const apiKey = process.env.ANTHROPIC_KEY;
   if (!apiKey) {
+    console.log('[generate] ERROR: ANTHROPIC_KEY not set');
     return res.status(500).json({ error: 'ANTHROPIC_KEY not configured on server' });
   }
 
-  const { prompt } = req.body || {};
-  if (!prompt || typeof prompt !== 'string') {
+  // Explicitly parse body — handles both pre-parsed object and raw string
+  let body = req.body;
+  if (typeof body === 'string') {
+    try { body = JSON.parse(body); }
+    catch { return res.status(400).json({ error: 'Invalid JSON body' }); }
+  }
+
+  const { prompt } = body || {};
+  if (!prompt || typeof prompt !== 'string' || prompt.trim().length === 0) {
+    console.log('[generate] ERROR: missing prompt. body keys:', Object.keys(body || {}));
     return res.status(400).json({ error: 'Missing or invalid prompt' });
   }
 
   if (prompt.length > 8000) {
     return res.status(400).json({ error: 'Prompt too long' });
   }
+
+  console.log('[generate] Calling Claude Haiku, prompt length:', prompt.length);
 
   let claudeRes;
   try {
@@ -37,14 +48,16 @@ export default async function handler(req, res) {
       }),
     });
   } catch (e) {
+    console.log('[generate] Network error:', e.message);
     return res.status(502).json({ error: 'Failed to reach Anthropic API: ' + e.message });
   }
 
-  // Pass 429 through so client retry logic works
+  // Read full response body once for both logging and parsing
+  const rawBody = await claudeRes.text();
+  console.log('[generate] Claude status:', claudeRes.status, '| body:', rawBody.slice(0, 500));
+
   if (claudeRes.status === 429) {
-    let body = '';
-    try { body = await claudeRes.text(); } catch {}
-    const isDaily = body.toLowerCase().includes('daily') || body.toLowerCase().includes('credit');
+    const isDaily = rawBody.toLowerCase().includes('daily') || rawBody.toLowerCase().includes('credit');
     res.status(429);
     return res.json({
       error: isDaily
@@ -54,28 +67,28 @@ export default async function handler(req, res) {
   }
 
   if (!claudeRes.ok) {
-    const errText = await claudeRes.text().catch(() => '');
     return res.status(claudeRes.status).json({
-      error: `Claude API error ${claudeRes.status}: ${errText.slice(0, 500)}`,
+      error: `Claude API error ${claudeRes.status}: ${rawBody.slice(0, 500)}`,
     });
   }
 
   let data;
   try {
-    data = await claudeRes.json();
+    data = JSON.parse(rawBody);
   } catch {
+    console.log('[generate] Failed to parse Claude response as JSON');
     return res.status(502).json({ error: 'Claude returned invalid JSON' });
   }
 
-  // Claude returns content as an array of blocks
   const text = data.content?.[0]?.text || '{}';
   let parsed;
   try {
     parsed = JSON.parse(text.replace(/```json|```/g, '').trim());
   } catch {
-    console.warn('Claude JSON parse failed:', text.slice(0, 200));
+    console.log('[generate] Failed to parse result text as JSON:', text.slice(0, 200));
     parsed = null;
   }
 
+  console.log('[generate] Success, result keys:', parsed ? Object.keys(parsed) : 'null');
   return res.status(200).json({ result: parsed });
 }
