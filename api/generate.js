@@ -27,19 +27,36 @@ async function fetchSourceText(url, maxChars = 3000) {
 // ── Fetch PhyloPic silhouette URL for a Latin name ───────────────────────────
 async function fetchPhyloPic(latinName) {
   try {
-    const search = await fetch(`https://api.phylopic.org/autocomplete?query=${encodeURIComponent(latinName)}`);
+    // Step 1: search for the taxon by name
+    const search = await fetch(`https://api.phylopic.org/autocomplete?query=${encodeURIComponent(latinName)}&limit=5`);
     if (!search.ok) return null;
-    const data = await search.json();
-    const uuid = data?.[0]?.uuid;
-    if (!uuid) return null;
-    const node = await fetch(`https://api.phylopic.org/nodes/${uuid}?embed_primaryImage=true`);
+    const suggestions = await search.json();
+    if (!suggestions?.length) return null;
+
+    // Find the best match — prefer exact genus match
+    const genus = latinName.split(' ')[0].toLowerCase();
+    const best = suggestions.find(s =>
+      (s.title || '').toLowerCase().startsWith(genus)
+    ) || suggestions[0];
+    if (!best?.href) return null;
+
+    // Step 2: fetch the node to get its primary image
+    const nodeUrl = `https://api.phylopic.org${best.href}?embed_primaryImage=true`;
+    const node = await fetch(nodeUrl);
     if (!node.ok) return null;
     const nodeData = await node.json();
-    const imgUuid = nodeData?._embedded?.primaryImage?.uuid;
+
+    // Primary image UUID can be in different locations depending on API version
+    const imgUuid = nodeData?._embedded?.primaryImage?.uuid
+      || nodeData?.primaryImage?.uuid
+      || nodeData?._links?.primaryImage?.href?.split('/').filter(Boolean).pop();
     if (!imgUuid) return null;
-    // Use SVG for clean silhouette
+
     return `https://images.phylopic.org/images/${imgUuid}/vector.svg`;
-  } catch { return null; }
+  } catch (e) {
+    console.log('[PhyloPic] Error:', e.message);
+    return null;
+  }
 }
 
 // ── Fetch Wikipedia thumbnail for a Latin name ──────────────────────────────
@@ -55,11 +72,20 @@ async function fetchWikipediaImage(latinName) {
 // ── Fetch iNaturalist photos ─────────────────────────────────────────────────
 async function fetchINaturalistImages(latinName, count = 2) {
   try {
-    const res = await fetch(`https://api.inaturalist.org/v1/taxa?q=${encodeURIComponent(latinName)}&rank=species&per_page=1`);
+    // Use taxon_name for exact Latin name matching (not fuzzy q= search)
+    const res = await fetch(`https://api.inaturalist.org/v1/taxa?taxon_name=${encodeURIComponent(latinName)}&rank=species&per_page=1`);
     if (!res.ok) return [];
     const data = await res.json();
     const taxon = data?.results?.[0];
     if (!taxon) return [];
+    // Verify the returned taxon name roughly matches to avoid wrong results
+    const returnedName = (taxon.name || '').toLowerCase();
+    const searchName   = latinName.toLowerCase();
+    const genus = searchName.split(' ')[0];
+    if (!returnedName.startsWith(genus)) {
+      console.log('[iNat] Taxon mismatch — searched:', latinName, 'got:', taxon.name);
+      return [];
+    }
     const photos = taxon.taxon_photos?.slice(0, count) || [];
     return photos
       .map(p => p?.photo?.medium_url || p?.photo?.url)
