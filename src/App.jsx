@@ -1447,9 +1447,10 @@ export default function App() {
         }
       } catch (e) {
         const isDaily = e.message.includes('Daily') || e.message.includes('tomorrow');
+        const isConfig = e.message.includes('400') || e.message.includes('invalid_request');
         setGenError(e.message);
         console.warn('Research gen failed:', name, e);
-        if (isDaily) break;
+        if (isDaily || isConfig) break; // fatal errors — stop generation
       }
       // 8s between requests = 7.5/min, under 15/min free tier limit
       if (i < teams.length - 1) await new Promise(r => setTimeout(r, 8000));
@@ -1486,10 +1487,10 @@ export default function App() {
         }
       } catch (e) {
         const isDaily = e.message.includes('Daily') || e.message.includes('tomorrow');
+        const isConfig = e.message.includes('400') || e.message.includes('invalid_request');
         setMammalGenError(e.message);
         console.warn('Mammal research gen failed:', name, e);
-        if (isDaily) break;
-        // Skip this animal and continue for non-daily errors
+        if (isDaily || isConfig) break; // fatal errors — stop generation
       }
       // 8s between requests = 7.5/min, under 15/min free tier limit
       if (i < animals.length - 1) await new Promise(r => setTimeout(r, 8000));
@@ -1646,7 +1647,7 @@ export default function App() {
       const games     = activeBracket[region]?.rounds[rIdx] || [];
       const positions = ROUND_ABS[rIdx];
       return (
-        <div style={{ width: CW, flexShrink: 0, height: TOP_H, position: 'relative', boxSizing: 'border-box', zIndex: 1 }}>
+        <div style={{ width: CW, flexShrink: 0, height: TOP_H, position: 'relative', boxSizing: 'border-box' }}>
           {games.map((game, gIdx) => {
             const pos = positions[gIdx] ?? gIdx * SH;
             return (
@@ -1849,14 +1850,16 @@ export default function App() {
       <div style={{ width: TOTAL_W }}>
 
         {/* ── TOP HALF ── */}
-        <div style={{ display: 'flex', alignItems: 'flex-end', position: 'relative', height: TOP_H, isolation: 'isolate' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-end', position: 'relative', height: TOP_H }}>
+          {/* SVG first in DOM so all sibling elements paint on top of it */}
+          <BracketConnectors dir="top" />
           <RegionLabel name={regionNames.East || 'East'} color={RC.East} isRight={false} isBottom={false} />
           <RegionLabel name={regionNames.West || 'West'} color={RC.West} isRight={true}  isBottom={false} />
 
           {[0,1,2,3].map(rIdx => <RoundCol key={rIdx} region="East" rIdx={rIdx} flip={false} dir="top" />)}
 
           {/* Center — FF[0] game sits FF_GAP above the spine (at bottom of this column) */}
-          <div style={{ width: CW * 3, flexShrink: 0, height: FF_CENTER_H, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'center', paddingBottom: FF_GAP, position: 'relative', zIndex: 1 }}>
+          <div style={{ width: CW * 3, flexShrink: 0, height: FF_CENTER_H, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'center', paddingBottom: FF_GAP, position: 'relative' }}>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
               <div style={{ fontSize: 13, fontWeight: 800, color: '#34d399', letterSpacing: 1.5, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{ff0Label}</div>
               <ScaledGame>
@@ -1866,7 +1869,6 @@ export default function App() {
           </div>
 
           {[3,2,1,0].map(rIdx => <RoundCol key={rIdx} region="West" rIdx={rIdx} flip={true} dir="top" />)}
-          <BracketConnectors dir="top" />
         </div>
 
         {/* ── SPINE ── */}
@@ -1905,14 +1907,16 @@ export default function App() {
         </div>
 
         {/* ── BOTTOM HALF ── */}
-        <div style={{ display: 'flex', alignItems: 'flex-start', position: 'relative', height: TOP_H, isolation: 'isolate' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', position: 'relative', height: TOP_H }}>
+          {/* SVG first in DOM so all sibling elements paint on top of it */}
+          <BracketConnectors dir="bot" />
           <RegionLabel name={regionNames.South   || 'South'}   color={RC.South}   isRight={false} isBottom={true} />
           <RegionLabel name={regionNames.Midwest || 'Midwest'} color={RC.Midwest} isRight={true}  isBottom={true} />
 
           {[0,1,2,3].map(rIdx => <RoundCol key={rIdx} region="South" rIdx={rIdx} flip={false} dir="bot" />)}
 
           {/* Center — FF[1] game sits FF_GAP below the spine (at top of this column) */}
-          <div style={{ width: CW * 3, flexShrink: 0, height: FF_CENTER_H, display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'center', paddingTop: FF_GAP, position: 'relative', zIndex: 1 }}>
+          <div style={{ width: CW * 3, flexShrink: 0, height: FF_CENTER_H, display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'center', paddingTop: FF_GAP, position: 'relative' }}>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
               <ScaledGame>
                 <GameSlot game={activeBracket.finalFour?.[1]} onPick={s => onFFPick(1, s)} locked={isLocked && !isAdmin} roundIdx={4} liveScores={isMammal ? {} : liveScores} />
@@ -1922,7 +1926,6 @@ export default function App() {
           </div>
 
           {[3,2,1,0].map(rIdx => <RoundCol key={rIdx} region="Midwest" rIdx={rIdx} flip={true} dir="bot" />)}
-          <BracketConnectors dir="bot" />
         </div>
 
       </div>
