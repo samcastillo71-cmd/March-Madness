@@ -485,6 +485,7 @@ const REGION_BANNER_COLORS = {
 // ── MAMMAL RESEARCH CARD ──────────────────────────────────────────────────────
 function MammalResearchCard({ animalName, card, isAdmin, onFieldSave, onGenerate, generating }) {
   const [imgErrors, setImgErrors] = useState({});
+  const [lightbox, setLightbox] = useState(null);
 
   const region = (card?.region && REGION_BANNER_COLORS[card.region]) ? card.region : 'East';
   const [bgDark, bgLight] = REGION_BANNER_COLORS[region];
@@ -561,10 +562,26 @@ function MammalResearchCard({ animalName, card, isAdmin, onFieldSave, onGenerate
                     <div key={i} style={{ flexShrink: 0, textAlign: 'center' }}>
                       <img src={img.url} alt={`${animalName} - ${img.source}`}
                         onError={() => handleImgError(`gallery-${i}`)}
-                        style={{ height: 160, width: 200, objectFit: 'cover', borderRadius: 8, display: 'block' }} />
+                        onClick={() => setLightbox({ url: img.url, source: img.source, name: animalName })}
+                        style={{ height: 160, width: 200, objectFit: 'cover', borderRadius: 8, display: 'block', cursor: 'zoom-in' }} />
                       <div style={{ fontSize: 10, color: '#666', marginTop: 4 }}>{img.source}</div>
                     </div>
                   ))}
+                </div>
+              </div>
+            )}
+            {/* Lightbox */}
+            {lightbox && (
+              <div onClick={() => setLightbox(null)}
+                style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'zoom-out', padding: 20 }}
+                role="dialog" aria-modal="true" aria-label={`${lightbox.name} photo`}>
+                <div onClick={e => e.stopPropagation()} style={{ position: 'relative', maxWidth: '90vw', maxHeight: '90vh' }}>
+                  <img src={lightbox.url} alt={lightbox.name}
+                    style={{ maxWidth: '90vw', maxHeight: '85vh', objectFit: 'contain', borderRadius: 8, display: 'block', boxShadow: '0 8px 40px rgba(0,0,0,0.8)' }} />
+                  <div style={{ textAlign: 'center', marginTop: 8, fontSize: 12, color: '#888' }}>{lightbox.source}</div>
+                  <button onClick={() => setLightbox(null)}
+                    style={{ position: 'absolute', top: -12, right: -12, background: 'rgba(0,0,0,0.7)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '50%', width: 28, height: 28, color: '#fff', fontSize: 16, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}
+                    aria-label="Close">×</button>
                 </div>
               </div>
             )}
