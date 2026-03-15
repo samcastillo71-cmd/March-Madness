@@ -876,7 +876,7 @@ function TeamEntryPanel({ onTeamsSaved, onRequestGenerateResearch, regionNames, 
 }
 
 // ── MAMMAL TEAM ENTRY PANEL ───────────────────────────────────────────────────
-function MammalEntryPanel({ onAnimalsSaved, onRequestGenerateMammalResearch, regionNames, onRegionNamesChange, sourcesData, onSaveSources }) {
+function MammalEntryPanel({ onAnimalsSaved, onRequestGenerateMammalResearch, onRefetchImages, regionNames, onRegionNamesChange, sourcesData, onSaveSources }) {
   const [roster,       setRoster]   = useState({ East: Array(16).fill(null).map((_,i) => ({ seed:i+1, name:'', firstFour:false })), West: Array(16).fill(null).map((_,i) => ({ seed:i+1, name:'', firstFour:false })), South: Array(16).fill(null).map((_,i) => ({ seed:i+1, name:'', firstFour:false })), Midwest: Array(16).fill(null).map((_,i) => ({ seed:i+1, name:'', firstFour:false })) });
   const [activeRegion, setActiveRegion] = useState('East');
   const [saving,   setSaving]   = useState(false);
@@ -934,14 +934,25 @@ function MammalEntryPanel({ onAnimalsSaved, onRequestGenerateMammalResearch, reg
             onClick={async () => { setApplying(true); try { const nb = buildInitialBracketFromTeams(roster); await saveMammalOfficialBracket(nb); setApplied(true); onAnimalsSaved(nb, roster); } catch(e) { alert('Apply failed: ' + e.message); } setApplying(false); }} disabled={applying}>
             {applying ? 'Applying...' : applied ? '✓ Applied!' : 'Apply to Bracket'}
           </button>
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-            <span style={{ fontSize: 11, color: '#999', alignSelf: 'center', marginRight: 2 }}>✨ Generate Facts:</span>
-            {['East','West','South','Midwest'].map(r => (
-              <button key={r} style={{ ...S.btn('rgba(99,102,241,0.3)', '#a5b4fc'), padding: '6px 14px', fontSize: 12, border: '1px solid rgba(99,102,241,0.5)' }}
-                onClick={() => onRequestGenerateMammalResearch(roster, r)}>
-                {regionNames[r] || r}
-              </button>
-            ))}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+              <span style={{ fontSize: 11, color: '#999', alignSelf: 'center', marginRight: 2, minWidth: 110 }}>✨ Generate Facts:</span>
+              {['East','West','South','Midwest'].map(r => (
+                <button key={r} style={{ ...S.btn('rgba(99,102,241,0.3)', '#a5b4fc'), padding: '6px 14px', fontSize: 12, border: '1px solid rgba(99,102,241,0.5)' }}
+                  onClick={() => onRequestGenerateMammalResearch(roster, r)}>
+                  {regionNames[r] || r}
+                </button>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+              <span style={{ fontSize: 11, color: '#999', alignSelf: 'center', marginRight: 2, minWidth: 110 }}>🖼️ Re-fetch Images:</span>
+              {['East','West','South','Midwest'].map(r => (
+                <button key={r} style={{ ...S.btn('rgba(20,184,166,0.2)', '#5eead4'), padding: '6px 14px', fontSize: 12, border: '1px solid rgba(20,184,166,0.4)' }}
+                  onClick={() => onRefetchImages && onRefetchImages(r)}>
+                  {regionNames[r] || r}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -1741,6 +1752,59 @@ export default function App() {
     setMammalGenProgress(prev => ({ ...prev, done: reviewedAnimals.length, current: '' }));
     setMammalGenerating(false);
     if (Object.keys(allData).length > 0) { setMammalSelectedAnimal(Object.keys(allData)[0]); setTab('research'); setActiveTournament('mammals'); }
+  }, [saveWithRetry]);
+
+  // ── REFETCH MAMMAL IMAGES — uses Latin names already in Firestore ─────────
+  const handleRefetchMammalImages = useCallback(async (onlyRegion) => {
+    // Load existing research data from Firestore
+    const allData = {};
+    try {
+      const snap = await getDoc(doc(db, 'admin', 'researchData_mammals'));
+      if (snap.exists()) Object.assign(allData, snap.data().teams || {});
+    } catch {}
+
+    // Filter to the requested region, must have a latinName
+    const animals = Object.entries(allData)
+      .filter(([, card]) => {
+        if (!card.latinName) return false;
+        if (onlyRegion && card.region !== onlyRegion) return false;
+        return true;
+      })
+      .map(([name, card]) => ({ name, latinName: card.latinName }));
+
+    if (!animals.length) {
+      setMammalGenError('No Latin names found for this region. Generate text content first.');
+      return;
+    }
+
+    setMammalGenerating(true);
+    setMammalGenError('');
+    setMammalGenProgress({ done: 0, total: animals.length, current: animals[0].name });
+
+    for (let i = 0; i < animals.length; i++) {
+      const { name, latinName } = animals[i];
+      setMammalGenProgress({ done: i, total: animals.length, current: name });
+      try {
+        const res = await fetch('/api/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ fetchImagesOnly: true, latinName }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.result && allData[name]) {
+            allData[name] = { ...allData[name], ...data.result };
+            // Save incrementally so progress isn't lost
+            await saveWithRetry(saveMammalResearchData, allData, name);
+            setMammalResearchData({ ...allData });
+          }
+        }
+      } catch (e) { console.warn('Image refetch failed for', name, e); }
+      if (i < animals.length - 1) await new Promise(r => setTimeout(r, 300));
+    }
+
+    setMammalGenProgress(prev => ({ ...prev, done: animals.length, current: '' }));
+    setMammalGenerating(false);
   }, [saveWithRetry]);
 
   // ── GENERATE MAMMAL RESEARCH — Phase 1: generate text + Latin names ──────
@@ -2779,6 +2843,7 @@ Keep all language at a middle school reading level. Make it engaging and educati
                   <MammalEntryPanel
                     onAnimalsSaved={(nb) => { setMammalBracket(nb); setMammalOfficialBracket(nb); }}
                     onRequestGenerateMammalResearch={handleGenerateMammalResearch}
+                    onRefetchImages={handleRefetchMammalImages}
                     regionNames={mammalRegionNames}
                     onRegionNamesChange={setMammalRegionNames}
                     sourcesData={mammalSources}
