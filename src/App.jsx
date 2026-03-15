@@ -1528,25 +1528,42 @@ export default function App() {
 
   // ── BRACKET RENDER HELPER ─────────────────────────────────────────────────
   const renderBracket = (isMammal) => {
-    const CW = 240, SH = 89, SPINE_H = 56, TOP_H = 8 * SH, BOT_H = TOP_H;
+    // ── Layout constants ──────────────────────────────────────────────────────
+    const CW = 240;           // one column width (1 unit)
+    const SH = 89;            // one game slot height (1 unit)
+    const FF_SCALE = 1.5;     // Final Four / Championship scale factor
+    // A scaled game occupies FF_SCALE× the space of a regular game in layout
+    const FF_W = Math.round(CW * FF_SCALE);   // 360px
+    const FF_H = Math.round(SH * FF_SCALE);   // 134px
+    // The spine must be tall enough to contain the championship box.
+    // Champ box content: title row (~30px) + scaled horizontal slot (~FF_H * 0.75) + winner badge (~32px)
+    const CHAMP_BOX_H = 30 + Math.round(FF_H * 0.75) + 32 + 20; // ~182px with padding
+    const SPINE_H = CHAMP_BOX_H + 16; // add top+bottom padding inside spine bar
+    // FF games float above/below the spine with exactly SH (1 unit) of gap.
+    // The FF game top edge is (SPINE_H/2 + SH) above the spine center,
+    // so bottom edge of the FF[0] wrapper = -(SPINE_H/2 + SH) from spine top.
+    const FF_GAP = SH; // 1 unit clearance between spine edge and FF game edge
+    const TOP_H = 8 * SH;   // 712px — height of each bracket half
+    const BOT_H = TOP_H;
     const E8_LEFT = CW * 3;
-    const activeBracket    = isMammal ? (isAdmin ? (mammalOfficialBracket || mammalBracket) : mammalBracket) : bracket;
-    const activeFF         = isMammal ? mammalFFGamesList : ffGamesList;
-    const regionNames      = isMammal ? mammalRegionNames : bbRegionNames;
-    const onPick           = isMammal ? handleMammalPick : handlePick;
-    const onFFPick         = isMammal ? handleMammalFFPick : handleFFPick;
-    const onChampPick      = isMammal ? handleMammalChampPick : handleChampPick;
-    const onFirstFourPick  = isMammal ? handleMammalFirstFourPick : handleFirstFourPick;
-    const activeFirstFourPicks = isMammal ? mammalFirstFourPicks : firstFourPicks;
-    const isLocked         = isMammal ? mammalLocked : locked;
-    const champColor       = isMammal ? 'rgba(134,239,172,0.5)' : 'rgba(245,158,11,0.65)';
-    const champBg          = isMammal ? 'linear-gradient(135deg,rgba(134,239,172,0.15),rgba(22,163,74,0.10))' : 'linear-gradient(135deg,rgba(245,158,11,0.18),rgba(124,58,237,0.14))';
-    const champEmoji       = isMammal ? '🦁' : '🏆';
-    const champGoldColor   = isMammal ? '#86efac' : GOLD2;
 
-    const hasLeftFF  = activeFF.some(f => f.region === 'East' || f.region === 'South');
-    const hasRightFF = activeFF.some(f => f.region === 'West' || f.region === 'Midwest');
-    const TOTAL_W = (hasLeftFF ? CW : 0) + CW * 4 + CW * 3 + CW * 4 + (hasRightFF ? CW : 0);
+    const activeBracket        = isMammal ? (isAdmin ? (mammalOfficialBracket || mammalBracket) : mammalBracket) : bracket;
+    const activeFF             = isMammal ? mammalFFGamesList : ffGamesList;
+    const regionNames          = isMammal ? mammalRegionNames : bbRegionNames;
+    const onPick               = isMammal ? handleMammalPick : handlePick;
+    const onFFPick             = isMammal ? handleMammalFFPick : handleFFPick;
+    const onChampPick          = isMammal ? handleMammalChampPick : handleChampPick;
+    const onFirstFourPick      = isMammal ? handleMammalFirstFourPick : handleFirstFourPick;
+    const activeFirstFourPicks = isMammal ? mammalFirstFourPicks : firstFourPicks;
+    const isLocked             = isMammal ? mammalLocked : locked;
+    const champColor           = isMammal ? 'rgba(134,239,172,0.5)'  : 'rgba(245,158,11,0.65)';
+    const champBg              = isMammal ? 'linear-gradient(135deg,rgba(134,239,172,0.15),rgba(22,163,74,0.10))' : 'linear-gradient(135deg,rgba(245,158,11,0.18),rgba(124,58,237,0.14))';
+    const champEmoji           = isMammal ? '🦁' : '🏆';
+    const champGoldColor       = isMammal ? '#86efac' : GOLD2;
+
+    const hasLeftFF  = activeFF.some(f => f.region === 'East'  || f.region === 'South');
+    const hasRightFF = activeFF.some(f => f.region === 'West'  || f.region === 'Midwest');
+    const TOTAL_W    = (hasLeftFF ? CW : 0) + CW * 4 + CW * 3 + CW * 4 + (hasRightFF ? CW : 0);
 
     const ROUND_ABS = [
       [0, 89, 178, 267, 356, 445, 534, 623],
@@ -1555,8 +1572,29 @@ export default function App() {
       [311.5],
     ];
 
+    // ── Scaled game wrapper ───────────────────────────────────────────────────
+    // Uses CSS transform:scale so GameSlot internal font/icon sizes scale up
+    // while the wrapper reserves the correct FF_W × FF_H layout space.
+    const ScaledGame = ({ children, isHoriz }) => {
+      // Horizontal championship slot is wider than tall; use FF_W for both axes
+      const wrapH = isHoriz ? Math.round(FF_H * 0.72) : FF_H;
+      return (
+        <div style={{ width: FF_W, height: wrapH, position: 'relative', overflow: 'visible' }}>
+          <div style={{
+            position: 'absolute', top: 0, left: 0,
+            width: CW,
+            transformOrigin: 'top left',
+            transform: `scale(${FF_SCALE})`,
+          }}>
+            {children}
+          </div>
+        </div>
+      );
+    };
+
+    // ── Round columns ─────────────────────────────────────────────────────────
     const RoundCol = ({ region, rIdx, flip, dir }) => {
-      const games = activeBracket[region]?.rounds[rIdx] || [];
+      const games     = activeBracket[region]?.rounds[rIdx] || [];
       const positions = ROUND_ABS[rIdx];
       return (
         <div style={{ width: CW, flexShrink: 0, height: TOP_H, position: 'relative', boxSizing: 'border-box' }}>
@@ -1567,7 +1605,11 @@ export default function App() {
                 <GameSlot game={game} locked={isLocked && !isAdmin} flipped={flip} roundIdx={rIdx}
                   liveScores={isMammal ? {} : liveScores}
                   onPick={side => onPick(region, rIdx, gIdx, side)}
-                  onMatchup={(a, b) => { setResearchMatchup({ teamA: a, teamB: b, label: `${regionNames[region] || region} — ${['R64','R32','S16','E8'][rIdx]}`, isMammal }); setTab('research'); setActiveTournament(isMammal ? 'mammals' : 'basketball'); }} />
+                  onMatchup={(a, b) => {
+                    setResearchMatchup({ teamA: a, teamB: b, label: `${regionNames[region] || region} — ${['R64','R32','S16','E8'][rIdx]}`, isMammal });
+                    setTab('research');
+                    setActiveTournament(isMammal ? 'mammals' : 'basketball');
+                  }} />
               </div>
             );
           })}
@@ -1575,6 +1617,7 @@ export default function App() {
       );
     };
 
+    // ── First Four play-in card ───────────────────────────────────────────────
     const FFCard = ({ region, seed, ffTeams, ffKey }) => {
       const isLockd = isLocked && !isAdmin;
       return (
@@ -1604,11 +1647,14 @@ export default function App() {
     const FFCol = ({ regionTop, regionBot }) => {
       const topGames = activeFF.filter(f => f.region === regionTop);
       const botGames = activeFF.filter(f => f.region === regionBot);
+      // FFCol must span both TOP_H + SPINE_H + BOT_H to sit alongside both halves
       return (
         <div style={{ width: CW, flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
           <div style={{ height: TOP_H, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', gap: 8, paddingBottom: 4 }}>
             {topGames.map(g => <FFCard key={g.key} {...g} ffKey={g.key} />)}
           </div>
+          {/* spacer matching spine height so FFCol aligns with both halves */}
+          <div style={{ height: SPINE_H, flexShrink: 0 }} />
           <div style={{ height: BOT_H, display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', gap: 8, paddingTop: 4 }}>
             {botGames.map(g => <FFCard key={g.key} {...g} ffKey={g.key} />)}
           </div>
@@ -1616,6 +1662,7 @@ export default function App() {
       );
     };
 
+    // ── Connector lines ───────────────────────────────────────────────────────
     const DIVS = {
       top: [[34,123,212,301,390,479,568,657],[78.5,256.5,434.5,612.5],[167.5,523.5],[345.5]],
       bot: [[657,568,479,390,301,212,123,34],[612.5,434.5,256.5,78.5],[523.5,167.5],[345.5]],
@@ -1635,8 +1682,8 @@ export default function App() {
           lines.push(<g key={`${rIdx}-${tIdx}`}>
             <line x1={xBound} y1={y1} x2={xV}   y2={y1}   stroke={`url(#${gradId})`} strokeWidth="1.5" />
             <line x1={xBound} y1={y2} x2={xV}   y2={y2}   stroke={`url(#${gradId})`} strokeWidth="1.5" />
-            <line x1={xV}    y1={y1} x2={xV}   y2={y2}   stroke={`url(#${gradId})`} strokeWidth="1.5" />
-            <line x1={xV}    y1={yMid} x2={xTo} y2={yMid} stroke={`url(#${gradId})`} strokeWidth="1.5" />
+            <line x1={xV}     y1={y1} x2={xV}   y2={y2}   stroke={`url(#${gradId})`} strokeWidth="1.5" />
+            <line x1={xV}     y1={yMid} x2={xTo} y2={yMid} stroke={`url(#${gradId})`} strokeWidth="1.5" />
           </g>);
         });
       }
@@ -1653,11 +1700,12 @@ export default function App() {
       );
     };
 
+    // ── Spine cell — 1.5× label font ─────────────────────────────────────────
     const SpineCell = ({ label, sub, color, borderLeft = true }) => (
       <div style={{ width: CW, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderLeft: borderLeft ? '1px solid rgba(255,255,255,0.08)' : 'none', background: 'rgba(255,255,255,0.04)' }}>
         <div style={{ height: SPINE_H, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ fontSize: 20, fontWeight: 800, color, letterSpacing: 1, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{label}</div>
-          {sub && <div style={{ fontSize: 10, color: '#777', fontStyle: 'italic', marginTop: 2 }}>{sub}</div>}
+          <div style={{ fontSize: 30, fontWeight: 800, color, letterSpacing: 1, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{label}</div>
+          {sub && <div style={{ fontSize: 15, color: '#777', fontStyle: 'italic', marginTop: 3 }}>{sub}</div>}
         </div>
       </div>
     );
@@ -1666,22 +1714,57 @@ export default function App() {
     const ff0Label = `Final Four — ${regionNames.East || 'East'} vs ${regionNames.West || 'West'}`;
     const ff1Label = `Final Four — ${regionNames.South || 'South'} vs ${regionNames.Midwest || 'Midwest'}`;
 
+    // ── Layout approach ───────────────────────────────────────────────────────
+    // We lay the bracket out as three stacked rows: TOP_HALF, SPINE, BOT_HALF.
+    // All three rows are plain flow — no negative margins, no overflow tricks.
+    // The FF games and bracket connectors stay WITHIN their own rows.
+    // FF games sit at the very bottom of TOP_HALF and very top of BOT_HALF,
+    // exactly SH (1 unit) away from the spine edge — achieved by adding
+    // FF_GAP + FF_H of padding to those rows.
+    //
+    // The center columns in top/bot are taller to accommodate FF games:
+    //   TOP center column height = TOP_H + FF_GAP + FF_H  (extends below baseline)
+    //   BOT center column height = BOT_H + FF_GAP + FF_H  (extends above baseline)
+    // But the region round columns stay at TOP_H / BOT_H.
+    //
+    // The "extra" space at the bottom of TOP and top of BOT is the FF zone.
+
+    const FF_ZONE = FF_GAP + FF_H; // px reserved at each half edge for FF games
+
+    // Center column heights (includes the FF zone)
+    const TOP_CENTER_H = TOP_H + FF_ZONE;
+    const BOT_CENTER_H = BOT_H + FF_ZONE;
+
     return (
-      <div style={{ width: TOTAL_W, overflow: 'hidden' }}>
-        {/* TOP HALF */}
-        <div style={{ display: 'flex', alignItems: 'flex-end', position: 'relative', overflow: 'hidden' }}>
+      <div style={{ width: TOTAL_W }}>
+
+        {/* ── TOP HALF ── */}
+        {/* alignItems: flex-end so region cols (shorter) align to spine edge,
+            while the taller center placeholder aligns naturally */}
+        <div style={{ display: 'flex', alignItems: 'flex-end', position: 'relative' }}>
           <LabelBox name={regionNames.East || 'East'} color={RC.East} left={(hasLeftFF ? CW : 0) + E8_LEFT} bottom={0} CW={CW} SH={SH} />
           <LabelBox name={regionNames.West || 'West'} color={RC.West} right={(hasRightFF ? CW : 0) + E8_LEFT} bottom={0} CW={CW} SH={SH} />
           {hasLeftFF && <FFCol regionTop="East" regionBot="South" />}
           {[0,1,2,3].map(rIdx => <RoundCol key={rIdx} region="East" rIdx={rIdx} flip={false} dir="top" />)}
-          <div style={{ width: CW * 3, flexShrink: 0, height: TOP_H }} />
+
+          {/* Center placeholder — taller than region cols to make room for FF games above spine */}
+          <div style={{ width: CW * 3, flexShrink: 0, height: TOP_CENTER_H, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'center', paddingBottom: FF_GAP }}>
+            {/* FF game [0] sits SH above the spine — i.e. at the bottom of this column with FF_GAP padding */}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: '#34d399', letterSpacing: 1.5, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{ff0Label}</div>
+              <ScaledGame>
+                <GameSlot game={activeBracket.finalFour?.[0]} onPick={s => onFFPick(0, s)} locked={isLocked && !isAdmin} roundIdx={4} liveScores={isMammal ? {} : liveScores} />
+              </ScaledGame>
+            </div>
+          </div>
+
           {[3,2,1,0].map(rIdx => <RoundCol key={rIdx} region="West" rIdx={rIdx} flip={true} dir="top" />)}
           {hasRightFF && <FFCol regionTop="West" regionBot="Midwest" />}
           <BracketLines xOffset={hasLeftFF ? CW : 0} flip={false} dir="top" />
           <BracketLines xOffset={hasRightFF ? CW : 0} flip={true} dir="top" />
         </div>
 
-        {/* SPINE */}
+        {/* ── SPINE ── */}
         <div style={{ display: 'flex', alignItems: 'stretch', borderTop: '2px solid rgba(255,255,255,0.15)', borderBottom: '2px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.03)' }}>
           {hasLeftFF && <SpineCell label="First Four" sub='"Play-In"' color="#818cf8" borderLeft={false} />}
           <SpineCell label="Round of 64" sub='"First Round"'   color={ROUND_BORDER_COLORS[0]} borderLeft={!hasLeftFF} />
@@ -1689,30 +1772,24 @@ export default function App() {
           <SpineCell label="Sweet 16"    sub='"Sweet Sixteen"' color={ROUND_BORDER_COLORS[2]} />
           <SpineCell label="Elite Eight" sub='"Elite Eight"'   color={ROUND_BORDER_COLORS[3]} />
 
-          {/* Center — Championship */}
-          <div style={{ width: CW * 3, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px 10px', borderLeft: '1px solid rgba(255,255,255,0.08)' }}>
-            <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, padding: '6px 10px', background: champBg, border: `2px solid ${champColor}`, borderRadius: 10, animation: 'champGlow 3s ease-in-out infinite' }}>
-              <div style={{ position: 'absolute', bottom: 'calc(100% + 6px)', left: '50%', transform: 'translateX(-50%)', zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-                <div style={{ fontSize: 10, fontWeight: 800, color: '#34d399', letterSpacing: 1.5, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{ff0Label}</div>
-                <GameSlot game={activeBracket.finalFour?.[0]} onPick={s => onFFPick(0, s)} locked={isLocked && !isAdmin} roundIdx={4} liveScores={isMammal ? {} : liveScores} />
+          {/* Center — Championship box */}
+          <div style={{ width: CW * 3, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '8px 12px', borderLeft: '1px solid rgba(255,255,255,0.08)' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '10px 16px', background: champBg, border: `2px solid ${champColor}`, borderRadius: 12, animation: 'champGlow 3s ease-in-out infinite', minWidth: FF_W + 24 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ fontSize: 18 }} aria-hidden="true">{champEmoji}</span>
+                <span style={{ fontSize: 16, fontWeight: 800, color: champGoldColor, letterSpacing: 1, fontFamily: "'Playfair Display', serif", whiteSpace: 'nowrap' }}>Championship</span>
+                <span style={{ fontSize: 18 }} aria-hidden="true">{champEmoji}</span>
               </div>
-              <div style={{ position: 'absolute', top: 'calc(100% + 6px)', left: '50%', transform: 'translateX(-50%)', zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-                <GameSlot game={activeBracket.finalFour?.[1]} onPick={s => onFFPick(1, s)} locked={isLocked && !isAdmin} roundIdx={4} liveScores={isMammal ? {} : liveScores} />
-                <div style={{ fontSize: 10, fontWeight: 800, color: '#34d399', letterSpacing: 1.5, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{ff1Label}</div>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                <span style={{ fontSize: 14 }} aria-hidden="true">{champEmoji}</span>
-                <span style={{ fontSize: 11, fontWeight: 800, color: champGoldColor, letterSpacing: 1, fontFamily: "'Playfair Display', serif", whiteSpace: 'nowrap' }}>Championship</span>
-                <span style={{ fontSize: 14 }} aria-hidden="true">{champEmoji}</span>
-              </div>
-              <GameSlot game={activeBracket.championship} onPick={onChampPick}
-                locked={isLocked && !isAdmin} isChampionship isHorizontal
-                onScoreChange={isMammal ? undefined : handleChampScore}
-                roundIdx={-1} liveScores={isMammal ? {} : liveScores} />
+              <ScaledGame isHoriz>
+                <GameSlot game={activeBracket.championship} onPick={onChampPick}
+                  locked={isLocked && !isAdmin} isChampionship isHorizontal
+                  onScoreChange={isMammal ? undefined : handleChampScore}
+                  roundIdx={-1} liveScores={isMammal ? {} : liveScores} />
+              </ScaledGame>
               {activeBracket.championship?.winner && (
-                <div style={{ textAlign: 'center', padding: '3px 8px', background: isMammal ? 'rgba(134,239,172,0.15)' : 'rgba(245,158,11,0.18)', borderRadius: 5, border: `1px solid ${isMammal ? 'rgba(134,239,172,0.4)' : 'rgba(245,158,11,0.5)'}` }}>
-                  <div style={{ fontSize: 9, color: champGoldColor, letterSpacing: 1.5 }}>🎉 CHAMPION</div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', fontFamily: "'Playfair Display', serif" }}>{activeBracket.championship.winner.name}</div>
+                <div style={{ textAlign: 'center', padding: '4px 14px', background: isMammal ? 'rgba(134,239,172,0.15)' : 'rgba(245,158,11,0.18)', borderRadius: 6, border: `1px solid ${isMammal ? 'rgba(134,239,172,0.4)' : 'rgba(245,158,11,0.5)'}` }}>
+                  <div style={{ fontSize: 10, color: champGoldColor, letterSpacing: 1.5 }}>🎉 CHAMPION</div>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: '#fff', fontFamily: "'Playfair Display', serif" }}>{activeBracket.championship.winner.name}</div>
                 </div>
               )}
             </div>
@@ -1725,18 +1802,30 @@ export default function App() {
           {hasRightFF && <SpineCell label="First Four" sub='"Play-In"' color="#818cf8" />}
         </div>
 
-        {/* BOTTOM HALF */}
-        <div style={{ display: 'flex', alignItems: 'flex-start', position: 'relative', overflow: 'hidden' }}>
+        {/* ── BOTTOM HALF ── */}
+        {/* alignItems: flex-start so region cols align to spine edge */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', position: 'relative' }}>
           <LabelBox name={regionNames.South || 'South'} color={RC.South} left={(hasLeftFF ? CW : 0) + E8_LEFT} top={0} CW={CW} SH={SH} />
           <LabelBox name={regionNames.Midwest || 'Midwest'} color={RC.Midwest} right={(hasRightFF ? CW : 0) + E8_LEFT} top={0} CW={CW} SH={SH} />
           {hasLeftFF && <FFCol regionTop="East" regionBot="South" />}
           {[0,1,2,3].map(rIdx => <RoundCol key={rIdx} region="South" rIdx={rIdx} flip={false} dir="bot" />)}
-          <div style={{ width: CW * 3, flexShrink: 0, height: BOT_H }} />
+
+          {/* Center placeholder — taller to make room for FF game [1] below spine */}
+          <div style={{ width: CW * 3, flexShrink: 0, height: BOT_CENTER_H, display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'center', paddingTop: FF_GAP }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+              <ScaledGame>
+                <GameSlot game={activeBracket.finalFour?.[1]} onPick={s => onFFPick(1, s)} locked={isLocked && !isAdmin} roundIdx={4} liveScores={isMammal ? {} : liveScores} />
+              </ScaledGame>
+              <div style={{ fontSize: 13, fontWeight: 800, color: '#34d399', letterSpacing: 1.5, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{ff1Label}</div>
+            </div>
+          </div>
+
           {[3,2,1,0].map(rIdx => <RoundCol key={rIdx} region="Midwest" rIdx={rIdx} flip={true} dir="bot" />)}
           {hasRightFF && <FFCol regionTop="West" regionBot="Midwest" />}
           <BracketLines xOffset={hasLeftFF ? CW : 0} flip={false} dir="bot" />
           <BracketLines xOffset={hasRightFF ? CW : 0} flip={true} dir="bot" />
         </div>
+
       </div>
     );
   };
