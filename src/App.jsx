@@ -461,8 +461,6 @@ function MammalResearchCard({ animalName, card, isAdmin, onFieldSave, onGenerate
           <img src={phyloPicUrl} alt={`${animalName} silhouette`}
             onError={() => handleImgError('phylopic')}
             style={{ position: 'absolute', right: 40, top: '50%', transform: 'translateY(-50%)', height: 120, opacity: 0.35, filter: 'brightness(0)', objectFit: 'contain' }} />
-        ) : (
-          <div style={{ position: 'absolute', right: 40, top: '50%', transform: 'translateY(-50%)', fontSize: 80, opacity: 0.2 }}>🦁</div>
         )}
         {/* Wikipedia header image - faded left side */}
         {wikiImageUrl && !imgErrors['wiki-header'] && (
