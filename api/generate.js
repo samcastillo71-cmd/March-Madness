@@ -1,15 +1,16 @@
-// api/generate.js — Vercel serverless proxy for Claude Haiku
-// ANTHROPIC_KEY is set in Vercel environment variables (server-side only).
+// api/generate.js — Vercel serverless proxy for Gemini API
+// GEMINI_KEY is set in Vercel environment variables (server-side only).
+// To switch to Claude: swap this file with the Claude version and set ANTHROPIC_KEY in Vercel.
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const apiKey = process.env.ANTHROPIC_KEY;
+  const apiKey = process.env.GEMINI_KEY;
   if (!apiKey) {
-    console.log('[generate] ERROR: ANTHROPIC_KEY not set');
-    return res.status(500).json({ error: 'ANTHROPIC_KEY not configured on server' });
+    console.log('[generate] ERROR: GEMINI_KEY not set');
+    return res.status(500).json({ error: 'GEMINI_KEY not configured on server' });
   }
 
   // Explicitly parse body — handles both pre-parsed object and raw string
@@ -29,93 +30,71 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Prompt too long' });
   }
 
-  // Try models in order — first available wins
-  const MODELS = [
-    'claude-haiku-4-5-20251001',
-    'claude-haiku-4-5',
-    'claude-3-haiku-20240307',
-  ];
+  console.log('[generate] Calling Gemini 2.0 Flash, prompt length:', prompt.length);
 
-  for (const model of MODELS) {
-    console.log('[generate] Trying model:', model, '| prompt length:', prompt.length);
-
-    let claudeRes;
-    try {
-      claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
+  let geminiRes;
+  try {
+    geminiRes = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+      {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-        },
-        body: JSON.stringify({
-          model,
-          max_tokens: 1024,
-          messages: [{ role: 'user', content: prompt }],
-        }),
-      });
-    } catch (e) {
-      console.log('[generate] Network error:', e.message);
-      return res.status(502).json({ error: 'Failed to reach Anthropic API: ' + e.message });
-    }
-
-    const rawBody = await claudeRes.text();
-    console.log('[generate] Model:', model, '| Status:', claudeRes.status, '| body:', rawBody.slice(0, 500));
-
-    // If model not found, try next
-    if (claudeRes.status === 404) {
-      console.log('[generate] Model not found, trying next...');
-      continue;
-    }
-
-    // If invalid model name specifically, try next
-    if (claudeRes.status === 400) {
-      let errData;
-      try { errData = JSON.parse(rawBody); } catch {}
-      if (errData?.error?.message?.toLowerCase().includes('model')) {
-        console.log('[generate] Model error, trying next...');
-        continue;
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
       }
-      // Other 400 — real error, return it
-      return res.status(400).json({ error: `Claude API error 400: ${rawBody.slice(0, 500)}` });
-    }
-
-    if (claudeRes.status === 429) {
-      const isDaily = rawBody.toLowerCase().includes('daily') || rawBody.toLowerCase().includes('credit');
-      res.status(429);
-      return res.json({
-        error: isDaily
-          ? 'Daily Claude quota reached. Try again tomorrow.'
-          : 'Rate limited — too many requests.',
-      });
-    }
-
-    if (!claudeRes.ok) {
-      return res.status(claudeRes.status).json({
-        error: `Claude API error ${claudeRes.status}: ${rawBody.slice(0, 500)}`,
-      });
-    }
-
-    // Success
-    let data;
-    try { data = JSON.parse(rawBody); }
-    catch {
-      return res.status(502).json({ error: 'Claude returned invalid JSON' });
-    }
-
-    const text = data.content?.[0]?.text || '{}';
-    let parsed;
-    try {
-      parsed = JSON.parse(text.replace(/```json|```/g, '').trim());
-    } catch {
-      console.log('[generate] Failed to parse result as JSON:', text.slice(0, 200));
-      parsed = null;
-    }
-
-    console.log('[generate] Success with model:', model, '| result keys:', parsed ? Object.keys(parsed) : 'null');
-    return res.status(200).json({ result: parsed });
+    );
+  } catch (e) {
+    console.log('[generate] Network error:', e.message);
+    return res.status(502).json({ error: 'Failed to reach Gemini API: ' + e.message });
   }
 
-  // All models failed
-  return res.status(400).json({ error: 'No available Claude model found. Check your API key and account access.' });
+  const rawBody = await geminiRes.text();
+  console.log('[generate] Gemini status:', geminiRes.status, '| body:', rawBody.slice(0, 500));
+
+  if (geminiRes.status === 429) {
+    // Distinguish daily quota (RESOURCE_EXHAUSTED) from per-minute rate limit (RATE_LIMIT_EXCEEDED)
+    const isDaily = rawBody.includes('RESOURCE_EXHAUSTED') ||
+      (rawBody.toLowerCase().includes('quota') && rawBody.toLowerCase().includes('day'));
+    res.status(429);
+    return res.json({
+      error: isDaily
+        ? 'Daily Gemini quota reached. Resets at midnight Pacific. Try again tomorrow.'
+        : 'Rate limited — too many requests.',
+    });
+  }
+
+  if (!geminiRes.ok) {
+    return res.status(geminiRes.status).json({
+      error: `Gemini API error ${geminiRes.status}: ${rawBody.slice(0, 500)}`,
+    });
+  }
+
+  let data;
+  try { data = JSON.parse(rawBody); }
+  catch {
+    console.log('[generate] Failed to parse Gemini response as JSON');
+    return res.status(502).json({ error: 'Gemini returned invalid JSON' });
+  }
+
+  // Extract text from Gemini response
+  const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+
+  // Aggressively clean the response — Gemini sometimes adds text before/after JSON
+  let cleaned = text.replace(/```json/gi, '').replace(/```/g, '').trim();
+  // Find the first { and last } to extract just the JSON object
+  const firstBrace = cleaned.indexOf('{');
+  const lastBrace  = cleaned.lastIndexOf('}');
+  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+    cleaned = cleaned.slice(firstBrace, lastBrace + 1);
+  }
+
+  let parsed;
+  try {
+    parsed = JSON.parse(cleaned);
+  } catch {
+    console.log('[generate] Failed to parse result as JSON:', cleaned.slice(0, 200));
+    parsed = null;
+  }
+
+  console.log('[generate] Success, result keys:', parsed ? Object.keys(parsed) : 'null');
+  return res.status(200).json({ result: parsed });
 }
