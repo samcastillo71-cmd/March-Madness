@@ -1351,12 +1351,12 @@ export default function App() {
       setOfficialBracket(hasRealTeams ? b : null);
       if (isAdmin) {
         setBracket(hasRealTeams ? b : buildInitialBracket());
-        if (hasRealTeams) setFfPlaceholders(extractFFPlaceholders(b));
       } else setBracket(prev => {
         const userHasTeams = ['East','West','South','Midwest'].some(r => prev[r]?.rounds?.[0]?.some(g => g?.top?.name && !g.top.name.startsWith('Seed ')));
-        if (!userHasTeams && hasRealTeams) setFfPlaceholders(extractFFPlaceholders(b));
         return userHasTeams ? prev : (hasRealTeams ? prev : buildInitialBracket());
       });
+      // Only populate ffPlaceholders once — never overwrite once set
+      if (hasRealTeams) setFfPlaceholders(prev => Object.keys(prev).length > 0 ? prev : extractFFPlaceholders(b));
     });
     const u2 = subscribeToConfig(cfg => {
       setLocked(cfg.locked ?? false);
@@ -1371,7 +1371,8 @@ export default function App() {
     const u5 = subscribeToMammalOfficialBracket(b => {
       if (!b) return;
       setMammalOfficialBracket(b);
-      setMammalFfPlaceholders(extractFFPlaceholders(b));
+      // Only populate mammalFfPlaceholders once — never overwrite once set
+      setMammalFfPlaceholders(prev => Object.keys(prev).length > 0 ? prev : extractFFPlaceholders(b));
       if (isAdmin) { setMammalBracket(b); return; }
       setMammalBracket(prev => {
         const officialSample = b['East']?.rounds?.[0]?.[0]?.top?.name;
