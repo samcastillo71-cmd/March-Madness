@@ -330,116 +330,226 @@ function EditableField({ value, onSave, color = '#ccc', large = false, multiline
 
 // ── RESEARCH CARD ─────────────────────────────────────────────────────────────
 function ResearchCard({ teamName, card, isAdmin, onFieldSave }) {
+  const [bannerErr, setBannerErr] = useState(false);
+  const [logoErr,   setLogoErr]   = useState(false);
   if (!card) return (
     <div style={{ ...S.card, display: 'flex', alignItems: 'center', justifyContent: 'center', height: 200, color: '#888' }}>
       No data yet
     </div>
   );
+  const espnId = card.espnId || '';
+  const bannerUrl = espnId ? `https://a.espncdn.com/combiner/i?img=/i/teamlogos/ncaa/500/${espnId}.png&w=900&h=225&scale=crop&location=origin&transparent=false&background=0x1a3a2a` : '';
+  const logoUrl   = espnId ? `https://a.espncdn.com/i/teamlogos/ncaa/500/${espnId}.png` : '';
+
   const field = (path, value, opts = {}) => isAdmin
     ? <EditableField value={value} onSave={v => onFieldSave(teamName, path, v)} label={path} {...opts} />
     : <span style={{ color: opts.color || '#ccc', fontSize: opts.large ? 38 : 13 }}>{value || '-'}</span>;
+
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 28 }}>
-      <div style={S.card}>
-        <h3 style={{ color: ACCENT2, marginBottom: 14, fontFamily: "'Playfair Display', serif" }}>{teamName}</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-          {[['Record','record'],['Rank','rank'],['Coach','coach'],['Conference','conference'],['KenPom','kenpom'],['Offense','offense'],['Defense','defense'],['Pace','pace']].map(([label, key]) => (
-            <div key={key} style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 6, padding: '8px 12px' }}>
-              <div style={S.tag('#555')}>{label}</div>
-              {field(key, card[key], { label })}
+    <div style={{ marginBottom: 28 }}>
+      {/* ── ESPN Banner Header ── */}
+      <div style={{ position: 'relative', height: 140, borderRadius: '12px 12px 0 0', overflow: 'hidden', background: 'linear-gradient(135deg,#0d2818,#1a3a2a)', marginBottom: 0 }}>
+        {bannerUrl && !bannerErr && (
+          <img src={bannerUrl} alt={teamName} onError={() => setBannerErr(true)}
+            style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.4 }} />
+        )}
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.2) 100%)' }} />
+        {/* Logo overlay */}
+        <div style={{ position: 'absolute', bottom: 16, left: 20, display: 'flex', alignItems: 'flex-end', gap: 16 }}>
+          {logoUrl && !logoErr ? (
+            <img src={logoUrl} alt={teamName} onError={() => setLogoErr(true)}
+              style={{ width: 72, height: 72, borderRadius: '50%', background: '#fff', padding: 4, boxShadow: '0 4px 16px rgba(0,0,0,0.5)', objectFit: 'contain' }} />
+          ) : (
+            <div style={{ width: 72, height: 72, borderRadius: '50%', background: 'linear-gradient(135deg,#14532d,#166534)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28, fontWeight: 800, color: '#fff', boxShadow: '0 4px 16px rgba(0,0,0,0.5)' }}>
+              {teamName?.charAt(0) || '?'}
+            </div>
+          )}
+          <div style={{ paddingBottom: 4 }}>
+            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 2 }}>{card.conference || ''} · Seed #{card.rank?.replace(/[^0-9]/g,'') || ''}</div>
+            <h2 style={{ fontFamily: "'Playfair Display', serif", color: '#fff', margin: 0, fontSize: 24, textShadow: '0 2px 8px rgba(0,0,0,0.8)' }}>{teamName}</h2>
+          </div>
+        </div>
+        {/* Record badge */}
+        {card.record && (
+          <div style={{ position: 'absolute', top: 16, right: 16, background: 'rgba(0,0,0,0.6)', borderRadius: 8, padding: '6px 12px', backdropFilter: 'blur(8px)' }}>
+            <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', letterSpacing: 1 }}>RECORD</div>
+            <div style={{ fontSize: 18, fontWeight: 700, color: ACCENT2 }}>{card.record}</div>
+          </div>
+        )}
+      </div>
+
+      {/* ── Stats Grid ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 16 }}>
+        <div style={S.card}>
+          <h3 style={{ color: ACCENT2, marginBottom: 14, fontFamily: "'Playfair Display', serif" }}>Team Stats</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+            {[['Rank','rank'],['Coach','coach'],['Conference','conference'],['KenPom','kenpom'],['Offense','offense'],['Defense','defense'],['Pace','pace']].map(([label, key]) => (
+              <div key={key} style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 6, padding: '8px 12px' }}>
+                <div style={S.tag('#555')}>{label}</div>
+                {field(key, card[key], { label })}
+              </div>
+            ))}
+          </div>
+        </div>
+        <div style={S.card}>
+          <h3 style={{ color: ACCENT2, marginBottom: 12 }}>Key Players</h3>
+          {(card.keyPlayers || []).map((p, i) => (
+            <div key={i} style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 6, padding: '10px 12px', marginBottom: 8 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                {isAdmin ? <EditableField value={p.name} label="player name" onSave={v => onFieldSave(teamName, `keyPlayers.${i}.name`, v)} /> : <span style={{ fontWeight: 700 }}>{p.name}</span>}
+                {isAdmin ? <EditableField value={p.pos} label="position" onSave={v => onFieldSave(teamName, `keyPlayers.${i}.pos`, v)} /> : <span style={{ color: '#999', fontSize: 12 }}>{p.pos}</span>}
+              </div>
+              {isAdmin ? <EditableField value={p.stats} label="stats" onSave={v => onFieldSave(teamName, `keyPlayers.${i}.stats`, v)} /> : <div style={{ fontSize: 13, color: '#999', margin: '3px 0' }}>{p.stats}</div>}
+              {isAdmin ? <EditableField value={p.note} label="note" onSave={v => onFieldSave(teamName, `keyPlayers.${i}.note`, v)} color={ACCENT2} /> : <div style={{ fontSize: 12, color: ACCENT2, fontStyle: 'italic' }}>{p.note}</div>}
+            </div>
+          ))}
+          <div style={{ padding: '10px 12px', background: 'rgba(231,76,60,0.07)', borderRadius: 6, border: '1px solid rgba(231,76,60,0.2)', marginTop: 8 }}>
+            <div style={S.tag('#e74c3c')}>Injury Report</div>
+            {field('injuries', card.injuries, { multiline: true, label: 'injuries' })}
+          </div>
+        </div>
+        <div style={S.card}>
+          <h3 style={{ color: ACCENT2, marginBottom: 12 }}>Scouting Report</h3>
+          {[['Strengths','#22c55e','strengths'],['Weaknesses','#e74c3c','weaknesses'],['Analyst Note',ACCENT2,'analystNote']].map(([label, color, key]) => (
+            <div key={key} style={{ marginBottom: 14 }}>
+              <div style={S.tag(color)}>{label}</div>
+              {field(key, card[key], { color: '#bbb', multiline: true, label })}
             </div>
           ))}
         </div>
-      </div>
-      <div style={S.card}>
-        <h3 style={{ color: ACCENT2, marginBottom: 12 }}>Key Players</h3>
-        {(card.keyPlayers || []).map((p, i) => (
-          <div key={i} style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 6, padding: '10px 12px', marginBottom: 8 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-              {isAdmin ? <EditableField value={p.name} label="player name" onSave={v => onFieldSave(teamName, `keyPlayers.${i}.name`, v)} /> : <span style={{ fontWeight: 700 }}>{p.name}</span>}
-              {isAdmin ? <EditableField value={p.pos} label="position" onSave={v => onFieldSave(teamName, `keyPlayers.${i}.pos`, v)} /> : <span style={{ color: '#999', fontSize: 12 }}>{p.pos}</span>}
-            </div>
-            {isAdmin ? <EditableField value={p.stats} label="stats" onSave={v => onFieldSave(teamName, `keyPlayers.${i}.stats`, v)} /> : <div style={{ fontSize: 13, color: '#999', margin: '3px 0' }}>{p.stats}</div>}
-            {isAdmin ? <EditableField value={p.note} label="note" onSave={v => onFieldSave(teamName, `keyPlayers.${i}.note`, v)} color={ACCENT2} /> : <div style={{ fontSize: 12, color: ACCENT2, fontStyle: 'italic' }}>{p.note}</div>}
+        <div style={S.card}>
+          <h3 style={{ color: ACCENT2, marginBottom: 10 }}>Championship Odds</h3>
+          {field('odds', card.odds, { color: '#22c55e', large: true, label: 'odds' })}
+          <div style={{ fontSize: 13, color: '#777', marginBottom: 16, marginTop: 6 }}>Consensus sportsbook odds to win it all</div>
+          <div style={{ padding: 12, background: 'rgba(22,163,74,0.07)', borderRadius: 8, border: '1px solid rgba(22,163,74,0.18)', fontSize: 13, color: '#aaa', lineHeight: 1.5 }}>
+            Bracket tip: Advancing this team deep rewards strong point upside relative to their championship probability.
           </div>
-        ))}
-        <div style={{ padding: '10px 12px', background: 'rgba(231,76,60,0.07)', borderRadius: 6, border: '1px solid rgba(231,76,60,0.2)', marginTop: 8 }}>
-          <div style={S.tag('#e74c3c')}>Injury Report</div>
-          {field('injuries', card.injuries, { multiline: true, label: 'injuries' })}
+          {isAdmin && <div style={{ marginTop: 12, padding: 10, background: 'rgba(255,255,255,0.03)', borderRadius: 8, fontSize: 12, color: '#777' }}>Click any field above to edit it.</div>}
         </div>
-      </div>
-      <div style={S.card}>
-        <h3 style={{ color: ACCENT2, marginBottom: 12 }}>Scouting Report</h3>
-        {[['Strengths','#22c55e','strengths'],['Weaknesses','#e74c3c','weaknesses'],['Analyst Note',ACCENT2,'analystNote']].map(([label, color, key]) => (
-          <div key={key} style={{ marginBottom: 14 }}>
-            <div style={S.tag(color)}>{label}</div>
-            {field(key, card[key], { color: '#bbb', multiline: true, label })}
-          </div>
-        ))}
-      </div>
-      <div style={S.card}>
-        <h3 style={{ color: ACCENT2, marginBottom: 10 }}>Championship Odds</h3>
-        {field('odds', card.odds, { color: '#22c55e', large: true, label: 'odds' })}
-        <div style={{ fontSize: 13, color: '#777', marginBottom: 16, marginTop: 6 }}>Consensus sportsbook odds to win it all</div>
-        <div style={{ padding: 12, background: 'rgba(22,163,74,0.07)', borderRadius: 8, border: '1px solid rgba(22,163,74,0.18)', fontSize: 13, color: '#aaa', lineHeight: 1.5 }}>
-          Bracket tip: Advancing this team deep rewards strong point upside relative to their championship probability.
-        </div>
-        {isAdmin && <div style={{ marginTop: 12, padding: 10, background: 'rgba(255,255,255,0.03)', borderRadius: 8, fontSize: 12, color: '#777' }}>Click any field above to edit it.</div>}
       </div>
     </div>
   );
 }
 
+// ── REGION BANNER COLORS ─────────────────────────────────────────────────────
+const REGION_BANNER_COLORS = {
+  East:    ['#1e3a5f', '#2563eb'],
+  West:    ['#5f1e1e', '#dc2626'],
+  South:   ['#1e4d2b', '#16a34a'],
+  Midwest: ['#4d3a1e', '#d97706'],
+};
+
 // ── MAMMAL RESEARCH CARD ──────────────────────────────────────────────────────
 function MammalResearchCard({ animalName, card, isAdmin, onFieldSave, onGenerate, generating }) {
+  const [imgErrors, setImgErrors] = useState({});
   const empty = !card || Object.keys(card).length === 0;
+
+  const region = card?.region || 'East';
+  const [bgDark, bgLight] = REGION_BANNER_COLORS[region] || REGION_BANNER_COLORS.East;
+  const galleryImages = card?.galleryImages || [];
+  const phyloPicUrl   = card?.phyloPicUrl   || null;
+  const wikiImageUrl  = card?.wikiImageUrl  || null;
+
+  const handleImgError = (key) => setImgErrors(prev => ({ ...prev, [key]: true }));
+
   return (
-    <div style={{ ...S.card, marginBottom: 20, borderColor: 'rgba(134,239,172,0.2)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
-        <div>
-          <div style={{ fontSize: 11, color: '#86efac', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4, fontWeight: 700 }}>🦁 Animal Profile</div>
-          <h2 style={{ fontFamily: "'Playfair Display', serif", color: '#fff', margin: 0, fontSize: 22 }}>{animalName}</h2>
-        </div>
-        {isAdmin && (
-          <button onClick={() => onGenerate(animalName)} disabled={generating}
-            aria-label={`Generate facts for ${animalName}`}
-            style={{ ...S.btn('#6366f1', '#fff'), padding: '8px 18px', fontSize: 13 }}>
-            {generating ? '⏳ Generating...' : '✨ Generate Facts'}
-          </button>
+    <div style={{ marginBottom: 20 }}>
+      {/* ── Banner: region-colored gradient + PhyloPic silhouette ── */}
+      <div style={{ position: 'relative', height: 160, borderRadius: '12px 12px 0 0', overflow: 'hidden', background: `linear-gradient(135deg, ${bgDark} 0%, ${bgLight} 100%)` }}>
+        {/* PhyloPic silhouette centered */}
+        {phyloPicUrl && !imgErrors['phylopic'] ? (
+          <img src={phyloPicUrl} alt={`${animalName} silhouette`}
+            onError={() => handleImgError('phylopic')}
+            style={{ position: 'absolute', right: 40, top: '50%', transform: 'translateY(-50%)', height: 120, opacity: 0.35, filter: 'brightness(0)', objectFit: 'contain' }} />
+        ) : (
+          <div style={{ position: 'absolute', right: 40, top: '50%', transform: 'translateY(-50%)', fontSize: 80, opacity: 0.2 }}>🦁</div>
         )}
+        {/* Wikipedia header image - faded left side */}
+        {wikiImageUrl && !imgErrors['wiki-header'] && (
+          <img src={wikiImageUrl} alt={animalName}
+            onError={() => handleImgError('wiki-header')}
+            style={{ position: 'absolute', left: 0, top: 0, width: '45%', height: '100%', objectFit: 'cover', opacity: 0.25, maskImage: 'linear-gradient(to right, rgba(0,0,0,0.6), transparent)' }} />
+        )}
+        {/* Overlay gradient */}
+        <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(90deg, rgba(0,0,0,0.5) 0%, transparent 60%)` }} />
+        {/* Text content */}
+        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '16px 20px', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
+          <div>
+            <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.6)', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 4 }}>
+              {region} Region · Seed #{card?.seed || ''}
+            </div>
+            <h2 style={{ fontFamily: "'Playfair Display', serif", color: '#fff', margin: 0, fontSize: 26, textShadow: '0 2px 8px rgba(0,0,0,0.8)', lineHeight: 1.1 }}>{animalName}</h2>
+            {card?.latinName && (
+              <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.65)', fontStyle: 'italic', marginTop: 3 }}>{card.latinName}</div>
+            )}
+          </div>
+          {isAdmin && (
+            <button onClick={() => onGenerate(animalName)} disabled={generating}
+              aria-label={`Generate facts for ${animalName}`}
+              style={{ ...S.btn('#6366f1', '#fff'), padding: '7px 16px', fontSize: 12, flexShrink: 0 }}>
+              {generating ? '⏳ Generating...' : '✨ Regenerate'}
+            </button>
+          )}
+        </div>
       </div>
+
+      {/* ── Content ── */}
       {empty ? (
-        <div style={{ color: '#666', fontSize: 14, fontStyle: 'italic' }}>
-          {isAdmin ? 'No data yet — click "Generate Facts" to auto-populate.' : 'Animal facts coming soon!'}
+        <div style={{ ...S.card, borderRadius: '0 0 12px 12px', borderTop: 'none', color: '#666', fontSize: 14, fontStyle: 'italic', textAlign: 'center', padding: 32 }}>
+          {isAdmin ? 'No data yet — click "Generate Facts" to auto-populate.' : 'Organism facts coming soon!'}
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-          {[['🌍 Habitat','habitat'],['🍖 Diet & Hunting','diet'],['⚡ Superpower','superpower'],['⚔️ Battle Strength','battleStrength']].map(([label, fld]) => (
-            <div key={fld} style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 8, padding: 14, border: '1px solid rgba(255,255,255,0.07)' }}>
-              <div style={{ fontSize: 11, color: '#86efac', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 6, fontWeight: 700 }}>{label}</div>
-              {isAdmin && onFieldSave
-                ? <EditableField value={card[fld]} label={fld} onSave={v => onFieldSave(animalName, fld, v)} color="#ccc" multiline />
-                : <div style={{ fontSize: 14, color: '#ccc', lineHeight: 1.6 }}>{card[fld] || '—'}</div>}
+        <div style={{ ...S.card, borderRadius: '0 0 12px 12px', borderTop: 'none', borderColor: `${bgLight}44` }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            {/* Info boxes */}
+            {[['Habitat','habitat'],['Diet & Hunting','diet'],['Superpower','superpower'],['Battle Strength','battleStrength']].map(([label, fld]) => (
+              <div key={fld} style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 8, padding: 14, border: '1px solid rgba(255,255,255,0.07)' }}>
+                <div style={{ fontSize: 11, color: bgLight, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 6, fontWeight: 700 }}>{label}</div>
+                {isAdmin && onFieldSave
+                  ? <EditableField value={card[fld]} label={fld} onSave={v => onFieldSave(animalName, fld, v)} color="#ccc" multiline />
+                  : <div style={{ fontSize: 14, color: '#ccc', lineHeight: 1.6 }}>{card[fld] || '—'}</div>}
+              </div>
+            ))}
+
+            {/* Image Gallery */}
+            {galleryImages.length > 0 && (
+              <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 8, padding: 14, border: '1px solid rgba(255,255,255,0.07)', gridColumn: '1 / -1' }}>
+                <div style={{ fontSize: 11, color: bgLight, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 10, fontWeight: 700 }}>Photo Gallery</div>
+                <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 8 }}>
+                  {galleryImages.map((img, i) => !imgErrors[`gallery-${i}`] && (
+                    <div key={i} style={{ flexShrink: 0, textAlign: 'center' }}>
+                      <img src={img.url} alt={`${animalName} - ${img.source}`}
+                        onError={() => handleImgError(`gallery-${i}`)}
+                        style={{ height: 160, width: 200, objectFit: 'cover', borderRadius: 8, display: 'block' }} />
+                      <div style={{ fontSize: 10, color: '#666', marginTop: 4 }}>{img.source}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Fun Facts */}
+            <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 8, padding: 14, border: '1px solid rgba(255,255,255,0.07)', gridColumn: '1 / -1' }}>
+              <div style={{ fontSize: 11, color: bgLight, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 10, fontWeight: 700 }}>Fun Facts</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {(card.funFacts || []).map((fact, i) => (
+                  <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                    <span style={{ color: bgLight, fontWeight: 700, flexShrink: 0 }}>{i+1}.</span>
+                    <span style={{ fontSize: 14, color: '#ccc', lineHeight: 1.6 }}>{fact}</span>
+                  </div>
+                ))}
+              </div>
             </div>
-          ))}
-          <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 8, padding: 14, border: '1px solid rgba(255,255,255,0.07)', gridColumn: '1 / -1' }}>
-            <div style={{ fontSize: 11, color: '#86efac', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 10, fontWeight: 700 }}>🌟 Fun Facts</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {(card.funFacts || []).map((fact, i) => (
-                <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-                  <span style={{ color: '#86efac', fontWeight: 700, flexShrink: 0 }}>{i+1}.</span>
-                  <span style={{ fontSize: 14, color: '#ccc', lineHeight: 1.6 }}>{fact}</span>
+
+            {/* Stats row */}
+            <div style={{ display: 'flex', gap: 12, gridColumn: '1 / -1', flexWrap: 'wrap' }}>
+              {[['Size', card.size], ['Lifespan', card.lifespan], ['Speed', card.speed]].map(([label, val]) => val && (
+                <div key={label} style={{ background: `${bgLight}15`, borderRadius: 8, padding: '10px 16px', border: `1px solid ${bgLight}33`, flex: 1, minWidth: 100 }}>
+                  <div style={{ fontSize: 11, color: bgLight, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4, fontWeight: 700 }}>{label}</div>
+                  <div style={{ fontSize: 14, color: '#ccc' }}>{val}</div>
                 </div>
               ))}
             </div>
-          </div>
-          <div style={{ display: 'flex', gap: 16, gridColumn: '1 / -1', flexWrap: 'wrap' }}>
-            {[['📏 Size', card.size], ['⏳ Lifespan', card.lifespan], ['💨 Speed', card.speed]].map(([label, val]) => val && (
-              <div key={label} style={{ background: 'rgba(134,239,172,0.06)', borderRadius: 8, padding: '10px 16px', border: '1px solid rgba(134,239,172,0.15)' }}>
-                <div style={{ fontSize: 11, color: '#86efac', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4, fontWeight: 700 }}>{label}</div>
-                <div style={{ fontSize: 14, color: '#ccc' }}>{val}</div>
-              </div>
-            ))}
           </div>
         </div>
       )}
@@ -525,7 +635,7 @@ async function importFromESPN() {
 // Calls /api/generate (serverless function) so the API key never hits the browser.
 // Retries indefinitely on per-minute rate limits with progressive backoff.
 // Only throws on daily quota exhaustion or unrecoverable errors.
-async function callAI(prompt) {
+async function callAI(prompt, _sources = []) {
   const BACKOFF_MS = [60000, 90000, 120000]; // 1min, 1.5min, 2min progressive
   let rateLimitAttempt = 0;
   while (true) {
@@ -534,7 +644,7 @@ async function callAI(prompt) {
       res = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt }),
+        body: JSON.stringify({ prompt, sources: _sources }),
       });
     } catch (e) {
       console.warn('Network error calling /api/generate, retrying in 15s:', e.message);
@@ -569,26 +679,27 @@ async function callAI(prompt) {
   }
 }
 
-async function generateResearchForTeam(teamName, seed, region) {
+async function generateResearchForTeam(teamName, seed, region, espnId, sources = []) {
   const prompt = `You are writing a basketball team scouting report for middle school students (grades 6-8) for the ${new Date().getFullYear()} NCAA Tournament.
 Write about: ${teamName} (${region} Region, Seed #${seed})
 Use simple, clear language that a 12-14 year old can easily understand. Avoid jargon — if you use a basketball term, briefly explain it.
 Return ONLY valid JSON, no markdown, no explanation. Use this exact structure:
-{"record":"W-L","rank":"#N AP or Unranked","coach":"Coach Name","conference":"Conference Name","kenpom":"#N","offense":"NNN.N","defense":"NN.N","pace":"NN.N","keyPlayers":[{"name":"Player Name","pos":"G/F/C","stats":"XX.X PPG / X.X RPG","note":"simple 1-sentence note a student would understand"},{"name":"Player Name","pos":"G/F/C","stats":"XX.X PPG / X.X RPG","note":"simple 1-sentence note a student would understand"}],"injuries":"injury status or None reported","odds":"+XXXX or N/A","strengths":"2-3 sentences explaining what this team does well, written for a middle schooler","weaknesses":"2-3 sentences explaining where this team struggles, written for a middle schooler","analystNote":"1-2 sentences on why this team could surprise people in the tournament"}`;
-  return callAI(prompt);
+{"record":"W-L","rank":"#N AP or Unranked","coach":"Coach Name","conference":"Conference Name","kenpom":"#N","offense":"NNN.N","defense":"NN.N","pace":"NN.N","keyPlayers":[{"name":"Player Name","pos":"G/F/C","stats":"XX.X PPG / X.X RPG","note":"simple 1-sentence note a student would understand"},{"name":"Player Name","pos":"G/F/C","stats":"XX.X PPG / X.X RPG","note":"simple 1-sentence note a student would understand"}],"injuries":"injury status or None reported","odds":"+XXXX or N/A","strengths":"2-3 sentences explaining what this team does well, written for a middle schooler","weaknesses":"2-3 sentences explaining where this team struggles, written for a middle schooler","analystNote":"1-2 sentences on why this team could surprise people in the tournament","espnId":"${espnId || ''}"}`;
+  return callAI(prompt, sources);
 }
 
-async function generateMammalResearch(animalName, seed, region) {
-  const prompt = `You are a nature educator writing animal profiles for middle school students (grades 6-8).
+async function generateMammalResearch(animalName, seed, region, sources = []) {
+  const prompt = `You are a nature educator writing organism profiles for middle school students (grades 6-8).
 Generate a fun, age-appropriate JSON profile for: ${animalName} (${region} Region, Seed #${seed}) competing in March Mammal Madness.
+IMPORTANT: First identify the Latin (scientific) name for ${animalName}. If the provided source materials contain a Latin name for this organism, use that exact Latin name. Otherwise determine it from your knowledge.
 Return ONLY valid JSON, no markdown, no explanation. Use this exact structure:
-{"habitat":"2-3 sentence description of where this animal lives","diet":"2-3 sentences on what it eats and how it hunts or forages","funFacts":["interesting fact 1","interesting fact 2","interesting fact 3"],"size":"weight and length/height","lifespan":"X-Y years","speed":"top speed if known, or movement description","superpower":"1 sentence on this animal's most impressive ability or adaptation","battleStrength":"1-2 sentence fun assessment of how this animal would do in a bracket battle and why"}
+{"latinName":"Genus species","habitat":"2-3 sentence description of where this organism lives","diet":"2-3 sentences on what it eats and how it hunts or forages","funFacts":["interesting fact 1","interesting fact 2","interesting fact 3"],"size":"weight and length/height","lifespan":"X-Y years","speed":"top speed if known, or movement description","superpower":"1 sentence on this organism's most impressive ability or adaptation","battleStrength":"1-2 sentence fun assessment of how this organism would do in a bracket battle and why"}
 Keep all language at a middle school reading level. Make it engaging and educational. No graphic violence descriptions.`;
-  return callAI(prompt);
+  return callAI(prompt, sources);
 }
 
 // ── ADMIN TEAM ENTRY PANEL ────────────────────────────────────────────────────
-function TeamEntryPanel({ onTeamsSaved, onRequestGenerateResearch, regionNames, onRegionNamesChange }) {
+function TeamEntryPanel({ onTeamsSaved, onRequestGenerateResearch, regionNames, onRegionNamesChange, sourcesData, onSaveSources }) {
   const [roster,       setRoster]       = useState(makePlaceholderRoster());
   const [activeRegion, setActiveRegion] = useState('East');
   const [saving,       setSaving]       = useState(false);
@@ -718,6 +829,7 @@ function TeamEntryPanel({ onTeamsSaved, onRequestGenerateResearch, regionNames, 
           </div>
         ))}
       </div>
+      {onSaveSources && <SourcesPanel sources={sourcesData} onChange={onSaveSources} label="Basketball" />}
       <div style={{ display: 'flex', gap: 4, marginBottom: 16 }}>
         {['East','West','South','Midwest'].map(r => (
           <button key={r} style={{ ...S.navBtn(activeRegion === r), borderBottom: activeRegion === r ? `2px solid ${RC[r]}` : '2px solid transparent', borderRadius: '6px 6px 0 0', padding: '8px 18px' }} onClick={() => setActiveRegion(r)}>
@@ -764,7 +876,7 @@ function TeamEntryPanel({ onTeamsSaved, onRequestGenerateResearch, regionNames, 
 }
 
 // ── MAMMAL TEAM ENTRY PANEL ───────────────────────────────────────────────────
-function MammalEntryPanel({ onAnimalsSaved, onRequestGenerateMammalResearch, regionNames, onRegionNamesChange }) {
+function MammalEntryPanel({ onAnimalsSaved, onRequestGenerateMammalResearch, regionNames, onRegionNamesChange, sourcesData, onSaveSources }) {
   const [roster,       setRoster]   = useState({ East: Array(16).fill(null).map((_,i) => ({ seed:i+1, name:'', firstFour:false })), West: Array(16).fill(null).map((_,i) => ({ seed:i+1, name:'', firstFour:false })), South: Array(16).fill(null).map((_,i) => ({ seed:i+1, name:'', firstFour:false })), Midwest: Array(16).fill(null).map((_,i) => ({ seed:i+1, name:'', firstFour:false })) });
   const [activeRegion, setActiveRegion] = useState('East');
   const [saving,   setSaving]   = useState(false);
@@ -833,6 +945,7 @@ function MammalEntryPanel({ onAnimalsSaved, onRequestGenerateMammalResearch, reg
           </div>
         </div>
       </div>
+      {onSaveSources && <SourcesPanel sources={sourcesData} onChange={onSaveSources} label="Mammal Madness" />}
       <div style={{ display: 'flex', gap: 4, marginBottom: 16 }}>
         {['East','West','South','Midwest'].map(r => (
           <button key={r} style={{ ...S.navBtn(activeRegion === r), borderBottom: activeRegion === r ? `2px solid ${RC[r]}` : '2px solid transparent', borderRadius: '6px 6px 0 0', padding: '8px 18px' }} onClick={() => setActiveRegion(r)}>
@@ -861,6 +974,61 @@ function MammalEntryPanel({ onAnimalsSaved, onRequestGenerateMammalResearch, reg
         style={{ ...S.btn('rgba(99,102,241,0.2)', '#818cf8'), padding: '7px 16px', fontSize: 12, border: '1px solid rgba(99,102,241,0.3)', marginTop: 12 }}>
         + Add FF Slot
       </button>
+    </div>
+  );
+}
+
+// ── SOURCES PANEL ────────────────────────────────────────────────────────────
+function SourcesPanel({ sources, onChange, label }) {
+  const [newUrl,  setNewUrl]  = useState('');
+  const [newName, setNewName] = useState('');
+
+  const add = () => {
+    if (!newUrl.trim()) return;
+    onChange([...sources, { url: newUrl.trim(), name: newName.trim() || newUrl.trim(), primary: true }]);
+    setNewUrl(''); setNewName('');
+  };
+
+  const remove  = (i) => onChange(sources.filter((_, idx) => idx !== i));
+  const toggle  = (i) => onChange(sources.map((s, idx) => idx === i ? { ...s, primary: !s.primary } : s));
+
+  return (
+    <div style={{ ...S.card, marginBottom: 16, borderColor: 'rgba(99,102,241,0.25)' }}>
+      <h3 style={{ color: '#a5b4fc', marginBottom: 4, fontSize: 15 }}>📎 Research Sources — {label}</h3>
+      <p style={{ color: '#777', fontSize: 12, marginBottom: 14 }}>
+        URLs the AI will read before generating research. Primary sources are prioritized. Secondary sources are used as supplementary context.
+      </p>
+      {sources.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 14 }}>
+          {sources.map((s, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.03)', borderRadius: 8, padding: '8px 12px', border: '1px solid rgba(255,255,255,0.07)' }}>
+              <button onClick={() => toggle(i)}
+                style={{ ...S.btn(s.primary ? '#6366f1' : 'rgba(255,255,255,0.08)', s.primary ? '#fff' : '#888'), padding: '3px 10px', fontSize: 10, flexShrink: 0 }}>
+                {s.primary ? 'PRIMARY' : 'SECONDARY'}
+              </button>
+              <span style={{ flex: 1, fontSize: 12, color: '#aaa', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={s.url}>
+                <span style={{ color: '#fff', fontWeight: 600, marginRight: 6 }}>{s.name}</span>
+                <span style={{ color: '#555' }}>{s.url}</span>
+              </span>
+              <button onClick={() => remove(i)}
+                style={{ background: 'none', border: 'none', color: '#666', cursor: 'pointer', fontSize: 16, padding: '0 4px', flexShrink: 0 }}
+                aria-label={`Remove ${s.name}`}>×</button>
+            </div>
+          ))}
+        </div>
+      )}
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <input placeholder="Source name (e.g. MMM 2025 Slideshow)" value={newName}
+          onChange={e => setNewName(e.target.value)}
+          style={{ ...S.input, flex: 1, minWidth: 160, padding: '7px 12px', fontSize: 12 }} />
+        <input placeholder="URL" value={newUrl}
+          onChange={e => setNewUrl(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') add(); }}
+          style={{ ...S.input, flex: 2, minWidth: 200, padding: '7px 12px', fontSize: 12 }} />
+        <button style={{ ...S.btn('#6366f1', '#fff'), padding: '7px 16px', fontSize: 12, flexShrink: 0 }} onClick={add}>
+          + Add Source
+        </button>
+      </div>
     </div>
   );
 }
@@ -912,6 +1080,9 @@ export default function App() {
   const [confirmDialog,    setConfirmDialog]   = useState(null); // { message, onConfirm }
   // Basketball region names (customizable)
   const [bbRegionNames,    setBbRegionNames]   = useState({ East: 'East', West: 'West', South: 'South', Midwest: 'Midwest' });
+  // Research sources (URLs for AI to consult during generation)
+  const [bbSources,        setBbSources]       = useState([]);
+  const [mammalSources,    setMammalSources]   = useState([]);
 
   // Mammal state
   const [mammalBracket,         setMammalBracket]         = useState(() => buildInitialBracketFromTeams(makePlaceholderMammalRoster()));
@@ -982,7 +1153,7 @@ export default function App() {
     return list;
   }, [mammalBracket, mammalOfficialBracket, isAdmin]);
 
-  // ── LOAD YEAR ─────────────────────────────────────────────────────────────
+  // ── LOAD YEAR + SOURCES ──────────────────────────────────────────────────
   useEffect(() => {
     (async () => {
       try {
@@ -992,6 +1163,14 @@ export default function App() {
           if (d.year) { setTournamentYear(d.year); setYearDraft(String(d.year)); }
           if (d.bbRegionNames) setBbRegionNames(d.bbRegionNames);
         }
+      } catch {}
+      try {
+        const bbSnap = await getDoc(doc(db, 'admin', 'bbSources'));
+        if (bbSnap.exists() && bbSnap.data().sources) setBbSources(bbSnap.data().sources);
+      } catch {}
+      try {
+        const mmSnap = await getDoc(doc(db, 'admin', 'mammalSources'));
+        if (mmSnap.exists() && mmSnap.data().sources) setMammalSources(mmSnap.data().sources);
       } catch {}
     })();
   }, []);
@@ -1407,6 +1586,19 @@ export default function App() {
     catch (e) { console.warn('Failed to save bb region names:', e); }
   };
 
+  // ── SAVE SOURCES ──────────────────────────────────────────────────────────
+  const handleSaveBbSources = useCallback(async (sources) => {
+    setBbSources(sources);
+    try { await setDoc(doc(db, 'admin', 'bbSources'), { sources }); }
+    catch (e) { console.warn('Failed to save bb sources:', e); }
+  }, []);
+
+  const handleSaveMammalSources = useCallback(async (sources) => {
+    setMammalSources(sources);
+    try { await setDoc(doc(db, 'admin', 'mammalSources'), { sources }); }
+    catch (e) { console.warn('Failed to save mammal sources:', e); }
+  }, []);
+
   // ── FIRESTORE SAVE WITH RETRY (handles ad blocker / network blips) ──────────
   const saveWithRetry = useCallback(async (saveFn, data, label) => {
     for (let attempt = 0; attempt < 4; attempt++) {
@@ -1439,7 +1631,8 @@ export default function App() {
       const { name, seed, region } = teams[i];
       setGenProgress({ done: i, total: teams.length, current: name });
       try {
-        const card = await generateResearchForTeam(name, seed, region);
+        const espnId = (roster[region] || []).find(t => t.name === name)?.espnId || '';
+        const card = await generateResearchForTeam(name, seed, region, espnId, bbSources);
         if (card) {
           allData[name] = { ...card, seed, region };
           await saveWithRetry(saveResearchData, allData, name);
@@ -1458,7 +1651,7 @@ export default function App() {
     setGenProgress(prev => ({ ...prev, done: teams.length, current: '' }));
     setGenerating(false);
     if (Object.keys(allData).length > 0) setSelectedTeam(Object.keys(allData)[0]);
-  }, [saveWithRetry]);
+  }, [saveWithRetry, bbSources]);
 
   // ── GENERATE MAMMAL RESEARCH (per region or all) ────────────────────────
   const handleGenerateMammalResearch = useCallback(async (roster, onlyRegion) => {
@@ -1479,7 +1672,7 @@ export default function App() {
       const { name, seed, region } = animals[i];
       setMammalGenProgress({ done: i, total: animals.length, current: name });
       try {
-        const card = await generateMammalResearch(name, seed, region);
+        const card = await generateMammalResearch(name, seed, region, mammalSources);
         if (card) {
           allData[name] = { ...card, seed, region };
           await saveWithRetry(saveMammalResearchData, allData, name);
@@ -1498,7 +1691,7 @@ export default function App() {
     setMammalGenProgress(prev => ({ ...prev, done: animals.length, current: '' }));
     setMammalGenerating(false);
     if (Object.keys(allData).length > 0) { setMammalSelectedAnimal(Object.keys(allData)[0]); setTab('research'); setActiveTournament('mammals'); }
-  }, [saveWithRetry]);
+  }, [saveWithRetry, mammalSources]);
 
   // ── GENERATE ONE MAMMAL ───────────────────────────────────────────────────
   const handleGenerateOneMammal = useCallback(async (animalName) => {
@@ -2440,6 +2633,8 @@ export default function App() {
                   onRequestGenerateResearch={handleGenerateResearch}
                   regionNames={bbRegionNames}
                   onRegionNamesChange={handleSaveBbRegionNames}
+                  sourcesData={bbSources}
+                  onSaveSources={handleSaveBbSources}
                 />
               )}
 
@@ -2475,6 +2670,8 @@ export default function App() {
                     onRequestGenerateMammalResearch={handleGenerateMammalResearch}
                     regionNames={mammalRegionNames}
                     onRegionNamesChange={setMammalRegionNames}
+                    sourcesData={mammalSources}
+                    onSaveSources={handleSaveMammalSources}
                   />
                 </>
               )}
