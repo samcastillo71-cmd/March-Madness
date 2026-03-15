@@ -1114,6 +1114,35 @@ function ConfirmDialog({ message, onConfirm, onCancel }) {
   );
 }
 
+// ── APPLY FIRST FOUR PICKS TO BRACKET ────────────────────────────────────────
+// After loading a saved bracket + firstFourPicks from Firestore, the placeholder
+// slots in R64 still show "First Four Winner". This function re-applies the picks.
+function applyFirstFourPicks(bracket, picks) {
+  if (!picks || Object.keys(picks).length === 0) return bracket;
+  const next = JSON.parse(JSON.stringify(bracket));
+  Object.entries(picks).forEach(([key, winnerName]) => {
+    // key format: "Region-seed" e.g. "East-11"
+    const parts = key.split('-');
+    const region = parts[0];
+    const seed = parseInt(parts[1]);
+    if (!region || !seed) return;
+    const r64 = next[region]?.rounds?.[0];
+    if (!r64) return;
+    r64.forEach(game => {
+      // Find the placeholder slot for this seed
+      ['top', 'bottom'].forEach(side => {
+        const slot = game[side];
+        if (slot?.isFFPlaceholder && Number(slot.seed) === seed) {
+          // Find the winning team from ffTeams
+          const winner = slot.ffTeams?.find(t => t.name === winnerName);
+          if (winner) game[side] = { ...winner, isFFPlaceholder: false };
+        }
+      });
+    });
+  });
+  return next;
+}
+
 // ── MAIN APP ──────────────────────────────────────────────────────────────────
 export default function App() {
   // ── STATE ──────────────────────────────────────────────────────────────────
@@ -1258,8 +1287,11 @@ export default function App() {
       try {
         const saved = await loadBracket(fbUser.uid);
         if (saved) {
-          if (saved._firstFourPicks) { setFirstFourPicks(saved._firstFourPicks); const { _firstFourPicks, ...b } = saved; setBracket(b); }
-          else setBracket(saved);
+          if (saved._firstFourPicks) {
+            const { _firstFourPicks, ...b } = saved;
+            setFirstFourPicks(_firstFourPicks);
+            setBracket(applyFirstFourPicks(b, _firstFourPicks));
+          } else setBracket(saved);
         }
       } catch (e) { console.warn('Failed to load bracket:', e); }
 
@@ -1279,14 +1311,20 @@ export default function App() {
           const savedMammal = await loadMammalBracket(fbUser.uid).catch(() => null);
           const userSample = savedMammal?.['East']?.rounds?.[0]?.[0]?.top?.name;
           if (savedMammal && (!obSample || userSample === obSample)) {
-            if (savedMammal._firstFourPicks) { setMammalFirstFourPicks(savedMammal._firstFourPicks); const { _firstFourPicks, ...b } = savedMammal; setMammalBracket(b); }
-            else setMammalBracket(savedMammal);
+            if (savedMammal._firstFourPicks) {
+              const { _firstFourPicks, ...b } = savedMammal;
+              setMammalFirstFourPicks(_firstFourPicks);
+              setMammalBracket(applyFirstFourPicks(b, _firstFourPicks));
+            } else setMammalBracket(savedMammal);
           } else { setMammalBracket(ob); }
         } else {
           const savedMammal = await loadMammalBracket(fbUser.uid).catch(() => null);
           if (savedMammal) {
-            if (savedMammal._firstFourPicks) { setMammalFirstFourPicks(savedMammal._firstFourPicks); const { _firstFourPicks, ...b } = savedMammal; setMammalBracket(b); }
-            else setMammalBracket(savedMammal);
+            if (savedMammal._firstFourPicks) {
+              const { _firstFourPicks, ...b } = savedMammal;
+              setMammalFirstFourPicks(_firstFourPicks);
+              setMammalBracket(applyFirstFourPicks(b, _firstFourPicks));
+            } else setMammalBracket(savedMammal);
           }
         }
       } catch (e) { console.warn('[MMM] error loading:', e); }
