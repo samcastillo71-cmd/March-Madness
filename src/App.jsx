@@ -79,13 +79,28 @@ import { Component } from 'react';
 class ErrorBoundary extends Component {
   constructor(props) { super(props); this.state = { error: null }; }
   static getDerivedStateFromError(error) { return { error }; }
+  componentDidCatch(error, info) { console.error('[ErrorBoundary]', error, info); }
   render() {
     if (this.state.error) return (
-      <div style={{ padding: 40, textAlign: 'center', color: '#f87171' }}>
-        <div style={{ fontSize: 32, marginBottom: 12 }}>⚠️</div>
-        <div style={{ fontSize: 16, marginBottom: 8 }}>Something went wrong</div>
-        <div style={{ fontSize: 12, color: '#666', marginBottom: 16 }}>{this.state.error?.message}</div>
-        <button style={S.btn()} onClick={() => this.setState({ error: null })}>Try Again</button>
+      <div style={{ minHeight: '100vh', background: '#0a0a0a', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 40 }}>
+        <div style={{ textAlign: 'center', maxWidth: 420 }}>
+          <div style={{ fontSize: 48, marginBottom: 16 }}>🏀</div>
+          <h2 style={{ color: '#f87171', fontFamily: "'Playfair Display', serif", marginBottom: 8 }}>Something went wrong</h2>
+          <p style={{ color: '#888', fontSize: 14, lineHeight: 1.6, marginBottom: 24 }}>
+            Don't worry — your bracket picks are saved. Try reloading the page. If the problem keeps happening, let your teacher know.
+          </p>
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+            <button style={{ background: '#16a34a', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 24px', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}
+              onClick={() => window.location.reload()}>
+              Reload Page
+            </button>
+            <button style={{ background: 'rgba(255,255,255,0.07)', color: '#888', border: 'none', borderRadius: 8, padding: '10px 24px', fontSize: 14, cursor: 'pointer', fontFamily: 'inherit' }}
+              onClick={() => this.setState({ error: null })}>
+              Try Again
+            </button>
+          </div>
+          <div style={{ marginTop: 16, fontSize: 11, color: '#333' }}>{this.state.error?.message}</div>
+        </div>
       </div>
     );
     return this.props.children;
@@ -1508,12 +1523,12 @@ export default function App() {
       if (hasRealTeams) setFfPlaceholders(prev => Object.keys(prev).length > 0 ? prev : extractFFPlaceholders(b));
       // Detect roster mismatch for non-admin users
       if (!isAdmin && hasRealTeams) {
+        const officialTeams = new Set(['East','West','South','Midwest'].flatMap(r => b[r]?.rounds?.[0]?.map(g => [g.top?.name, g.bottom?.name]).flat().filter(Boolean) || []));
         setBracket(prev => {
-          const officialTeams = new Set(['East','West','South','Midwest'].flatMap(r => b[r]?.rounds?.[0]?.map(g => [g.top?.name, g.bottom?.name]).flat().filter(Boolean) || []));
           const userTeams = new Set(['East','West','South','Midwest'].flatMap(r => prev[r]?.rounds?.[0]?.map(g => [g.top?.name, g.bottom?.name]).flat().filter(n => n && !n.startsWith('Seed ') && n !== 'First Four Winner') || []));
           if (userTeams.size > 0 && officialTeams.size > 0) {
             const hasMismatch = [...userTeams].some(t => !officialTeams.has(t));
-            if (hasMismatch) setRosterMismatch(true);
+            if (hasMismatch) setTimeout(() => setRosterMismatch(true), 0);
           }
           return prev;
         });
@@ -1543,7 +1558,7 @@ export default function App() {
         const userTeams = new Set(['East','West','South','Midwest'].flatMap(r => prev[r]?.rounds?.[0]?.map(g => [g.top?.name, g.bottom?.name]).flat().filter(n => n && !n.startsWith('Seed ') && n !== 'First Four Winner') || []));
         if (userTeams.size > 0 && officialTeams.size > 0) {
           const hasMismatch = [...userTeams].some(t => !officialTeams.has(t));
-          if (hasMismatch) setMammalRosterMismatch(true);
+          if (hasMismatch) setTimeout(() => setMammalRosterMismatch(true), 0);
         }
         return (userSample && officialSample && userSample === officialSample) ? prev : b;
       });
@@ -1603,7 +1618,9 @@ export default function App() {
       setSaving(true);
       try {
         await saveBracket(user.uid, { ...bracket, _firstFourPicks: firstFourPicks }, user.displayName, user.photoURL);
-        await updateLeaderboardEntry(user.uid, user.displayName, user.photoURL, score, isTeacher);
+        // Only update leaderboard if user has made at least one pick
+        const hasPicks = ['East','West','South','Midwest'].some(r => bracket[r]?.rounds?.[0]?.some(g => g.winner));
+        if (hasPicks) await updateLeaderboardEntry(user.uid, user.displayName, user.photoURL, score, isTeacher);
         setLastSaved(new Date());
       } catch (e) { console.warn('Save failed:', e); }
       setSaving(false);
@@ -1623,7 +1640,8 @@ export default function App() {
     mammalSaveTimer.current = setTimeout(async () => {
       try {
         await saveMammalBracket(user.uid, { ...mammalBracket, _firstFourPicks: mammalFirstFourPicks }, user.displayName, user.photoURL);
-        await updateMammalLeaderboardEntry(user.uid, user.displayName, user.photoURL, mammalScore, isTeacher);
+        const hasMammalPicks = ['East','West','South','Midwest'].some(r => mammalBracket[r]?.rounds?.[0]?.some(g => g.winner));
+        if (hasMammalPicks) await updateMammalLeaderboardEntry(user.uid, user.displayName, user.photoURL, mammalScore, isTeacher);
         setMammalLastSaved(new Date());
       } catch (e) { console.warn('Mammal save failed:', e); }
     }, 3000);
@@ -1878,12 +1896,21 @@ export default function App() {
       message: `Are you sure you want to clear all your ${isMammal ? 'Mammal Madness' : 'basketball'} picks? This cannot be undone.`,
       onConfirm: async () => {
         setConfirmDialog(null);
+        const stripWinners = (b) => {
+          const n = JSON.parse(JSON.stringify(b));
+          ['East','West','South','Midwest'].forEach(r => {
+            n[r]?.rounds?.forEach(round => round.forEach(g => { g.winner = null; }));
+          });
+          if (n.finalFour) n.finalFour.forEach(ff => { ff.winner = null; });
+          if (n.championship) { n.championship.winner = null; n.championship.scoreTop = ''; n.championship.scoreBottom = ''; }
+          return n;
+        };
         if (isMammal) {
-          const fresh = mammalOfficialBracket ? JSON.parse(JSON.stringify(mammalOfficialBracket)) : buildInitialBracketFromTeams(makePlaceholderMammalRoster());
-          setMammalBracket(fresh); setMammalFirstFourPicks({}); setMammalRosterMismatch(false);
+          const fresh = mammalOfficialBracket ? stripWinners(mammalOfficialBracket) : buildInitialBracketFromTeams(makePlaceholderMammalRoster());
+          setMammalBracket(applyFirstFourPicks(fresh, {})); setMammalFirstFourPicks({}); setMammalRosterMismatch(false);
         } else {
-          const fresh = officialBracket ? JSON.parse(JSON.stringify(officialBracket)) : buildInitialBracket();
-          setBracket(fresh); setFirstFourPicks({}); setRosterMismatch(false);
+          const fresh = officialBracket ? stripWinners(officialBracket) : buildInitialBracket();
+          setBracket(applyFirstFourPicks(fresh, {})); setFirstFourPicks({}); setRosterMismatch(false);
         }
       }
     });
@@ -3059,6 +3086,10 @@ Keep all language at a middle school reading level. Make it engaging and educati
                           <span style={{ fontSize: 17, fontWeight: 700, color: i === 0 ? GOLD2 : '#666', minWidth: 30, fontFamily: "'Playfair Display', serif" }}>#{i+1}</span>
                           {e.photoURL ? <img src={e.photoURL} alt={`${e.displayName} avatar`} width={26} height={26} style={{ borderRadius: '50%' }} /> : <div style={{ width: 26, height: 26, borderRadius: '50%', background: '#111', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: '#777' }}>?</div>}
                           <span style={{ flex: 1, fontWeight: e.uid === user?.uid ? 700 : 400, color: e.uid === user?.uid ? GOLD2 : '#bbb', fontSize: 14 }}>{formatName(e.displayName)}{e.uid === user?.uid ? ' (You)' : ''}</span>
+                          <button onClick={() => handleViewBracket(e.uid, e.displayName, false)} disabled={loadingBracket === e.uid}
+                            style={{ ...S.btn('rgba(245,158,11,0.12)', GOLD2), padding: '3px 10px', fontSize: 11, border: `1px solid rgba(245,158,11,0.25)`, flexShrink: 0 }}>
+                            {loadingBracket === e.uid ? '...' : 'View'}
+                          </button>
                           <span style={{ fontSize: 20, fontWeight: 700, color: GOLD2, fontFamily: "'Playfair Display', serif" }}>{e.score}</span>
                         </div>
                       ))}
@@ -3098,6 +3129,10 @@ Keep all language at a middle school reading level. Make it engaging and educati
                           <span style={{ fontSize: 17, fontWeight: 700, color: i === 0 ? GOLD2 : '#666', minWidth: 30, fontFamily: "'Playfair Display', serif" }}>#{i+1}</span>
                           {e.photoURL ? <img src={e.photoURL} alt={`${e.displayName} avatar`} width={26} height={26} style={{ borderRadius: '50%' }} /> : <div style={{ width: 26, height: 26, borderRadius: '50%', background: '#111' }}>?</div>}
                           <span style={{ flex: 1, fontWeight: e.uid === user?.uid ? 700 : 400, color: e.uid === user?.uid ? GOLD2 : '#bbb', fontSize: 14 }}>{formatName(e.displayName)}{e.uid === user?.uid ? ' (You)' : ''}</span>
+                          <button onClick={() => handleViewBracket(e.uid, e.displayName, true)} disabled={loadingBracket === e.uid + '-mm'}
+                            style={{ ...S.btn('rgba(245,158,11,0.12)', GOLD2), padding: '3px 10px', fontSize: 11, border: `1px solid rgba(245,158,11,0.25)`, flexShrink: 0 }}>
+                            {loadingBracket === e.uid + '-mm' ? '...' : 'View'}
+                          </button>
                           <span style={{ fontSize: 20, fontWeight: 700, color: GOLD2, fontFamily: "'Playfair Display', serif" }}>{e.score}</span>
                         </div>
                       ))}
