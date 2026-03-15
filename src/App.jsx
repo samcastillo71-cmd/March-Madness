@@ -1702,7 +1702,7 @@ export default function App() {
         alignItems: 'center',
         justifyContent: isRight ? 'flex-end' : 'flex-start',
         pointerEvents: 'none',
-        zIndex: 0,
+        zIndex: 2,
         overflow: 'hidden',
       }}>
         <span style={{
@@ -1714,45 +1714,47 @@ export default function App() {
     );
 
     // ── Connector lines ───────────────────────────────────────────────────────
-    // Single full-width SVG overlay per half. Solid colors, 3px thick, fully
-    // opaque so they are definitely visible. Connects each game's team divider
-    // (midpoint) to the parent game in the next round with bracket-style lines.
+    // Single full-width SVG per half, TOTAL_W wide x TOP_H tall.
+    // Solid colors, 3px, fully opaque. zIndex: 1 so region labels (zIndex: 0
+    // but rendered later in DOM) stay on top — labels use pointer-events:none
+    // so this doesn't affect interactivity.
     //
-    // Game midpoint y from top of game position:
-    //   8px outer padding + 36px top team + 0.5px = 44.5px
+    // Game midpoint y from absolute game position:
+    //   GameSlot outer div: padding '8px 8px 0 0'
+    //   top team row height: 36px
+    //   divider: 1px (midpoint at 0.5px)
+    //   → offset = 8 + 36 + 0.5 = 44.5px from game's absolute top
     const GAME_MID_OFFSET     = 44.5;
-    const GAME_MID_OFFSET_BOT = SH - GAME_MID_OFFSET; // = 44.5 (symmetric)
-    // Round colors (solid, fully opaque)
-    const LINE_COLORS = ['#60a5fa', '#a78bfa', '#fbbf24'];
-    const STUB = CW * 0.45; // horizontal stub half-width
+    const GAME_MID_OFFSET_BOT = SH - GAME_MID_OFFSET;
+    const LINE_COLORS = ['#60a5fa', '#a78bfa', '#fbbf24', '#ef4444']; // R64→R32, R32→S16, S16→E8, E8→FF
+    const STUB = CW * 0.45;
 
     const BracketConnectors = ({ dir }) => {
-      // One SVG spanning the full bracket width (TOTAL_W) and half height (TOP_H).
-      // Coordinates are absolute within the SVG — no relative positioning needed.
-      // Left region (East/South): columns 0-3 from left (x = 0 to CW*4)
-      // Right region (West/Midwest): columns 7-10 from left (x = CW*7 to CW*11)
       const H = TOP_H;
       const lines = [];
 
+      // y-midpoint of a game at absolute position 'pos'
       const getMid = (pos) =>
-        dir === 'top' ? pos + GAME_MID_OFFSET : H - pos - GAME_MID_OFFSET_BOT;
+        dir === 'top'
+          ? pos + GAME_MID_OFFSET
+          : H - pos - GAME_MID_OFFSET_BOT;
 
-      // Draw connectors for one region
-      // xBase: left x of this region's R64 column within the full SVG
-      // flip: false = R64 leftmost (East/South), true = R64 rightmost (West/Midwest)
+      // ── R64→R32→S16→E8 connectors for one region ─────────────────────────
+      // xBase: SVG x of this region's R64 left edge
+      // flip: false = East/South (R64 leftmost), true = West/Midwest (R64 rightmost)
       const addRegionLines = (xBase, flip) => {
         for (let rIdx = 0; rIdx < 3; rIdx++) {
-          const color = LINE_COLORS[rIdx];
+          const color         = LINE_COLORS[rIdx];
           const fromPositions = ROUND_ABS[rIdx];
           const toPositions   = ROUND_ABS[rIdx + 1];
 
-          // x of the right edge of fromCol within this region (0-based)
-          // flip=false: cols go 0,1,2,3 left→right; right edge of col rIdx = (rIdx+1)*CW
-          // flip=true:  cols go 3,2,1,0 left→right; right edge of col rIdx from RIGHT = (rIdx+1)*CW from right
-          const xFromLocal = flip ? (3 - rIdx) * CW : (rIdx + 1) * CW;
-          const xFrom      = xBase + xFromLocal;
-          const xStubLeft  = flip ? xFrom - STUB : xFrom + STUB;
-          const xParent    = flip ? xFrom - CW + STUB : xFrom + CW - STUB;
+          // Right edge of 'from' column within SVG coords
+          // flip=false: R64 is col 0, R32 is col 1, etc. — right edge = xBase + (rIdx+1)*CW
+          // flip=true:  R64 is col 3 from left, R32 is col 2, etc.
+          //             right edge of col rIdx (from right) = xBase + (3-rIdx)*CW
+          const xFrom   = xBase + (flip ? (3 - rIdx) * CW : (rIdx + 1) * CW);
+          const xStub   = flip ? xFrom - STUB : xFrom + STUB;
+          const xParent = flip ? xFrom - CW + STUB : xFrom + CW - STUB;
 
           toPositions.forEach((toPos, tIdx) => {
             const c1 = fromPositions[tIdx * 2];
@@ -1762,26 +1764,76 @@ export default function App() {
             const y2   = getMid(c2);
             const yMid = getMid(toPos);
             lines.push(
-              <g key={`${xBase}-${rIdx}-${tIdx}`} stroke={color} strokeWidth="3" strokeLinecap="round" fill="none">
-                <line x1={xFrom}     y1={y1}   x2={xStubLeft} y2={y1}   />
-                <line x1={xFrom}     y1={y2}   x2={xStubLeft} y2={y2}   />
-                <line x1={xStubLeft} y1={y1}   x2={xStubLeft} y2={y2}   />
-                <line x1={xStubLeft} y1={yMid} x2={xParent}   y2={yMid} />
+              <g key={`r-${xBase}-${rIdx}-${tIdx}`} stroke={color} strokeWidth="3" strokeLinecap="round" fill="none">
+                <line x1={xFrom}   y1={y1}   x2={xStub}   y2={y1}   />
+                <line x1={xFrom}   y1={y2}   x2={xStub}   y2={y2}   />
+                <line x1={xStub}   y1={y1}   x2={xStub}   y2={y2}   />
+                <line x1={xStub}   y1={yMid} x2={xParent} y2={yMid} />
               </g>
             );
           });
         }
       };
 
-      // Left region: East (top) / South (bot) — R64 starts at x=0
-      addRegionLines(0, false);
-      // Right region: West (top) / Midwest (bot) — R64 starts at x=CW*7
-      addRegionLines(CW * 7, true);
+      // ── E8 → Final Four connectors ────────────────────────────────────────
+      // The FF game is centered in the CW*3 center column (x = CW*4 to CW*7).
+      // FF game visual dimensions (scaled):
+      //   FF_W wide, centered → left edge = CW*4 + (CW*3 - FF_W) / 2
+      //   FF game sits at bottom of top-half column (paddingBottom: FF_GAP)
+      //   → top edge y = TOP_H - FF_GAP - FF_H  (for 'top' dir)
+      //   → midpoint y = top edge + GAME_MID_OFFSET
+      const ffCenterX  = CW * 4 + (CW * 3) / 2;          // horizontal center of FF game
+      const ffLeftEdge  = CW * 4 + (CW * 3 - FF_W) / 2;   // left edge of FF game box
+      const ffRightEdge = ffLeftEdge + FF_W;                // right edge
+
+      // FF game top edge y within the half-div
+      const ffTopY = dir === 'top'
+        ? TOP_H - FF_GAP - FF_H   // bottom-aligned: top edge is this far from top
+        : FF_GAP;                  // top-aligned for bottom half
+
+      // Midpoint of FF game's team divider
+      const ffMidY = dir === 'top'
+        ? ffTopY + GAME_MID_OFFSET
+        : ffTopY + GAME_MID_OFFSET;
+
+      // E8 game position: ROUND_ABS[3][0] = 311.5 (single E8 game per region)
+      const e8Pos  = ROUND_ABS[3][0];
+      const e8MidY = getMid(e8Pos);
+      const e8Color = LINE_COLORS[3];
+
+      // East E8 (right edge at x = CW*4) → FF left edge
+      const eastE8Right = CW * 4;
+      const eastStubX   = eastE8Right + STUB;
+      lines.push(
+        <g key="e8-ff-east" stroke={e8Color} strokeWidth="3" strokeLinecap="round" fill="none">
+          {/* Horizontal stub from E8 right edge */}
+          <line x1={eastE8Right} y1={e8MidY}  x2={eastStubX}  y2={e8MidY}  />
+          {/* Vertical to FF midpoint y */}
+          <line x1={eastStubX}   y1={e8MidY}  x2={eastStubX}  y2={ffMidY}  />
+          {/* Horizontal to FF left edge */}
+          <line x1={eastStubX}   y1={ffMidY}  x2={ffLeftEdge} y2={ffMidY}  />
+        </g>
+      );
+
+      // West E8 (left edge at x = CW*7) → FF right edge
+      const westE8Left = CW * 7;
+      const westStubX  = westE8Left - STUB;
+      lines.push(
+        <g key="e8-ff-west" stroke={e8Color} strokeWidth="3" strokeLinecap="round" fill="none">
+          <line x1={westE8Left}  y1={e8MidY}  x2={westStubX}  y2={e8MidY}  />
+          <line x1={westStubX}   y1={e8MidY}  x2={westStubX}  y2={ffMidY}  />
+          <line x1={westStubX}   y1={ffMidY}  x2={ffRightEdge} y2={ffMidY} />
+        </g>
+      );
+
+      // Draw region lines (behind E8→FF lines)
+      addRegionLines(0, false);       // East (top) / South (bot)
+      addRegionLines(CW * 7, true);   // West (top) / Midwest (bot)
 
       return (
         <svg
           width={TOTAL_W} height={H}
-          style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none', zIndex: 3 }}
+          style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none', zIndex: 1 }}
           aria-hidden="true"
         >
           {lines}
