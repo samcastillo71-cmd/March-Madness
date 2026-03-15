@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo, memo } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth, signInWithGoogle, logOut } from './firebase';
-import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc, getDoc, deleteDoc, getDocs, collection, serverTimestamp } from 'firebase/firestore';
 import { db } from './firebase';
 import {
   saveBracket, loadBracket,
@@ -16,7 +16,7 @@ import {
   subscribeToMammalConfig, setMammalTournamentLocked,
   subscribeToMammalLeaderboard, updateMammalLeaderboardEntry,
   saveMammalResearchData, saveOneMammalResearch, subscribeToMammalResearchData,
-  saveMammalRoster, registerUser, checkIsTeacher,
+  saveMammalRoster, registerUser, checkIsTeacher, subscribeToAllUsers,
 } from './firestoreService';
 import {
   CURRENT_YEAR, buildInitialBracket, buildInitialBracketFromTeams,
@@ -222,7 +222,7 @@ const GameSlot = memo(function GameSlot({ game, onPick, locked, isChampionship, 
         }}>
         <TeamLogo espnId={team.espnId} name={team.name} size={20} />
         <span style={{ fontSize: 10, color: isW ? ACCENT2 : '#666', fontWeight: 700, minWidth: 14, textDecoration: isL ? 'line-through' : 'none' }}>{team.seed}</span>
-        <span style={{ fontSize: 17, fontWeight: isW ? 700 : 500, color: isW ? ACCENT2 : isL ? '#3a3a3a' : '#d0d0d0', textDecoration: isL ? 'line-through' : 'none', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: hasLive ? 80 : 140, flex: 1 }}>
+        <span style={{ fontSize: team.name && team.name.length > 18 ? 11 : team.name && team.name.length > 13 ? 13 : 17, fontWeight: isW ? 700 : 500, color: isW ? ACCENT2 : isL ? '#3a3a3a' : '#d0d0d0', textDecoration: isL ? 'line-through' : 'none', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: hasLive ? 80 : 140, flex: 1 }}>
           {isFF ? 'First Four Winner' : team.name}
         </span>
         {hasLive && live && <span style={{ fontSize: 13, fontWeight: 800, color: isFinal && live.winner ? ACCENT2 : isLiveGame && isLiveWinning ? '#facc15' : '#888', minWidth: 24, textAlign: 'right', marginLeft: 2, flexShrink: 0 }}>{live.score}</span>}
@@ -1192,6 +1192,9 @@ export default function App() {
   // Latin name review state — set during mammal generation phase 1→2
   const [latinReview,          setLatinReview]           = useState(null); // { animals: [{name, latinName, seed, region}], allData, onConfirm }
   const [mammalRegionNames,     setMammalRegionNames]     = useState({ East: 'East', West: 'West', South: 'South', Midwest: 'Midwest' });
+  // Users list (admin only)
+  const [allUsers,             setAllUsers]             = useState([]);
+  const [removingUser,         setRemovingUser]         = useState(null);
 
   const saveTimer         = useRef(null);
   const prevBracket       = useRef(null);
@@ -1378,7 +1381,8 @@ export default function App() {
         return Object.keys(data)[0] || null;
       });
     });
-    return () => { u1(); u2(); u3(); u4(); u5(); u6(); u7(); u8(); };
+    const u9 = isAdmin ? subscribeToAllUsers(setAllUsers) : () => {};
+    return () => { u1(); u2(); u3(); u4(); u5(); u6(); u7(); u8(); u9(); };
   }, [user, isAdmin]);
 
   // ── LIVE SCORES ───────────────────────────────────────────────────────────
@@ -1642,7 +1646,8 @@ export default function App() {
       if (prev[key] === winner.name) { const n = { ...prev }; delete n[key]; return n; }
       return { ...prev, [key]: winner.name };
     });
-    setMammalBracket(prev => {
+
+    const applyPick = (prev) => {
       const next = JSON.parse(JSON.stringify(prev));
       const r64 = next[region]?.rounds[0];
       if (!r64) return prev;
@@ -1651,7 +1656,20 @@ export default function App() {
         if (game.bottom?.isFFPlaceholder && Number(game.bottom.seed) === Number(seed)) game.bottom = { ...winner, isFFPlaceholder: false };
       });
       return next;
-    });
+    };
+
+    // Always update mammalBracket (user's bracket)
+    setMammalBracket(applyPick);
+
+    // Admin: also update mammalOfficialBracket (what the panel reads from)
+    // and persist to Firestore
+    if (isAdmin) {
+      setMammalOfficialBracket(prev => {
+        const next = applyPick(prev || {});
+        saveMammalOfficialBracket(next).catch(console.warn);
+        return next;
+      });
+    }
   }, [mammalLocked, isAdmin]);
 
   // ── CLEAR ALL PICKS ───────────────────────────────────────────────────────
@@ -1701,6 +1719,81 @@ export default function App() {
     setMammalSources(sources);
     try { await setDoc(doc(db, 'admin', 'mammalSources'), { sources }); }
     catch (e) { console.warn('Failed to save mammal sources:', e); }
+  }, []);
+
+  // ── REMOVE USER ───────────────────────────────────────────────────────────
+  const handleRemoveUser = useCallback(async (uid) => {
+    setRemovingUser(uid);
+    try {
+      await Promise.all([
+        deleteDoc(doc(db, 'brackets',         uid)).catch(() => {}),
+        deleteDoc(doc(db, 'brackets_mammals', uid)).catch(() => {}),
+        deleteDoc(doc(db, 'leaderboard',      uid)).catch(() => {}),
+        deleteDoc(doc(db, 'leaderboard_mammals', uid)).catch(() => {}),
+        deleteDoc(doc(db, 'users',            uid)).catch(() => {}),
+      ]);
+    } catch (e) { console.warn('Failed to remove user:', e); }
+    setRemovingUser(null);
+  }, []);
+
+  // ── CLEAR BASKETBALL ROSTER ───────────────────────────────────────────────
+  const handleClearBbRoster = useCallback(async () => {
+    try {
+      await Promise.all([
+        deleteDoc(doc(db, 'admin', 'teamRoster')).catch(() => {}),
+        deleteDoc(doc(db, 'admin', 'officialBracket')).catch(() => {}),
+      ]);
+      setOfficialBracket(null);
+      setBracket(buildInitialBracket());
+    } catch (e) { console.warn('Failed to clear bb roster:', e); }
+  }, []);
+
+  // ── CLEAR MAMMAL ROSTER ───────────────────────────────────────────────────
+  const handleClearMammalRoster = useCallback(async () => {
+    try {
+      await Promise.all([
+        deleteDoc(doc(db, 'admin', 'mammalRoster')).catch(() => {}),
+        deleteDoc(doc(db, 'admin', 'officialBracket_mammals')).catch(() => {}),
+      ]);
+      setMammalOfficialBracket(null);
+      setMammalBracket(buildInitialBracketFromTeams(makePlaceholderMammalRoster()));
+    } catch (e) { console.warn('Failed to clear mammal roster:', e); }
+  }, []);
+
+  // ── CLEAR BASKETBALL RESEARCH ─────────────────────────────────────────────
+  const handleClearBbResearch = useCallback(async () => {
+    try {
+      await deleteDoc(doc(db, 'admin', 'researchData')).catch(() => {});
+      setResearchData({});
+      setSelectedTeam(null);
+    } catch (e) { console.warn('Failed to clear bb research:', e); }
+  }, []);
+
+  // ── CLEAR MAMMAL RESEARCH ─────────────────────────────────────────────────
+  const handleClearMammalResearch = useCallback(async () => {
+    try {
+      await deleteDoc(doc(db, 'admin', 'researchData_mammals')).catch(() => {});
+      setMammalResearchData({});
+      setMammalSelectedAnimal(null);
+    } catch (e) { console.warn('Failed to clear mammal research:', e); }
+  }, []);
+
+  // ── CLEAR ALL USER BRACKETS ───────────────────────────────────────────────
+  const handleClearAllBrackets = useCallback(async (isMammal) => {
+    try {
+      const colName = isMammal ? 'brackets_mammals' : 'brackets';
+      const lbName  = isMammal ? 'leaderboard_mammals' : 'leaderboard';
+      const [bracketSnap, lbSnap] = await Promise.all([
+        getDocs(collection(db, colName)),
+        getDocs(collection(db, lbName)),
+      ]);
+      await Promise.all([
+        ...bracketSnap.docs.map(d => deleteDoc(d.ref)),
+        ...lbSnap.docs.map(d => deleteDoc(d.ref)),
+      ]);
+      if (isMammal) setMammalLeaderboard([]);
+      else setLeaderboard([]);
+    } catch (e) { console.warn('Failed to clear brackets:', e); }
   }, []);
 
   // ── FIRESTORE SAVE WITH RETRY (handles ad blocker / network blips) ──────────
@@ -2580,7 +2673,6 @@ Keep all language at a middle school reading level. Make it engaging and educati
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 0, alignItems: 'start' }}>
                     <div style={{ borderRadius: '12px 0 0 12px', border: '1px solid rgba(99,102,241,0.3)', overflow: 'hidden' }}>
                       <div style={{ background: 'linear-gradient(135deg,rgba(99,102,241,0.2),rgba(99,102,241,0.05))', padding: '10px 16px', borderBottom: '1px solid rgba(99,102,241,0.2)', display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ fontSize: 18 }} aria-hidden="true">{researchMatchup.isMammal ? '🦁' : '🏀'}</span>
                         <span style={{ fontWeight: 800, fontSize: 16, color: '#a5b4fc', fontFamily: "'Playfair Display', serif" }}>{researchMatchup.teamA}</span>
                       </div>
                       <div style={{ padding: 16 }}>
@@ -2594,7 +2686,6 @@ Keep all language at a middle school reading level. Make it engaging and educati
                     </div>
                     <div style={{ borderRadius: '0 12px 12px 0', border: '1px solid rgba(251,146,60,0.3)', overflow: 'hidden' }}>
                       <div style={{ background: 'linear-gradient(135deg,rgba(251,146,60,0.2),rgba(251,146,60,0.05))', padding: '10px 16px', borderBottom: '1px solid rgba(251,146,60,0.2)', display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ fontSize: 18 }} aria-hidden="true">{researchMatchup.isMammal ? '🦁' : '🏀'}</span>
                         <span style={{ fontWeight: 800, fontSize: 16, color: '#fdba74', fontFamily: "'Playfair Display', serif" }}>{researchMatchup.teamB}</span>
                       </div>
                       <div style={{ padding: 16 }}>
@@ -2784,7 +2875,7 @@ Keep all language at a middle school reading level. Make it engaging and educati
                 <h2 style={{ fontFamily: "'Playfair Display', serif", color: '#e74c3c', margin: 0 }}>Admin Panel</h2>
               </div>
               <div style={{ display: 'flex', gap: 4, marginBottom: 24, borderBottom: '1px solid rgba(255,255,255,0.08)' }} role="tablist" aria-label="Admin sections">
-                {[['dashboard','Dashboard'],['teams','Set Up Teams'],['mammals','🦁 Mammal Madness'],['help','Help']].map(([id, label]) => (
+                {[['dashboard','Dashboard'],['teams','🏀 Basketball'],['mammals','🦁 Mammal Madness'],['users','👥 Users'],['help','Help']].map(([id, label]) => (
                   <button key={id} role="tab" aria-selected={adminSubTab === id}
                     style={{ ...S.navBtn(adminSubTab === id), borderBottom: adminSubTab === id ? '2px solid #e74c3c' : '2px solid transparent', borderRadius: '6px 6px 0 0', padding: '8px 18px' }}
                     onClick={() => setAdminSubTab(id)}>{label}</button>
@@ -2823,7 +2914,7 @@ Keep all language at a middle school reading level. Make it engaging and educati
                   <div style={{ ...S.card, borderColor: 'rgba(231,76,60,0.2)', marginBottom: 16 }}>
                     <p style={{ color: '#999', fontSize: 14, lineHeight: 1.7, margin: 0 }}>
                       Use the <strong style={{ color: ACCENT2 }}>Bracket tab</strong> to enter official game results — your picks become the answer key and update all scores live.<br /><br />
-                      Use <strong style={{ color: ACCENT2 }}>Set Up Teams</strong> every March after Selection Sunday. No code editing needed.
+                      Use <strong style={{ color: ACCENT2 }}>Basketball</strong> every March after Selection Sunday. No code editing needed.
                     </p>
                   </div>
 
@@ -2839,14 +2930,46 @@ Keep all language at a middle school reading level. Make it engaging and educati
               )}
 
               {adminSubTab === 'teams' && (
-                <TeamEntryPanel
-                  onTeamsSaved={handleTeamsSaved}
-                  onRequestGenerateResearch={handleGenerateResearch}
-                  regionNames={bbRegionNames}
-                  onRegionNamesChange={handleSaveBbRegionNames}
-                  sourcesData={bbSources}
-                  onSaveSources={handleSaveBbSources}
-                />
+                <>
+                  <TeamEntryPanel
+                    onTeamsSaved={handleTeamsSaved}
+                    onRequestGenerateResearch={handleGenerateResearch}
+                    regionNames={bbRegionNames}
+                    onRegionNamesChange={handleSaveBbRegionNames}
+                    sourcesData={bbSources}
+                    onSaveSources={handleSaveBbSources}
+                  />
+                  {/* ── Danger Zone ── */}
+                  <div style={{ marginTop: 40, borderTop: '1px solid rgba(239,68,68,0.2)', paddingTop: 24 }}>
+                    <div style={{ fontSize: 11, color: '#e74c3c', letterSpacing: 2, textTransform: 'uppercase', fontWeight: 700, marginBottom: 16 }}>⚠️ Danger Zone</div>
+                    <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                      <div style={{ ...S.card, borderColor: 'rgba(239,68,68,0.25)', flex: 1, minWidth: 220 }}>
+                        <h4 style={{ color: '#f87171', marginBottom: 6 }}>Clear Basketball Roster</h4>
+                        <p style={{ color: '#777', fontSize: 12, marginBottom: 12 }}>Deletes the team roster and official bracket. Use at the start of a new season.</p>
+                        <button style={{ ...S.btn('#7f1d1d', '#fca5a5'), padding: '7px 16px', fontSize: 12, border: '1px solid rgba(239,68,68,0.4)' }}
+                          onClick={() => setConfirmDialog({ message: 'Delete the basketball roster and official bracket? This cannot be undone.', onConfirm: async () => { setConfirmDialog(null); await handleClearBbRoster(); } })}>
+                          Clear Roster &amp; Bracket
+                        </button>
+                      </div>
+                      <div style={{ ...S.card, borderColor: 'rgba(239,68,68,0.25)', flex: 1, minWidth: 220 }}>
+                        <h4 style={{ color: '#f87171', marginBottom: 6 }}>Clear Basketball Research</h4>
+                        <p style={{ color: '#777', fontSize: 12, marginBottom: 12 }}>Deletes all scouting reports. Save them elsewhere first if you want to reference them next year.</p>
+                        <button style={{ ...S.btn('#7f1d1d', '#fca5a5'), padding: '7px 16px', fontSize: 12, border: '1px solid rgba(239,68,68,0.4)' }}
+                          onClick={() => setConfirmDialog({ message: 'Delete all basketball research cards? This cannot be undone.', onConfirm: async () => { setConfirmDialog(null); await handleClearBbResearch(); } })}>
+                          Clear Research
+                        </button>
+                      </div>
+                      <div style={{ ...S.card, borderColor: 'rgba(239,68,68,0.25)', flex: 1, minWidth: 220 }}>
+                        <h4 style={{ color: '#f87171', marginBottom: 6 }}>Clear All User Brackets</h4>
+                        <p style={{ color: '#777', fontSize: 12, marginBottom: 12 }}>Deletes every student and teacher basketball bracket and resets the leaderboard.</p>
+                        <button style={{ ...S.btn('#7f1d1d', '#fca5a5'), padding: '7px 16px', fontSize: 12, border: '1px solid rgba(239,68,68,0.4)' }}
+                          onClick={() => setConfirmDialog({ message: 'Delete ALL user basketball brackets and leaderboard scores? This cannot be undone.', onConfirm: async () => { setConfirmDialog(null); await handleClearAllBrackets(false); } })}>
+                          Clear All Brackets
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </>
               )}
 
               {adminSubTab === 'mammals' && (
@@ -2885,7 +3008,78 @@ Keep all language at a middle school reading level. Make it engaging and educati
                     sourcesData={mammalSources}
                     onSaveSources={handleSaveMammalSources}
                   />
+                  {/* ── Danger Zone ── */}
+                  <div style={{ marginTop: 40, borderTop: '1px solid rgba(239,68,68,0.2)', paddingTop: 24 }}>
+                    <div style={{ fontSize: 11, color: '#e74c3c', letterSpacing: 2, textTransform: 'uppercase', fontWeight: 700, marginBottom: 16 }}>⚠️ Danger Zone</div>
+                    <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                      <div style={{ ...S.card, borderColor: 'rgba(239,68,68,0.25)', flex: 1, minWidth: 220 }}>
+                        <h4 style={{ color: '#f87171', marginBottom: 6 }}>Clear Mammal Roster</h4>
+                        <p style={{ color: '#777', fontSize: 12, marginBottom: 12 }}>Deletes the animal roster and official mammal bracket. Use at the start of a new season.</p>
+                        <button style={{ ...S.btn('#7f1d1d', '#fca5a5'), padding: '7px 16px', fontSize: 12, border: '1px solid rgba(239,68,68,0.4)' }}
+                          onClick={() => setConfirmDialog({ message: 'Delete the mammal roster and official bracket? This cannot be undone.', onConfirm: async () => { setConfirmDialog(null); await handleClearMammalRoster(); } })}>
+                          Clear Roster &amp; Bracket
+                        </button>
+                      </div>
+                      <div style={{ ...S.card, borderColor: 'rgba(239,68,68,0.25)', flex: 1, minWidth: 220 }}>
+                        <h4 style={{ color: '#f87171', marginBottom: 6 }}>Clear Mammal Research</h4>
+                        <p style={{ color: '#777', fontSize: 12, marginBottom: 12 }}>Deletes all organism profiles and images. Save them elsewhere first if you want to reference them.</p>
+                        <button style={{ ...S.btn('#7f1d1d', '#fca5a5'), padding: '7px 16px', fontSize: 12, border: '1px solid rgba(239,68,68,0.4)' }}
+                          onClick={() => setConfirmDialog({ message: 'Delete all mammal research cards and images? This cannot be undone.', onConfirm: async () => { setConfirmDialog(null); await handleClearMammalResearch(); } })}>
+                          Clear Research
+                        </button>
+                      </div>
+                      <div style={{ ...S.card, borderColor: 'rgba(239,68,68,0.25)', flex: 1, minWidth: 220 }}>
+                        <h4 style={{ color: '#f87171', marginBottom: 6 }}>Clear All User Brackets</h4>
+                        <p style={{ color: '#777', fontSize: 12, marginBottom: 12 }}>Deletes every student and teacher mammal bracket and resets the mammal leaderboard.</p>
+                        <button style={{ ...S.btn('#7f1d1d', '#fca5a5'), padding: '7px 16px', fontSize: 12, border: '1px solid rgba(239,68,68,0.4)' }}
+                          onClick={() => setConfirmDialog({ message: 'Delete ALL user mammal brackets and leaderboard scores? This cannot be undone.', onConfirm: async () => { setConfirmDialog(null); await handleClearAllBrackets(true); } })}>
+                          Clear All Brackets
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 </>
+              )}
+
+              {adminSubTab === 'users' && (
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
+                    <div>
+                      <h3 style={{ color: ACCENT2, marginBottom: 4 }}>Active Users</h3>
+                      <p style={{ color: '#777', fontSize: 13, margin: 0 }}>{allUsers.length} registered user{allUsers.length !== 1 ? 's' : ''}. Removing a user deletes their brackets, scores, and profile but not their Google account.</p>
+                    </div>
+                  </div>
+                  {allUsers.length === 0 ? (
+                    <div style={{ ...S.card, textAlign: 'center', padding: 40, color: '#666' }}>No users yet</div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      {allUsers.sort((a, b) => (a.displayName || '').localeCompare(b.displayName || '')).map(u => (
+                        <div key={u.uid} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: 'rgba(255,255,255,0.03)', borderRadius: 8, border: '1px solid rgba(255,255,255,0.07)' }}>
+                          {u.photoURL
+                            ? <img src={u.photoURL} alt={u.displayName} width={32} height={32} style={{ borderRadius: '50%', flexShrink: 0 }} />
+                            : <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, color: '#888', flexShrink: 0 }}>{(u.displayName || '?').charAt(0)}</div>
+                          }
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: 14, color: '#ccc', fontWeight: 500 }}>{u.displayName || 'Anonymous'}</div>
+                            <div style={{ fontSize: 11, color: '#555' }}>{u.email || u.uid}</div>
+                          </div>
+                          <div style={{ fontSize: 11, color: '#444', marginRight: 8 }}>
+                            {u.lastSeen?.seconds ? new Date(u.lastSeen.seconds * 1000).toLocaleDateString() : ''}
+                          </div>
+                          <button
+                            onClick={() => setConfirmDialog({
+                              message: `Remove ${u.displayName || 'this user'}? This deletes their brackets and scores but not their Google account.`,
+                              onConfirm: async () => { setConfirmDialog(null); await handleRemoveUser(u.uid); }
+                            })}
+                            disabled={removingUser === u.uid}
+                            style={{ ...S.btn('rgba(239,68,68,0.15)', '#f87171'), padding: '5px 14px', fontSize: 12, border: '1px solid rgba(239,68,68,0.3)', flexShrink: 0 }}>
+                            {removingUser === u.uid ? 'Removing...' : 'Remove'}
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               )}
 
               {adminSubTab === 'help' && (
