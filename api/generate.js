@@ -118,38 +118,63 @@ async function fetchWikipediaImage(latinName, commonName) {
 }
 
 // ── Fetch iNaturalist photos ─────────────────────────────────────────────────
-async function fetchINaturalistImages(latinName, count = 2) {
+async function fetchINaturalistImages(latinName, count = 3) {
   try {
-    // Search by exact scientific name using the taxon_name parameter
-    // This is more precise than q= but iNat still sometimes returns wrong results
-    // so we verify the genus matches
     const genus   = latinName.split(' ')[0].toLowerCase();
     const species = latinName.split(' ')[1]?.toLowerCase() || '';
 
-    const res = await fetch(
+    // Step 1: find the taxon ID
+    const taxaRes = await fetch(
       `https://api.inaturalist.org/v1/taxa?q=${encodeURIComponent(latinName)}&rank=species&per_page=5`
     );
-    if (!res.ok) return [];
-    const data = await res.json();
+    if (!taxaRes.ok) return [];
+    const taxaData = await taxaRes.json();
 
-    // Find the result whose scientific name exactly matches
-    const taxon = (data?.results || []).find(t => {
+    const taxon = (taxaData?.results || []).find(t => {
       const name = (t.name || '').toLowerCase();
       return name === latinName.toLowerCase() ||
              (name.startsWith(genus) && species && name.includes(species));
     });
 
     if (!taxon) {
-      console.log('[iNat] No exact match for:', latinName, '— results:', (data?.results || []).map(t => t.name));
+      console.log('[iNat] No exact match for:', latinName, '— results:', (taxaData?.results || []).map(t => t.name));
       return [];
     }
 
-    console.log('[iNat] Matched taxon:', taxon.name, 'for search:', latinName);
-    const photos = taxon.taxon_photos?.slice(0, count) || [];
-    return photos
-      .map(p => p?.photo?.medium_url || p?.photo?.url)
-      .filter(Boolean)
-      .map(url => ({ url, source: 'iNaturalist' }));
+    console.log('[iNat] Matched taxon:', taxon.name, 'id:', taxon.id);
+
+    const photos = [];
+
+    // Get default photo from taxon
+    if (taxon.default_photo?.medium_url) {
+      photos.push({ url: taxon.default_photo.medium_url, source: 'iNaturalist' });
+    } else if (taxon.default_photo?.url) {
+      // Convert square thumb URL to medium
+      const medUrl = taxon.default_photo.url.replace('square', 'medium');
+      photos.push({ url: medUrl, source: 'iNaturalist' });
+    }
+
+    // Step 2: fetch observations to get more photos
+    if (photos.length < count && taxon.id) {
+      const obsRes = await fetch(
+        `https://api.inaturalist.org/v1/observations?taxon_id=${taxon.id}&quality_grade=research&photos=true&per_page=${count * 2}&order=votes&order_by=votes`
+      );
+      if (obsRes.ok) {
+        const obsData = await obsRes.json();
+        for (const obs of (obsData?.results || [])) {
+          if (photos.length >= count) break;
+          const photo = obs.photos?.[0];
+          if (!photo) continue;
+          const url = (photo.url || '').replace('square', 'medium');
+          if (url && !photos.find(p => p.url === url)) {
+            photos.push({ url, source: 'iNaturalist' });
+          }
+        }
+      }
+    }
+
+    console.log('[iNat] Got', photos.length, 'photos for:', latinName);
+    return photos.slice(0, count);
   } catch (e) {
     console.log('[iNat] Error:', e.message);
     return [];
@@ -194,7 +219,7 @@ export default async function handler(req, res) {
     const [phyloPicUrl, wikiImageUrl, inatImages, wikiMediaImg] = await Promise.all([
       fetchPhyloPic(fetchLatinName),
       fetchWikipediaImage(fetchLatinName, fetchLatinName),
-      fetchINaturalistImages(fetchLatinName, 2),
+      fetchINaturalistImages(fetchLatinName, 3),
       fetchWikimediaImage(fetchLatinName),
     ]);
     const gallery = [];
@@ -360,7 +385,7 @@ Start your response with { and end with }. Nothing else.`;
     const [phyloPicUrl, wikiImageUrl, inatImages, wikiMediaImg] = await Promise.all([
       fetchPhyloPic(latin),
       fetchWikipediaImage(latin, latin),
-      fetchINaturalistImages(latin, 2),
+      fetchINaturalistImages(latin, 3),
       fetchWikimediaImage(latin),
     ]);
 
