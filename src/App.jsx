@@ -805,6 +805,19 @@ Keep all language at a middle school reading level. Make it engaging and educati
   return callAI(prompt, sources);
 }
 
+// ── ESPN TEAM LOOKUP BY ID ───────────────────────────────────────────────────
+async function lookupESPNTeam(espnId) {
+  if (!espnId || !String(espnId).match(/^\d+$/)) return null;
+  try {
+    const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/teams/${espnId}`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    const team = data?.team;
+    if (!team) return null;
+    return team.displayName || team.name || null;
+  } catch { return null; }
+}
+
 // ── ADMIN TEAM ENTRY PANEL ────────────────────────────────────────────────────
 function TeamEntryPanel({ onTeamsSaved, onRequestGenerateResearch, regionNames, onRegionNamesChange, sourcesData, onSaveSources }) {
   const [roster,       setRoster]       = useState(makePlaceholderRoster());
@@ -956,6 +969,18 @@ function TeamEntryPanel({ onTeamsSaved, onRequestGenerateResearch, regionNames, 
               style={{ ...S.input, flex: 2, padding: '6px 10px', fontSize: 13 }} />
             <input placeholder="ESPN ID" value={team.espnId} aria-label={`ESPN ID for ${team.name}`}
               onChange={e => updateTeam(activeRegion, idx, 'espnId', e.target.value)}
+              onBlur={async e => {
+                const id = e.target.value.trim();
+                if (!id) return;
+                const fetched = await lookupESPNTeam(id);
+                if (fetched) {
+                  // Only auto-fill name if it's empty or a placeholder
+                  const currentName = team.name?.trim() || '';
+                  if (!currentName || currentName.startsWith('Seed ')) {
+                    updateTeam(activeRegion, idx, 'name', fetched);
+                  }
+                }
+              }}
               style={{ ...S.input, width: 80, padding: '6px 10px', fontSize: 13 }} />
             <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', flexShrink: 0 }}>
               <input type="checkbox" checked={team.firstFour} onChange={e => updateTeam(activeRegion, idx, 'firstFour', e.target.checked)} aria-label="First Four team" />
