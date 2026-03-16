@@ -656,32 +656,49 @@ function makePlaceholderMammalRoster() {
 
 // ── ESPN BRACKET IMPORT ───────────────────────────────────────────────────────
 async function importFromESPN() {
+  // Try multiple ESPN tournament API endpoints — ID changes each year
+  const year = new Date().getFullYear();
   const urls = [
-    'https://site.web.api.espn.com/apis/v2/sports/basketball/mens-college-basketball/tournaments/22?region=us&lang=en',
+    // Primary: scoreboard-based bracket endpoint (most reliable)
+    `https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard?groups=100&limit=64&dates=${year}`,
+    // Tournament bracket endpoints with various IDs
+    'https://site.web.api.espn.com/apis/v2/sports/basketball/mens-college-basketball/tournaments/22?region=us&lang=en&lang=en',
+    'https://site.web.api.espn.com/apis/v2/sports/basketball/mens-college-basketball/tournaments/23?region=us&lang=en',
     'https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/tournaments/22',
+    'https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/tournaments/23',
+    // Fallback: general scoreboard
+    'https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard?groups=100&limit=64',
   ];
   let data = null;
   for (const url of urls) {
-    try { const res = await fetch(url); if (res.ok) { data = await res.json(); break; } } catch {}
-  }
-  if (!data) {
-    try { const res = await fetch('https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard?groups=100&limit=64'); if (res.ok) data = await res.json(); } catch {}
+    try {
+      const res = await fetch(url);
+      if (res.ok) {
+        const d = await res.json();
+        // Check if this response has useful bracket/team data
+        const hasTeams = d.bracket || d.rounds || d.groups || d.regions ||
+          (d.events && d.events.length > 0);
+        if (hasTeams) { data = d; break; }
+      }
+    } catch {}
   }
   if (!data) throw new Error('Could not reach ESPN API. Try again or enter teams manually.');
   const regionMap = { East: [], West: [], South: [], Midwest: [] };
   const regionNames = Object.keys(regionMap);
+  // Try bracket structure first
   const bracket = data.bracket || data.rounds?.[0] || data.tournament?.bracket;
   if (bracket) {
     const walkBracket = (node) => {
       if (!node) return;
       if (node.competitors) node.competitors.forEach(c => {
         const region = regionNames.find(r => c.region?.toLowerCase().includes(r.toLowerCase()));
-        if (region && c.team) regionMap[region].push({ seed: c.seed, name: c.team.displayName || c.team.name, espnId: String(c.team.id || ''), firstFour: false });
+        if (region && c.team) regionMap[region].push({ seed: parseInt(c.seed) || 0, name: c.team.displayName || c.team.name, espnId: String(c.team.id || ''), firstFour: false });
       });
       (node.children || node.games || []).forEach(walkBracket);
     };
     walkBracket(bracket);
   }
+  // Try groups/regions structure
   const groups = data.groups || data.regions || data.rounds?.[0]?.groups;
   if (groups && Object.values(regionMap).every(r => r.length === 0)) {
     groups.forEach(group => {
@@ -689,7 +706,24 @@ async function importFromESPN() {
       if (!regionName) return;
       (group.teams || group.standings?.entries || []).forEach(entry => {
         const team = entry.team || entry;
-        regionMap[regionName].push({ seed: entry.seed || entry.curatedRank?.current || 0, name: team.displayName || team.name || '', espnId: String(team.id || ''), firstFour: false });
+        regionMap[regionName].push({ seed: parseInt(entry.seed || entry.curatedRank?.current) || 0, name: team.displayName || team.name || '', espnId: String(team.id || ''), firstFour: false });
+      });
+    });
+  }
+  // Try scoreboard events format — extract teams from upcoming games
+  if (data.events && Object.values(regionMap).every(r => r.length === 0)) {
+    data.events.forEach(event => {
+      const comp = event.competitions?.[0];
+      if (!comp) return;
+      // Try to find region from notes or event name
+      const eventName = (event.name || event.shortName || '').toLowerCase();
+      const region = regionNames.find(r => eventName.includes(r.toLowerCase()));
+      comp.competitors?.forEach(c => {
+        const seed = parseInt(c.curatedRank?.current || c.statistics?.find(s => s.name === 'seed')?.value) || 0;
+        const teamRegion = region || regionNames.find(r => (c.team?.location || '').toLowerCase().includes(r.toLowerCase()));
+        if (teamRegion && c.team && seed > 0) {
+          regionMap[teamRegion].push({ seed, name: c.team.displayName || c.team.name || '', espnId: String(c.team.id || ''), firstFour: false });
+        }
       });
     });
   }
