@@ -3414,7 +3414,7 @@ Keep all language at a middle school reading level. Make it engaging and educati
                   'Could UCLA cause some chaos?',
                 ]},
                 { seeds: '5 Seeds', made: '16/40 = 0.40', color: '#06b6d4', notes: [
-                  'St. John's, Vanderbilt, and Wisconsin meet the key tempo criteria.',
+                  "St. John's, Vanderbilt, and Wisconsin meet the key tempo criteria.",
                   'Texas Tech does not meet either key scenario — most vulnerable 5 seed.',
                   "When a 5 seed meets both criteria, they're 5/5 = 1.00 historically.",
                 ]},
