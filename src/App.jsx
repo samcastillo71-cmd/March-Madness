@@ -1731,34 +1731,7 @@ function TermsOfServicePage({ onBack }) {
   );
 }
 // ── TERMS OF SERVICE PAGE ─────────────────────────────────────────────────────
-function TermsOfServicePage({ onBack }) {
-  return (
-    <div style={{ minHeight: '100vh', background: '#0a1a0e', color: '#e8f5ee', fontFamily: "'Source Sans 3', sans-serif", padding: '40px 20px' }}>
-      <div style={{ maxWidth: 720, margin: '0 auto' }}>
-        <button onClick={onBack} style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '7px 16px', color: '#aaa', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', marginBottom: 32 }}>← Back</button>
-        <h1 style={{ fontFamily: "'Playfair Display', serif", color: ACCENT2, marginBottom: 6, fontSize: 32 }}>Terms of Service</h1>
-        <p style={{ color: '#777', fontSize: 13, marginBottom: 32 }}>Last updated: March 2026</p>
-
-        {[
-          ['What is this app?', 'The School March Madness Bracket Challenge is an educational tool for students and teachers. It runs a bracket prediction competition tied to the NCAA Basketball Tournament and March Mammal Madness. It is operated by a teacher and intended for school use only.'],
-          ['Who can use this app?', 'This app is intended for students, teachers, and staff at the school where it is deployed. Access is granted by your teacher or school administrator and may be revoked at any time.'],
-          ['How you may use this app', 'You may use this app to fill out bracket predictions, read team and animal research cards, view the leaderboard, and participate in the school bracket challenge.'],
-          ['How you may NOT use this app', 'You may not attempt to access another student\'s account, manipulate scores or the leaderboard, use the app for any purpose outside the school bracket challenge, share your login credentials with others, or attempt to reverse engineer or redistribute the app.'],
-          ['Content', 'Research cards are generated using AI based on sources provided by the school administrator. Content is for educational and entertainment purposes and should not be treated as a definitive source of information. Bracket statistics are based on publicly available tournament data.'],
-          ['Leaderboard and scores', 'Scores are calculated automatically based on tournament results entered by the administrator. Score calculations are final as determined by the administrator. The leaderboard is visible to all users of the app.'],
-          ['Account removal', 'Administrators may remove any user account at any time, which will delete the user\'s bracket, score, and profile from the app.'],
-          ['Disclaimer', 'This app is provided as-is for educational purposes. It is not a commercial product. The operators make no guarantees about uptime, accuracy of content, or continuity of service. This app is not affiliated with the NCAA, Arizona State University, or any other official tournament organization.'],
-          ['Contact', 'If you have questions about these terms, please contact your teacher or school administrator.'],
-        ].map(([title, body]) => (
-          <div key={title} style={{ marginBottom: 28 }}>
-            <h2 style={{ color: ACCENT2, fontSize: 17, marginBottom: 8, fontFamily: "'Playfair Display', serif" }}>{title}</h2>
-            <p style={{ color: '#ccc', fontSize: 14, lineHeight: 1.8 }}>{body}</p>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
+function TermsOfServicePage({ onBack }) 
 
 // ── MAIN APP ──────────────────────────────────────────────────────────────────
 export default function App() {
