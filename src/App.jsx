@@ -2400,7 +2400,7 @@ if (legalPage === 'terms') return <TermsOfServicePage onBack={() => setLegalPage
         <p style={{ color: '#888', fontSize: 14, marginBottom: 24, lineHeight: 1.7 }}>
           Sign in with your school Google account to fill out your bracket and compete with your classmates and teachers.
         </p>
-        <button style={S.btn()} onClick={signInWithGoogle}>
+<button style={S.btn()} onClick={signInWithGoogle}>
           <span style={{ fontWeight: 900, marginRight: 8 }} aria-hidden="true">G</span> Sign in with Google
         </button>
       </div>
@@ -2409,6 +2409,7 @@ if (legalPage === 'terms') return <TermsOfServicePage onBack={() => setLegalPage
       <button onClick={() => setLegalPage('privacy')} style={{ background: 'none', border: 'none', color: '#555', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>Privacy Policy</button>
       <button onClick={() => setLegalPage('terms')} style={{ background: 'none', border: 'none', color: '#555', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>Terms of Service</button>
     </div>
+    </>
   );
 
   const tabs = [
