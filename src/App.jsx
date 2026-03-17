@@ -1452,47 +1452,284 @@ function MammalEntryPanel({ onAnimalsSaved, onRequestGenerateMammalResearch, onR
 
 // ── PRIVACY POLICY PAGE ───────────────────────────────────────────────────────
 function PrivacyPolicyPage({ onBack }) {
+  const sections = [
+    { title: '1. Introduction', body: 'This Privacy Policy describes how the Hart Middle School March Madness Bracket Challenge ("the Application") collects, uses, stores, and protects information about its users. This Application is an educational tool developed and operated by a Science Teacher at Hart Middle School, Rochester Community Schools, for use by students, teachers, and staff within the school community. This Application is not a commercial product and is not affiliated with any third-party commercial entity. It was developed solely for educational purposes in support of classroom instruction.' },
+    { title: '2. Scope', body: 'This Privacy Policy applies to all users of the Application, including students, teachers, and school staff who access the Application through their Rochester Community Schools Google accounts.' },
+    { title: '3. Information Collected', body: null },
+    { title: '4. Use of Information', body: null },
+    { title: '5. Data Storage and Security', body: null },
+    { title: '6. Data Retention', body: 'User data is retained only for the duration of the tournament period. At the conclusion of each tournament season, all student data is reviewed and cleared by the school administrator prior to the following school year. Administrators retain the ability to delete any individual user\'s data at any time upon request.' },
+    { title: '7. Google Sign-In and Third-Party Authentication', body: 'This Application uses Google Sign-In for user authentication. By signing in, users authorize Google to share their display name, profile photo, and unique identifier with the Application. The Application does not receive or store the user\'s Google account password at any time. Google\'s handling of user account data during the authentication process is governed by Google\'s Privacy Policy at policies.google.com/privacy.' },
+    { title: '8. Children\'s Privacy — COPPA and FERPA Compliance', body: null },
+    { title: '9. AI-Generated Content', body: 'This Application uses artificial intelligence (Claude, provided by Anthropic, PBC) to generate educational content, including team and animal fact cards. The sources used by the AI are selected and controlled exclusively by the school administrator, ensuring all source material is appropriate for middle school students. The AI generation system does not collect, process, or store any student personal information. Student data is never used as input to the AI content generation system.' },
+    { title: '10. User Rights', body: 'Users and their parents or guardians have the right to request access to, correction of, or deletion of personal data stored within the Application, and to withdraw from participation at any time. To exercise any of these rights, contact Rochester Community Schools.' },
+    { title: '11. Changes to This Policy', body: 'This Privacy Policy may be updated periodically. The "Last Updated" date at the top of this document will reflect any revisions. Continued use of the Application following any update constitutes acceptance of the revised policy.' },
+    { title: '12. Contact Information', body: 'Rochester Community Schools' },
+  ];
+
   return (
     <div style={{ minHeight: '100vh', background: '#0a1a0e', color: '#e8f5ee', fontFamily: "'Source Sans 3', sans-serif", padding: '40px 20px' }}>
-      <div style={{ maxWidth: 720, margin: '0 auto' }}>
+      <div style={{ maxWidth: 760, margin: '0 auto' }}>
         <button onClick={onBack} style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '7px 16px', color: '#aaa', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', marginBottom: 32 }}>← Back</button>
-        <h1 style={{ fontFamily: "'Playfair Display', serif", color: ACCENT2, marginBottom: 6, fontSize: 32 }}>Privacy Policy</h1>
-        <p style={{ color: '#777', fontSize: 13, marginBottom: 32 }}>Last updated: March 2026</p>
 
-        {[
-          ['Who runs this app?', 'This app is operated by a teacher at your school. It is not a commercial product. It was built specifically for educational use within the school community.'],
-          ['What information does the app collect?', null],
-          ['How is this information used?', 'Your information is used only to display your name and photo on the leaderboard, save your bracket picks, calculate your score, and allow your teacher to manage the tournament. Your information is never sold, shared with advertisers, or used for any commercial purpose.'],
-          ['Where is data stored?', 'All data is stored in Google Firebase, which is part of Google\'s cloud infrastructure — the same infrastructure used by many school applications. Data is stored securely and is not accessible to anyone outside the app\'s administrators.'],
-          ['Who can see my information?', 'Other students can see your display name, photo, and score on the leaderboard, and can view your bracket picks. Teachers and admins can see your name, score, and bracket picks. No one outside the school community has access to your information.'],
-          ['How long is data kept?', 'Data is kept for the duration of the tournament. Administrators can delete user data at any time. All student data is cleared before the next tournament begins each year.'],
-          ['Google Sign-In', 'This app uses Google Sign-In for authentication. The app never sees your password — Google handles that. You can review Google\'s privacy policy at policies.google.com.'],
-          ['Children\'s Privacy (COPPA & FERPA)', 'This app is designed for use in a school setting under teacher supervision. No personal information beyond name and photo is collected. No data is shared with third parties. Student data is used solely for educational purposes. Administrators can delete any student\'s data at any time upon request.'],
-          ['Contact', 'If you have questions about this privacy policy, please contact your teacher or school administrator.'],
-        ].map(([title, body]) => (
+        <h1 style={{ fontFamily: "'Playfair Display', serif", color: ACCENT2, marginBottom: 4, fontSize: 32 }}>Privacy Policy</h1>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 32, padding: '14px 16px', background: 'rgba(255,255,255,0.03)', borderRadius: 8, border: '1px solid rgba(255,255,255,0.08)', fontSize: 13, color: '#888' }}>
+          <div><strong style={{ color: '#aaa' }}>Application:</strong> Hart Middle School March Madness Bracket Challenge</div>
+          <div><strong style={{ color: '#aaa' }}>Operated by:</strong> Science Teacher, Hart Middle School, Rochester Community Schools</div>
+          <div><strong style={{ color: '#aaa' }}>Last Updated:</strong> March 2026</div>
+          <div><strong style={{ color: '#aaa' }}>Effective Date:</strong> March 2026</div>
+        </div>
+
+        {sections.map(({ title, body }) => (
           <div key={title} style={{ marginBottom: 28 }}>
-            <h2 style={{ color: ACCENT2, fontSize: 17, marginBottom: 8, fontFamily: "'Playfair Display', serif" }}>{title}</h2>
-            {title === 'What information does the app collect?' ? (
-              <>
-                <p style={{ color: '#ccc', fontSize: 14, lineHeight: 1.8, marginBottom: 8 }}>The app collects only the minimum information needed to function:</p>
-                <ul style={{ color: '#ccc', fontSize: 14, lineHeight: 1.8, paddingLeft: 20, marginBottom: 8 }}>
-                  <li><strong style={{ color: '#fff' }}>Your name</strong> — pulled from your school Google account when you sign in</li>
-                  <li><strong style={{ color: '#fff' }}>Your profile photo</strong> — pulled from your school Google account when you sign in</li>
-                  <li><strong style={{ color: '#fff' }}>Your bracket picks</strong> — the choices you make in the tournament bracket</li>
-                  <li><strong style={{ color: '#fff' }}>Your score</strong> — calculated automatically based on your picks</li>
-                </ul>
-                <p style={{ color: '#ccc', fontSize: 14, lineHeight: 1.8 }}>The app does <strong style={{ color: '#fff' }}>not</strong> collect passwords, email addresses, location data, device information, browsing history, or any information from outside the app.</p>
-              </>
-            ) : (
-              <p style={{ color: '#ccc', fontSize: 14, lineHeight: 1.8 }}>{body}</p>
+            <h2 style={{ color: ACCENT2, fontSize: 16, marginBottom: 10, fontFamily: "'Playfair Display', serif", borderBottom: '1px solid rgba(22,163,74,0.2)', paddingBottom: 6 }}>{title}</h2>
+
+            {title === '3. Information Collected' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <div>
+                  <h3 style={{ color: '#aaa', fontSize: 14, marginBottom: 6 }}>3.1 Information Collected Automatically Upon Sign-In</h3>
+                  <p style={{ color: '#ccc', fontSize: 13, lineHeight: 1.8, marginBottom: 8 }}>When a user authenticates through Google Sign-In, the Application receives the following information from Google:</p>
+                  <ul style={{ color: '#ccc', fontSize: 13, lineHeight: 2, paddingLeft: 20 }}>
+                    <li><strong style={{ color: '#fff' }}>Display Name</strong> — the name associated with the user's Google account</li>
+                    <li><strong style={{ color: '#fff' }}>Profile Photo</strong> — the profile image associated with the user's Google account</li>
+                    <li><strong style={{ color: '#fff' }}>User Identifier</strong> — a unique identifier assigned by Google to the user's account</li>
+                  </ul>
+                  <p style={{ color: '#ccc', fontSize: 13, lineHeight: 1.8, marginTop: 8 }}>The Application does <strong style={{ color: '#fff' }}>not</strong> collect or store passwords. Authentication is handled entirely by Google through its OAuth 2.0 protocol.</p>
+                </div>
+                <div>
+                  <h3 style={{ color: '#aaa', fontSize: 14, marginBottom: 6 }}>3.2 Information Generated Through Use of the Application</h3>
+                  <ul style={{ color: '#ccc', fontSize: 13, lineHeight: 2, paddingLeft: 20 }}>
+                    <li><strong style={{ color: '#fff' }}>Bracket Picks</strong> — the tournament predictions entered by the user</li>
+                    <li><strong style={{ color: '#fff' }}>Score</strong> — a numerical score calculated automatically based on the user's picks and tournament results</li>
+                  </ul>
+                </div>
+                <div>
+                  <h3 style={{ color: '#aaa', fontSize: 14, marginBottom: 6 }}>3.3 Information Not Collected</h3>
+                  <p style={{ color: '#ccc', fontSize: 13, lineHeight: 1.8, marginBottom: 8 }}>The Application expressly does <strong style={{ color: '#fff' }}>not</strong> collect the following:</p>
+                  <ul style={{ color: '#ccc', fontSize: 13, lineHeight: 2, paddingLeft: 20 }}>
+                    <li>Email addresses</li>
+                    <li>Physical addresses</li>
+                    <li>Date of birth or age</li>
+                    <li>Phone numbers</li>
+                    <li>Location data or GPS information</li>
+                    <li>Device identifiers or hardware information</li>
+                    <li>Browsing history or behavioral tracking data</li>
+                    <li>Cookies or persistent tracking identifiers</li>
+                    <li>Any information from sources outside the Application</li>
+                  </ul>
+                </div>
+              </div>
             )}
+
+            {title === '4. Use of Information' && (
+              <div>
+                <p style={{ color: '#ccc', fontSize: 13, lineHeight: 1.8, marginBottom: 8 }}>Information collected by the Application is used solely for the following educational purposes:</p>
+                <ul style={{ color: '#ccc', fontSize: 13, lineHeight: 2, paddingLeft: 20, marginBottom: 12 }}>
+                  <li>To display the user's name and profile photo on the Application leaderboard</li>
+                  <li>To save and restore the user's bracket picks between sessions</li>
+                  <li>To calculate and display the user's score</li>
+                  <li>To enable the school administrator to manage tournament participation</li>
+                  <li>To provide teachers and administrators with visibility into student participation</li>
+                </ul>
+                <p style={{ color: '#ccc', fontSize: 13, lineHeight: 1.8, marginBottom: 8 }}>The Application does <strong style={{ color: '#fff' }}>not</strong> use collected information for any of the following purposes:</p>
+                <ul style={{ color: '#ccc', fontSize: 13, lineHeight: 2, paddingLeft: 20 }}>
+                  <li>Advertising or marketing</li>
+                  <li>Sale or transfer to third parties</li>
+                  <li>Profiling or behavioral analysis</li>
+                  <li>Any purpose unrelated to the educational use of the Application</li>
+                </ul>
+              </div>
+            )}
+
+            {title === '5. Data Storage and Security' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <div>
+                  <h3 style={{ color: '#aaa', fontSize: 14, marginBottom: 6 }}>5.1 Storage Infrastructure</h3>
+                  <p style={{ color: '#ccc', fontSize: 13, lineHeight: 1.8 }}>All user data is stored exclusively in <strong style={{ color: '#fff' }}>Google Firebase</strong>, a cloud infrastructure service provided by Google LLC. Firebase is part of the Google Cloud Platform and is subject to Google's enterprise security standards, including SOC 2 Type II and ISO 27001 certifications. Rochester Community Schools' existing use of Google Workspace for Education means that Firebase operates within the same trusted Google infrastructure already approved for student use within the district.</p>
+                </div>
+                <div>
+                  <h3 style={{ color: '#aaa', fontSize: 14, marginBottom: 6 }}>5.2 Access Controls</h3>
+                  <ul style={{ color: '#ccc', fontSize: 13, lineHeight: 2, paddingLeft: 20 }}>
+                    <li><strong style={{ color: '#fff' }}>Other students</strong> may view a user's display name, profile photo, score, and bracket picks through the leaderboard interface</li>
+                    <li><strong style={{ color: '#fff' }}>Teachers and school administrators</strong> designated within the Application may view all user data for the purpose of managing the tournament</li>
+                    <li><strong style={{ color: '#fff' }}>No external parties</strong> have access to user data stored within the Application</li>
+                    <li><strong style={{ color: '#fff' }}>The application operator</strong> does not share data with any third party, vendor, or external service</li>
+                  </ul>
+                </div>
+                <div>
+                  <h3 style={{ color: '#aaa', fontSize: 14, marginBottom: 6 }}>5.3 Data Transmission</h3>
+                  <p style={{ color: '#ccc', fontSize: 13, lineHeight: 1.8 }}>All data transmitted between the user's device and the Application's backend infrastructure is encrypted in transit using industry-standard TLS (Transport Layer Security) protocols, consistent with Google Firebase's default security configuration.</p>
+                </div>
+              </div>
+            )}
+
+            {title === '8. Children\'s Privacy — COPPA and FERPA Compliance' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <div>
+                  <h3 style={{ color: '#aaa', fontSize: 14, marginBottom: 6 }}>8.1 COPPA Compliance</h3>
+                  <p style={{ color: '#ccc', fontSize: 13, lineHeight: 1.8, marginBottom: 8 }}>This Application is designed for use under direct teacher supervision within a school setting. In accordance with the Children's Online Privacy Protection Act (COPPA):</p>
+                  <ul style={{ color: '#ccc', fontSize: 13, lineHeight: 2, paddingLeft: 20 }}>
+                    <li>No personal information beyond display name and profile photo is collected from any user</li>
+                    <li>No personal information is sold, shared, or disclosed to third parties</li>
+                    <li>No behavioral advertising or tracking is conducted</li>
+                    <li>School administrators retain the ability to review and delete student data upon request</li>
+                  </ul>
+                </div>
+                <div>
+                  <h3 style={{ color: '#aaa', fontSize: 14, marginBottom: 6 }}>8.2 FERPA Compliance</h3>
+                  <p style={{ color: '#ccc', fontSize: 13, lineHeight: 1.8, marginBottom: 8 }}>This Application is operated as a school-sponsored educational tool. In accordance with the Family Educational Rights and Privacy Act (FERPA):</p>
+                  <ul style={{ color: '#ccc', fontSize: 13, lineHeight: 2, paddingLeft: 20 }}>
+                    <li>Student data collected by this Application is used solely for legitimate educational purposes</li>
+                    <li>Student data is not disclosed to unauthorized parties</li>
+                    <li>Parents and eligible students may request review or deletion of data by contacting Rochester Community Schools</li>
+                  </ul>
+                </div>
+              </div>
+            )}
+
+            {body && <p style={{ color: '#ccc', fontSize: 13, lineHeight: 1.8 }}>{body}</p>}
           </div>
         ))}
+
+        <div style={{ marginTop: 32, padding: '12px 16px', background: 'rgba(255,255,255,0.03)', borderRadius: 8, border: '1px solid rgba(255,255,255,0.08)', fontSize: 12, color: '#555', textAlign: 'center' }}>
+          This Application is not affiliated with the NCAA, Arizona State University, or any other organization associated with the tournaments referenced within the Application.
+        </div>
       </div>
     </div>
   );
 }
 
+// ── TERMS OF SERVICE PAGE ─────────────────────────────────────────────────────
+function TermsOfServicePage({ onBack }) {
+  const sections = [
+    { title: '1. Agreement to Terms', body: 'By accessing or using the Hart Middle School March Madness Bracket Challenge ("the Application"), you agree to be bound by these Terms of Service ("Terms"). If you do not agree to these Terms, you may not access or use the Application. These Terms apply to all users of the Application, including students, teachers, and school staff of Rochester Community Schools.' },
+    { title: '2. Description of the Application', body: 'The Hart Middle School March Madness Bracket Challenge is an educational web application developed and operated by a Science Teacher at Hart Middle School, Rochester Community Schools. The Application facilitates school-based bracket prediction competitions tied to the NCAA Men\'s Basketball Tournament and the March Mammal Madness competition organized by Arizona State University. The Application incorporates AI-generated educational content to support student learning in science and mathematics. The Application is not a commercial product and is provided solely for educational purposes within the Rochester Community Schools community.' },
+    { title: '3. Eligibility and Access', body: null },
+    { title: '4. Acceptable Use', body: null },
+    { title: '5. Educational Content and AI-Generated Material', body: null },
+    { title: '6. Leaderboard and Scoring', body: null },
+    { title: '7. Account Management and Removal', body: 'The school administrator reserves the right to remove any user account from the Application at any time. Removal of an account will result in the permanent deletion of that user\'s bracket picks, score, and associated data from the Application. Account removal does not affect the user\'s Rochester Community Schools Google account.' },
+    { title: '8. Intellectual Property', body: 'The Application and its underlying source code are the intellectual property of the operator. Users are granted a limited, non-exclusive, non-transferable license to access and use the Application solely for its intended educational purposes. No other rights are granted. Tournament names, logos, and associated intellectual property referenced within the Application belong to their respective owners, including but not limited to the NCAA and Arizona State University. This Application is not affiliated with, endorsed by, or sponsored by any such organization.' },
+    { title: '9. Disclaimer of Warranties', body: 'THE APPLICATION IS PROVIDED ON AN "AS IS" AND "AS AVAILABLE" BASIS WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, OR NON-INFRINGEMENT. THE APPLICATION OPERATOR DOES NOT WARRANT THAT THE APPLICATION WILL BE UNINTERRUPTED, ERROR-FREE, OR FREE OF HARMFUL COMPONENTS.' },
+    { title: '10. Limitation of Liability', body: 'TO THE FULLEST EXTENT PERMITTED BY APPLICABLE LAW, THE APPLICATION OPERATOR SHALL NOT BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES ARISING OUT OF OR RELATED TO THE USE OF OR INABILITY TO USE THE APPLICATION.' },
+    { title: '11. Compliance with School Policies', body: 'Use of this Application is subject to all applicable Rochester Community Schools policies, including but not limited to the district\'s Student Code of Conduct and Acceptable Use Policy for Technology. Violations of these Terms may be reported to school administration and addressed in accordance with applicable school disciplinary procedures.' },
+    { title: '12. Modifications to Terms', body: 'These Terms of Service may be updated periodically. The "Last Updated" date at the top of this document will reflect any revisions. Continued use of the Application following any update to these Terms constitutes acceptance of the revised Terms.' },
+    { title: '13. Governing Law', body: 'These Terms shall be governed by and construed in accordance with the laws of the State of Michigan, without regard to its conflict of law provisions, and in compliance with applicable federal education law including FERPA and COPPA.' },
+    { title: '14. Contact Information', body: 'Rochester Community Schools' },
+  ];
+
+  return (
+    <div style={{ minHeight: '100vh', background: '#0a1a0e', color: '#e8f5ee', fontFamily: "'Source Sans 3', sans-serif", padding: '40px 20px' }}>
+      <div style={{ maxWidth: 760, margin: '0 auto' }}>
+        <button onClick={onBack} style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '7px 16px', color: '#aaa', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', marginBottom: 32 }}>← Back</button>
+
+        <h1 style={{ fontFamily: "'Playfair Display', serif", color: ACCENT2, marginBottom: 4, fontSize: 32 }}>Terms of Service</h1>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 32, padding: '14px 16px', background: 'rgba(255,255,255,0.03)', borderRadius: 8, border: '1px solid rgba(255,255,255,0.08)', fontSize: 13, color: '#888' }}>
+          <div><strong style={{ color: '#aaa' }}>Application:</strong> Hart Middle School March Madness Bracket Challenge</div>
+          <div><strong style={{ color: '#aaa' }}>Operated by:</strong> Science Teacher, Hart Middle School, Rochester Community Schools</div>
+          <div><strong style={{ color: '#aaa' }}>Last Updated:</strong> March 2026</div>
+          <div><strong style={{ color: '#aaa' }}>Effective Date:</strong> March 2026</div>
+        </div>
+
+        {sections.map(({ title, body }) => (
+          <div key={title} style={{ marginBottom: 28 }}>
+            <h2 style={{ color: ACCENT2, fontSize: 16, marginBottom: 10, fontFamily: "'Playfair Display', serif", borderBottom: '1px solid rgba(22,163,74,0.2)', paddingBottom: 6 }}>{title}</h2>
+
+            {title === '3. Eligibility and Access' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <div>
+                  <h3 style={{ color: '#aaa', fontSize: 14, marginBottom: 6 }}>3.1 Authorized Users</h3>
+                  <p style={{ color: '#ccc', fontSize: 13, lineHeight: 1.8, marginBottom: 8 }}>Access to the Application is restricted to:</p>
+                  <ul style={{ color: '#ccc', fontSize: 13, lineHeight: 2, paddingLeft: 20 }}>
+                    <li>Currently enrolled students at Hart Middle School, Rochester Community Schools</li>
+                    <li>Teachers and staff at Hart Middle School, Rochester Community Schools</li>
+                    <li>Such other individuals as may be expressly authorized by the school administrator</li>
+                  </ul>
+                </div>
+                <div>
+                  <h3 style={{ color: '#aaa', fontSize: 14, marginBottom: 6 }}>3.2 Authentication</h3>
+                  <p style={{ color: '#ccc', fontSize: 13, lineHeight: 1.8 }}>Access to the Application requires sign-in through a valid Rochester Community Schools Google account. Users are responsible for maintaining the security of their Google account credentials. The Application does not issue or manage passwords.</p>
+                </div>
+                <div>
+                  <h3 style={{ color: '#aaa', fontSize: 14, marginBottom: 6 }}>3.3 Authorization</h3>
+                  <p style={{ color: '#ccc', fontSize: 13, lineHeight: 1.8 }}>Access to the Application is granted at the discretion of the school administrator and may be revoked at any time without prior notice.</p>
+                </div>
+              </div>
+            )}
+
+            {title === '4. Acceptable Use' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <div>
+                  <h3 style={{ color: '#aaa', fontSize: 14, marginBottom: 6 }}>4.1 Permitted Uses</h3>
+                  <ul style={{ color: '#ccc', fontSize: 13, lineHeight: 2, paddingLeft: 20 }}>
+                    <li>Completing bracket predictions for the designated tournaments</li>
+                    <li>Reviewing AI-generated educational content about NCAA tournament teams and March Mammal Madness organisms</li>
+                    <li>Viewing the leaderboard and comparing bracket performance with other participants</li>
+                    <li>Participating in the school bracket challenge as directed by their teacher</li>
+                  </ul>
+                </div>
+                <div>
+                  <h3 style={{ color: '#aaa', fontSize: 14, marginBottom: 6 }}>4.2 Prohibited Conduct</h3>
+                  <p style={{ color: '#ccc', fontSize: 13, lineHeight: 1.8, marginBottom: 8 }}>Users may not engage in any of the following activities:</p>
+                  <ul style={{ color: '#ccc', fontSize: 13, lineHeight: 2, paddingLeft: 20 }}>
+                    <li>Attempting to access another user's account or data without authorization</li>
+                    <li>Attempting to manipulate, falsify, or otherwise interfere with scores, results, or the leaderboard</li>
+                    <li>Using the Application for any purpose other than its intended educational use</li>
+                    <li>Sharing login credentials or allowing unauthorized individuals to access the Application through their account</li>
+                    <li>Attempting to reverse engineer, decompile, copy, reproduce, or redistribute the Application or its source code without express written authorization</li>
+                    <li>Introducing malicious code, scripts, or automated bots into the Application</li>
+                    <li>Engaging in any conduct that disrupts or interferes with the operation of the Application or other users' access to it</li>
+                    <li>Using the Application in any manner that violates applicable federal, state, or local laws or Rochester Community Schools' Acceptable Use Policy</li>
+                  </ul>
+                </div>
+              </div>
+            )}
+
+            {title === '5. Educational Content and AI-Generated Material' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <div>
+                  <h3 style={{ color: '#aaa', fontSize: 14, marginBottom: 6 }}>5.1 Nature of Content</h3>
+                  <p style={{ color: '#ccc', fontSize: 13, lineHeight: 1.8 }}>The Application displays educational content generated by artificial intelligence (Claude, provided by Anthropic, PBC) based on source materials selected by the school administrator. This content is intended for educational and informational purposes at a middle school reading level.</p>
+                </div>
+                <div>
+                  <h3 style={{ color: '#aaa', fontSize: 14, marginBottom: 6 }}>5.2 Content Accuracy</h3>
+                  <p style={{ color: '#ccc', fontSize: 13, lineHeight: 1.8 }}>While the school administrator makes reasonable efforts to ensure that source materials are accurate and appropriate, AI-generated content may contain errors or omissions. Users should not rely on Application content as a definitive or authoritative source of information.</p>
+                </div>
+                <div>
+                  <h3 style={{ color: '#aaa', fontSize: 14, marginBottom: 6 }}>5.3 Content Standards</h3>
+                  <p style={{ color: '#ccc', fontSize: 13, lineHeight: 1.8 }}>All source materials used to generate Application content are reviewed and selected by the school administrator to ensure age-appropriateness for middle school students. Content that is deemed inappropriate will be removed or corrected upon identification.</p>
+                </div>
+              </div>
+            )}
+
+            {title === '6. Leaderboard and Scoring' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <div>
+                  <h3 style={{ color: '#aaa', fontSize: 14, marginBottom: 6 }}>6.1 Score Calculation</h3>
+                  <p style={{ color: '#ccc', fontSize: 13, lineHeight: 1.8 }}>Scores are calculated automatically by the Application based on tournament results entered by the school administrator. The Application uses a scoring methodology consistent with standard bracket challenge conventions.</p>
+                </div>
+                <div>
+                  <h3 style={{ color: '#aaa', fontSize: 14, marginBottom: 6 }}>6.2 Score Finality</h3>
+                  <p style={{ color: '#ccc', fontSize: 13, lineHeight: 1.8 }}>Score calculations are administered by the school administrator and are final. The Application operator reserves the right to correct scoring errors at any time.</p>
+                </div>
+                <div>
+                  <h3 style={{ color: '#aaa', fontSize: 14, marginBottom: 6 }}>6.3 Leaderboard Visibility</h3>
+                  <p style={{ color: '#ccc', fontSize: 13, lineHeight: 1.8 }}>The leaderboard, including participant names and scores, is visible to all authorized users of the Application. By participating in the Application, users consent to their display name and score being visible to other authorized users.</p>
+                </div>
+              </div>
+            )}
+
+            {body && <p style={{ color: title === '9. Disclaimer of Warranties' || title === '10. Limitation of Liability' ? '#888' : '#ccc', fontSize: 13, lineHeight: 1.8 }}>{body}</p>}
+          </div>
+        ))}
+
+        <div style={{ marginTop: 32, padding: '12px 16px', background: 'rgba(255,255,255,0.03)', borderRadius: 8, border: '1px solid rgba(255,255,255,0.08)', fontSize: 12, color: '#555', textAlign: 'center' }}>
+          This Application is not affiliated with the NCAA, Arizona State University, or any other organization associated with the tournaments referenced within the Application.
+        </div>
+      </div>
+    </div>
+  );
+}
 // ── TERMS OF SERVICE PAGE ─────────────────────────────────────────────────────
 function TermsOfServicePage({ onBack }) {
   return (
