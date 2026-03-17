@@ -166,14 +166,23 @@ export async function saveOneTeamResearch(teamName, cardData) {
     updatedAt: serverTimestamp(),
   });
 }
-
 export function subscribeToResearchData(callback) {
   return onSnapshot(doc(db, 'admin', 'researchData'), snap => {
-    if (snap.exists()) callback(snap.data().teams || {});
-    else callback({});
+    if (!snap.exists()) { callback({}); return; }
+    const d = snap.data();
+    if (d.teams && typeof d.teams === 'object') {
+      callback(d.teams);
+    } else {
+      const teams = {};
+      Object.entries(d).forEach(([k, v]) => {
+        if (k !== 'updatedAt' && typeof v === 'object' && v !== null) {
+          teams[k] = v;
+        }
+      });
+      callback(teams);
+    }
   });
 }
-
 // ── MAMMALS TOURNAMENT ────────────────────────────────────────────────────────
 
 export async function saveMammalBracket(uid, bracketData, displayName, photoURL) {
