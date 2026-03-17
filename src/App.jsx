@@ -1,4 +1,4 @@
-// src/App.jsx — Full rewrite with all fixes
+// src/App.jsx — Full rewrite with all f
 import { useState, useEffect, useCallback, useRef, useMemo, memo } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth, signInWithGoogle, logOut } from './firebase';
