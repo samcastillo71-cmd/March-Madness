@@ -2378,6 +2378,8 @@ Keep all language at a middle school reading level. Make it engaging and educati
     setBracket(newBracket); setOfficialBracket(newBracket);
   }, []);
   // ── LOGIN SCREEN ──────────────────────────────────────────────────────────
+  if (legalPage === 'privacy') return <PrivacyPolicyPage onBack={() => setLegalPage(null)} />;
+if (legalPage === 'terms') return <TermsOfServicePage onBack={() => setLegalPage(null)} />;
   if (authLoading) return (
     <div style={{ ...S.app, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div style={{ color: ACCENT2, fontSize: 18 }} role="status">Loading...</div>
