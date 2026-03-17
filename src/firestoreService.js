@@ -147,7 +147,13 @@ export async function loadAdminUids() {
 export async function loadResearchData() {
   const snap = await getDoc(doc(db, 'admin', 'researchData'));
   if (!snap.exists()) return {};
-  return snap.data().teams || {};
+  const d = snap.data();
+  if (d.teams && typeof d.teams === 'object') return d.teams;
+  const teams = {};
+  Object.entries(d).forEach(([k, v]) => {
+    if (k !== 'updatedAt' && typeof v === 'object' && v !== null) teams[k] = v;
+  });
+  return teams;
 }
 
 export async function saveResearchData(teamsObj) {
@@ -166,6 +172,7 @@ export async function saveOneTeamResearch(teamName, cardData) {
     updatedAt: serverTimestamp(),
   });
 }
+
 export function subscribeToResearchData(callback) {
   return onSnapshot(doc(db, 'admin', 'researchData'), snap => {
     if (!snap.exists()) { callback({}); return; }
@@ -173,6 +180,7 @@ export function subscribeToResearchData(callback) {
     if (d.teams && typeof d.teams === 'object') {
       callback(d.teams);
     } else {
+      // Flat format — migrate by picking only team-shaped entries
       const teams = {};
       Object.entries(d).forEach(([k, v]) => {
         if (k !== 'updatedAt' && typeof v === 'object' && v !== null) {
@@ -183,6 +191,7 @@ export function subscribeToResearchData(callback) {
     }
   });
 }
+
 // ── MAMMALS TOURNAMENT ────────────────────────────────────────────────────────
 
 export async function saveMammalBracket(uid, bracketData, displayName, photoURL) {
