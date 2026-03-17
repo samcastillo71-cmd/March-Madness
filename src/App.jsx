@@ -2380,7 +2380,18 @@ export default function App() {
     const allData = {};
     try {
       const snap = await getDoc(doc(db, 'admin', 'researchData'));
-      if (snap.exists()) Object.assign(allData, snap.data().teams || {});
+      if (snap.exists()) {
+        const d = snap.data();
+        if (d.teams && typeof d.teams === 'object') {
+          Object.assign(allData, d.teams);
+        } else {
+          Object.entries(d).forEach(([k, v]) => {
+            if (k !== 'updatedAt' && typeof v === 'object' && v !== null) {
+              allData[k] = v;
+            }
+          });
+        }
+      }
     } catch {}
     for (let i = 0; i < teams.length; i++) {
       const { name, seed, region } = teams[i];
@@ -3909,6 +3920,35 @@ Keep all language at a middle school reading level. Make it engaging and educati
                     sourcesData={bbSources}
                     onSaveSources={handleSaveBbSources}
                   />
+                  {/* ── Research Cleanup ── */}
+                  {Object.keys(researchData).length > 0 && (
+                    <div style={{ ...S.card, marginBottom: 16, borderColor: 'rgba(245,158,11,0.25)' }}>
+                      <h3 style={{ color: GOLD2, marginBottom: 6, fontSize: 15 }}>🧹 Research Cleanup</h3>
+                      <p style={{ color: '#777', fontSize: 12, marginBottom: 14 }}>
+                        Delete individual research entries that have stale or incorrect data. This does not affect the roster or bracket.
+                      </p>
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        {Object.keys(researchData).sort().map(name => (
+                          <div key={name} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', background: 'rgba(255,255,255,0.03)', borderRadius: 8, border: '1px solid rgba(255,255,255,0.08)' }}>
+                            <span style={{ fontSize: 12, color: '#ccc' }}>{name}</span>
+                            <button
+                              onClick={() => setConfirmDialog({
+                                message: `Delete research entry for "${name}"?`,
+                                onConfirm: async () => {
+                                  setConfirmDialog(null);
+                                  const updated = { ...researchData };
+                                  delete updated[name];
+                                  await saveResearchData(updated);
+                                  setResearchData(updated);
+                                }
+                              })}
+                              style={{ background: 'none', border: 'none', color: '#666', cursor: 'pointer', fontSize: 14, padding: '0 2px', lineHeight: 1 }}
+                              aria-label={`Delete ${name}`}>×</button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   {/* ── Danger Zone ── */}
                   <div style={{ marginTop: 40, borderTop: '1px solid rgba(239,68,68,0.2)', paddingTop: 24 }}>
                     <div style={{ fontSize: 11, color: '#e74c3c', letterSpacing: 2, textTransform: 'uppercase', fontWeight: 700, marginBottom: 16 }}>⚠️ Danger Zone</div>
