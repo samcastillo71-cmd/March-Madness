@@ -1365,7 +1365,266 @@ function applyFirstFourPicks(bracket, picks) {
   });
   return next;
 }
+// ── UPSET GUIDE MATCHUP TOOL ──────────────────────────────────────────────────
+function UpsetGuideMatchupTool({ researchData, bbSources, officialBracket }) {
+  const [selected, setSelected]   = useState(null); // { teamA, teamB, seedA, seedB }
+  const [analysis, setAnalysis]   = useState(null);
+  const [loading, setLoading]     = useState(false);
+  const [error, setError]         = useState('');
 
+  // Build first-round matchups from officialBracket R64
+  const matchups = useMemo(() => {
+    if (!officialBracket) return [];
+    const out = [];
+    ['East','West','South','Midwest'].forEach(region => {
+      const r64 = officialBracket[region]?.rounds?.[0] || [];
+      r64.forEach(game => {
+        const a = game.top;
+        const b = game.bottom;
+        if (!a?.name || !b?.name || a.isFFPlaceholder || b.isFFPlaceholder) return;
+        out.push({ region, teamA: a.name, teamB: b.name, seedA: a.seed, seedB: b.seed });
+      });
+    });
+    return out;
+  }, [officialBracket]);
+
+  const handleSelect = async (matchup) => {
+    setSelected(matchup);
+    setAnalysis(null);
+    setError('');
+    setLoading(true);
+
+    const cardA = researchData[matchup.teamA];
+    const cardB = researchData[matchup.teamB];
+
+    const prompt = `You are a sports analyst helping middle school students (grades 6-8) understand an NCAA Tournament matchup.
+
+Analyze this first-round matchup:
+- ${matchup.teamA} (Seed #${matchup.seedA}, ${matchup.region} Region)
+- ${matchup.teamB} (Seed #${matchup.seedB}, ${matchup.region} Region)
+
+${cardA ? `${matchup.teamA} research data: ${JSON.stringify(cardA)}` : `No research data available for ${matchup.teamA}.`}
+${cardB ? `${matchup.teamB} research data: ${JSON.stringify(cardB)}` : `No research data available for ${matchup.teamB}.`}
+
+If source materials contain stats for these teams (KenPom, Bart Torvik, etc.), use them. Otherwise use the research data above.
+
+Return ONLY valid JSON with this exact structure:
+{
+  "summary": "2-3 sentence plain English summary of the matchup written for a middle schooler. Who is favored and why?",
+  "upsetFactors": [
+    "Factor 1 — specific reason the underdog could win",
+    "Factor 2 — specific reason the underdog could win",
+    "Factor 3 — specific reason the underdog could win"
+  ],
+  "favoriteStrengths": [
+    "Strength 1 of the favorite",
+    "Strength 2 of the favorite"
+  ],
+  "keyStats": [
+    "Stat comparison 1 (e.g. Offense: Team A ranks 12th, Team B ranks 45th)",
+    "Stat comparison 2",
+    "Stat comparison 3"
+  ],
+  "verdict": "1-2 sentence plain English pick with confidence level (e.g. 'Safe pick', 'Slight upset risk', 'Coin flip')",
+  "upsetOdds": "Low / Medium / High"
+}`;
+
+    try {
+      const result = await callAI(prompt, bbSources);
+      setAnalysis(result);
+    } catch (e) {
+      setError(e.message || 'Analysis failed. Try again.');
+    }
+    setLoading(false);
+  };
+
+  const REGION_COLORS = { East: '#93c5fd', West: '#fca5a5', South: '#86efac', Midwest: '#fdba74' };
+  const UPSET_COLORS  = { Low: '#22c55e', Medium: '#f59e0b', High: '#ef4444' };
+
+  const noResearch = matchups.length === 0 || Object.keys(researchData).length === 0;
+
+  return (
+    <div style={{ marginBottom: 32 }}>
+      <div style={{ marginBottom: 20 }}>
+        <h2 style={{ fontFamily: "'Playfair Display', serif", color: ACCENT2, marginBottom: 6, fontSize: 26 }}>
+          🔍 Check My Matchup
+        </h2>
+        <p style={{ color: '#999', fontSize: 14, lineHeight: 1.7 }}>
+          Click any first-round game to get an AI-powered upset analysis using your team research data
+          {bbSources.length > 0 ? ' and live stats from your research sources' : ''}.
+        </p>
+      </div>
+
+      {noResearch && (
+        <div style={{ ...S.card, textAlign: 'center', padding: 40, color: '#666', marginBottom: 24 }}>
+          <div style={{ fontSize: 32, marginBottom: 12 }}>📋</div>
+          <div style={{ fontSize: 15, marginBottom: 6, color: '#888' }}>
+            {matchups.length === 0 ? 'No bracket set up yet' : 'No research data generated yet'}
+          </div>
+          <div style={{ fontSize: 13 }}>
+            {matchups.length === 0
+              ? 'Ask your admin to enter teams and apply the bracket first.'
+              : 'Ask your admin to generate research in Admin → 🏀 Basketball first.'}
+          </div>
+        </div>
+      )}
+
+      {/* Matchup Cards Grid */}
+      {matchups.length > 0 && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 10, marginBottom: 28 }}>
+          {matchups.map((m, i) => {
+            const isActive   = selected?.teamA === m.teamA && selected?.teamB === m.teamB;
+            const hasResearch = researchData[m.teamA] && researchData[m.teamB];
+            const regionColor = REGION_COLORS[m.region];
+            return (
+              <button key={i} onClick={() => handleSelect(m)} disabled={loading}
+                style={{
+                  background: isActive ? `rgba(22,163,74,0.15)` : 'rgba(255,255,255,0.03)',
+                  border: isActive ? '2px solid rgba(22,163,74,0.6)' : '1px solid rgba(255,255,255,0.09)',
+                  borderRadius: 10, padding: '12px 14px', cursor: loading ? 'wait' : 'pointer',
+                  textAlign: 'left', fontFamily: 'inherit', transition: 'all .15s',
+                  opacity: loading && !isActive ? 0.5 : 1,
+                }}>
+                <div style={{ fontSize: 10, color: regionColor, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 8 }}>
+                  {m.region} Region
+                  {!hasResearch && <span style={{ color: '#555', marginLeft: 6, fontWeight: 400 }}>· no research yet</span>}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5 }}>
+                      <span style={{ fontSize: 11, fontWeight: 800, color: ACCENT2, minWidth: 18 }}>#{m.seedA}</span>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: '#e2e8f0' }}>{m.teamA}</span>
+                    </div>
+                    <div style={{ fontSize: 10, color: '#555', marginLeft: 24, marginBottom: 5 }}>vs.</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ fontSize: 11, fontWeight: 800, color: '#fb923c', minWidth: 18 }}>#{m.seedB}</span>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: '#e2e8f0' }}>{m.teamB}</span>
+                    </div>
+                  </div>
+                  {isActive && <span style={{ fontSize: 18 }}>→</span>}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Loading State */}
+      {loading && (
+        <div style={{ ...S.card, textAlign: 'center', padding: 40, borderColor: 'rgba(99,102,241,0.3)' }}>
+          <div style={{ fontSize: 32, marginBottom: 12 }}>🤖</div>
+          <div style={{ fontSize: 15, color: '#a5b4fc', fontWeight: 600, marginBottom: 6 }}>Analyzing matchup...</div>
+          <div style={{ fontSize: 13, color: '#666' }}>
+            Claude is reading {bbSources.length > 0 ? 'your research sources and ' : ''}the team data
+          </div>
+        </div>
+      )}
+
+      {/* Error State */}
+      {error && !loading && (
+        <div style={{ padding: '12px 16px', borderRadius: 10, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', fontSize: 13, color: '#f87171', marginBottom: 16 }}>
+          ⚠️ {error}
+        </div>
+      )}
+
+      {/* Analysis Output */}
+      {analysis && !loading && selected && (
+        <div style={{ ...S.card, borderColor: 'rgba(99,102,241,0.35)' }}>
+          {/* Header */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 10 }}>
+            <div>
+              <div style={{ fontSize: 11, color: '#777', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4 }}>
+                {selected.region} Region · First Round
+              </div>
+              <h3 style={{ fontFamily: "'Playfair Display', serif", color: '#fff', margin: 0, fontSize: 20 }}>
+                <span style={{ color: ACCENT2 }}>#{selected.seedA} {selected.teamA}</span>
+                <span style={{ color: '#555', margin: '0 10px' }}>vs.</span>
+                <span style={{ color: '#fb923c' }}>#{selected.seedB} {selected.teamB}</span>
+              </h3>
+            </div>
+            {analysis.upsetOdds && (
+              <div style={{ padding: '6px 16px', borderRadius: 20, background: `${UPSET_COLORS[analysis.upsetOdds]}22`, border: `1px solid ${UPSET_COLORS[analysis.upsetOdds]}55`, textAlign: 'center' }}>
+                <div style={{ fontSize: 10, color: '#777', letterSpacing: 1, textTransform: 'uppercase' }}>Upset Risk</div>
+                <div style={{ fontSize: 15, fontWeight: 800, color: UPSET_COLORS[analysis.upsetOdds] }}>{analysis.upsetOdds}</div>
+              </div>
+            )}
+          </div>
+
+          {/* Summary */}
+          {analysis.summary && (
+            <div style={{ padding: '14px 16px', background: 'rgba(255,255,255,0.04)', borderRadius: 10, border: '1px solid rgba(255,255,255,0.08)', marginBottom: 16, fontSize: 14, color: '#ccc', lineHeight: 1.8 }}>
+              {analysis.summary}
+            </div>
+          )}
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
+            {/* Upset Factors */}
+            {analysis.upsetFactors?.length > 0 && (
+              <div style={{ background: 'rgba(239,68,68,0.06)', borderRadius: 10, padding: '14px 16px', border: '1px solid rgba(239,68,68,0.2)' }}>
+                <div style={{ fontSize: 11, color: '#f87171', fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 10 }}>
+                  ⚡ Upset Factors
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+                  {analysis.upsetFactors.map((f, i) => (
+                    <div key={i} style={{ display: 'flex', gap: 8, fontSize: 13, color: '#ccc', lineHeight: 1.5 }}>
+                      <span style={{ color: '#f87171', fontWeight: 700, flexShrink: 0 }}>•</span>
+                      <span>{f}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Favorite Strengths */}
+            {analysis.favoriteStrengths?.length > 0 && (
+              <div style={{ background: 'rgba(22,163,74,0.06)', borderRadius: 10, padding: '14px 16px', border: '1px solid rgba(22,163,74,0.2)' }}>
+                <div style={{ fontSize: 11, color: ACCENT2, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 10 }}>
+                  🛡️ Favorite's Strengths
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+                  {analysis.favoriteStrengths.map((f, i) => (
+                    <div key={i} style={{ display: 'flex', gap: 8, fontSize: 13, color: '#ccc', lineHeight: 1.5 }}>
+                      <span style={{ color: ACCENT2, fontWeight: 700, flexShrink: 0 }}>•</span>
+                      <span>{f}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Key Stats */}
+          {analysis.keyStats?.length > 0 && (
+            <div style={{ background: 'rgba(99,102,241,0.06)', borderRadius: 10, padding: '14px 16px', border: '1px solid rgba(99,102,241,0.2)', marginBottom: 14 }}>
+              <div style={{ fontSize: 11, color: '#a5b4fc', fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 10 }}>
+                📊 Key Stats
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {analysis.keyStats.map((s, i) => (
+                  <div key={i} style={{ fontSize: 13, color: '#bbb', padding: '6px 10px', background: 'rgba(255,255,255,0.03)', borderRadius: 6 }}>{s}</div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Verdict */}
+          {analysis.verdict && (
+            <div style={{ padding: '14px 16px', background: 'rgba(245,158,11,0.08)', borderRadius: 10, border: '1px solid rgba(245,158,11,0.25)', fontSize: 14, color: '#fcd34d', lineHeight: 1.7 }}>
+              <span style={{ fontWeight: 700 }}>🏆 Verdict: </span>{analysis.verdict}
+            </div>
+          )}
+
+          <div style={{ marginTop: 14, textAlign: 'right' }}>
+            <button onClick={() => handleSelect(selected)}
+              style={{ ...S.btn('rgba(255,255,255,0.07)', '#888'), padding: '6px 16px', fontSize: 12 }}>
+              🔄 Re-analyze
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 // ── MAIN APP ──────────────────────────────────────────────────────────────────
 export default function App() {
   // ── STATE ──────────────────────────────────────────────────────────────────
@@ -3105,6 +3364,13 @@ Keep all language at a middle school reading level. Make it engaging and educati
           {/* ══ UPSET GUIDE TAB ══ */}
           {tab === 'upsetguide' && (
             <div style={{ padding: 24, maxWidth: 860, margin: '0 auto' }}>
+            <UpsetGuideMatchupTool
+  researchData={researchData}
+  bbSources={bbSources}
+  officialBracket={officialBracket}
+/>
+
+<div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 32, marginBottom: 28 }}>
               {/* Header */}
               <div style={{ marginBottom: 28 }}>
                 <h2 style={{ fontFamily: "'Playfair Display', serif", color: ACCENT2, marginBottom: 8, fontSize: 28 }}>🎯 Upset Guide</h2>
