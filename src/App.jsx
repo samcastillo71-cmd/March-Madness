@@ -22,7 +22,6 @@ import {
   CURRENT_YEAR, buildInitialBracket, buildInitialBracketFromTeams,
   calcScore,
 } from './bracketData';
-
 // ── THEME ─────────────────────────────────────────────────────────────────────
 const ACCENT  = '#16a34a';
 const ACCENT2 = '#4ade80';
