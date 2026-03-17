@@ -18,20 +18,3 @@ const provider = new GoogleAuthProvider();
 provider.setCustomParameters({ prompt: 'select_account' });
 export const signInWithGoogle = () => signInWithPopup(auth, provider);
 export const logOut           = () => signOut(auth);
-```
-
-**Step 3 — Add `.env` to your `.gitignore`** so it never gets committed to GitHub. Open `.gitignore` and add this line:
-```
-.env
-```
-
-**Step 4 — Add those same environment variables in Vercel** under Settings → Environment Variables so your deployed app still works.
-
-**Step 5 — Create a `.env.example` file** (this one IS safe to commit) so other schools know what variables they need:
-```
-VITE_FIREBASE_API_KEY=
-VITE_FIREBASE_AUTH_DOMAIN=
-VITE_FIREBASE_PROJECT_ID=
-VITE_FIREBASE_STORAGE_BUCKET=
-VITE_FIREBASE_MESSAGING_SENDER_ID=
-VITE_FIREBASE_APP_ID=
