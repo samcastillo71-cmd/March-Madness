@@ -734,7 +734,14 @@ async function callAI(prompt, _sources = [], textOnly = false) {
 async function generateResearchForTeam(teamName, seed, region, espnId, sources = []) {
   const prompt = `You are writing a basketball team scouting report for middle school students (grades 6-8) for the ${new Date().getFullYear()} NCAA Tournament.
 Write about: ${teamName} (${region} Region, Seed #${seed})
-Use simple, clear language that a 12-14 year old can easily understand. Avoid jargon — if you use a basketball term, briefly explain it.
+
+IMPORTANT INSTRUCTIONS:
+- Use the provided sources first for any data they contain about this team
+- For ANY fields where the sources don't have specific data, use your own training knowledge — do NOT write "data not available"
+- You must fill in every single field with real information. If sources don't have it, use what you know.
+- Never leave a field blank or say data is unavailable
+
+Use simple, clear language that a 12-14 year old can easily understand.
 Return ONLY valid JSON, no markdown, no explanation. Use this exact structure:
 {"record":"W-L","rank":"#N AP or Unranked","coach":"Coach Name","conference":"Conference Name","kenpom":"#N","offense":"NNN.N","defense":"NN.N","pace":"NN.N","keyPlayers":[{"name":"Player Name","pos":"G/F/C","stats":"XX.X PPG / X.X RPG","note":"simple 1-sentence note a student would understand"},{"name":"Player Name","pos":"G/F/C","stats":"XX.X PPG / X.X RPG","note":"simple 1-sentence note a student would understand"}],"injuries":"injury status or None reported","odds":"+XXXX or N/A","strengths":"2-3 sentences explaining what this team does well, written for a middle schooler","weaknesses":"2-3 sentences explaining where this team struggles, written for a middle schooler","analystNote":"1-2 sentences on why this team could surprise people in the tournament","espnId":"${espnId || ''}"}`;
   return callAI(prompt, sources);
