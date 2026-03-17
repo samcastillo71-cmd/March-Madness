@@ -738,10 +738,11 @@ Write about: ${teamName} (${region} Region, Seed #${seed})
 
 IMPORTANT INSTRUCTIONS:
 - Use the provided sources first for any data they contain about this team
-- For ANY fields where the sources don't have specific data, use your own training knowledge — do NOT write "data not available"
+- Only include players who are on the CURRENT ${new Date().getFullYear() - 1}-${String(new Date().getFullYear()).slice(-2)} roster.
+- If a player is not mentioned in the provided sources for this team this season, do not include them — use only names confirmed in the sources.
+- For ANY other fields where the sources don't have specific data, use your own training knowledge — do NOT write "data not available"
 - You must fill in every single field with real information. If sources don't have it, use what you know.
 - Never leave a field blank or say data is unavailable
-
 Use simple, clear language that a 12-14 year old can easily understand.
 Return ONLY valid JSON, no markdown, no explanation. Use this exact structure:
 {"record":"W-L","rank":"#N seed in tournament, plus AP ranking if known or Unranked","coach":"Coach Name","conference":"Conference Name","kenpom":"#N","offense":"NNN.N","defense":"NN.N","pace":"NN.N","keyPlayers":[{"name":"Player Name","pos":"G/F/C","stats":"XX.X PPG / X.X RPG","note":"simple 1-sentence note a student would understand"},{"name":"Player Name","pos":"G/F/C","stats":"XX.X PPG / X.X RPG","note":"simple 1-sentence note a student would understand"}],"injuries":"injury status or None reported","odds":"estimate reasonable championship odds based on seed position. Use these as a guide: 1-seed +300 to +600, 2-seed +800 to +1500, 3-seed +1500 to +3000, 4-seed +2500 to +5000, 5-seed +4000 to +8000, 6-seed +6000 to +12000, 7-seed +8000 to +15000, 8-seed +10000 to +20000, 9-seed and higher +15000 or more. Always return a value, never return N/A","strengths":"2-3 sentences explaining what this team does well, written for a middle schooler","weaknesses":"2-3 sentences explaining where this team struggles, written for a middle schooler","analystNote":"1-2 sentences on why this team could surprise people in the tournament","espnId":"${espnId || ''}"}`;
