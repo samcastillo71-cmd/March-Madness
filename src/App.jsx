@@ -2387,6 +2387,7 @@ if (legalPage === 'terms') return <TermsOfServicePage onBack={() => setLegalPage
   );
 
   if (!user) return (
+    <>
     <div style={{ ...S.app, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 36, minHeight: '100vh' }}>
       <div style={{ textAlign: 'center' }}>
         <div style={{ fontSize: 88, marginBottom: 12 }} role="img" aria-label="Basketball">🏀</div>
