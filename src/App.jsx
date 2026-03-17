@@ -2369,6 +2369,7 @@ Keep all language at a middle school reading level. Make it engaging and educati
     { id: 'bracket',     label: 'Bracket'     },
     { id: 'research',    label: 'Research'    },
     { id: 'leaderboard', label: 'Leaderboard' },
+    { id: 'upsetguide',  label: 'Upset Guide' },
     ...(isAdmin ? [{ id: 'admin', label: 'Admin' }] : []),
   ];
 
@@ -3099,6 +3100,375 @@ Keep all language at a middle school reading level. Make it engaging and educati
                   )}
                 </>
               )}
+            </div>
+          )}
+
+          {/* ══ UPSET GUIDE TAB ══ */}
+          {tab === 'upsetguide' && (
+            <div style={{ padding: 24, maxWidth: 860, margin: '0 auto' }}>
+              {/* Header */}
+              <div style={{ marginBottom: 28 }}>
+                <h2 style={{ fontFamily: "'Playfair Display', serif", color: ACCENT2, marginBottom: 8, fontSize: 28 }}>🎯 Upset Guide</h2>
+                <p style={{ color: '#999', fontSize: 14, lineHeight: 1.7, marginBottom: 16 }}>
+                  This guide uses data from the past 10 NCAA Tournaments to help you make smarter bracket picks.
+                  It looks at patterns in how teams have performed to find clues about who might pull off a surprise win — called an <strong style={{ color: ACCENT2 }}>upset</strong>.
+                </p>
+                <div style={{ padding: '12px 16px', background: 'rgba(22,163,74,0.08)', border: '1px solid rgba(22,163,74,0.2)', borderRadius: 10, fontSize: 13, color: '#aaa', lineHeight: 1.7 }}>
+                  <strong style={{ color: ACCENT2 }}>How to read fractions in this guide:</strong> When you see something like <strong style={{ color: '#fff' }}>8/10 = 0.80</strong>, it means 8 out of 10 times (80% of the time) that thing happened. The decimal is just another way to write the same number — 8 ÷ 10 = 0.80.
+                </div>
+              </div>
+
+              {/* Glossary */}
+              <div style={{ ...S.card, marginBottom: 24, borderColor: 'rgba(99,102,241,0.3)' }}>
+                <h3 style={{ color: '#a5b4fc', marginBottom: 12 }}>📖 Stat Glossary</h3>
+                <p style={{ color: '#888', fontSize: 12, marginBottom: 12 }}>These are the stats you'll see referenced throughout this guide. You don't need to memorize them — just use this as a reference.</p>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  {[
+                    ['AdjOE', 'Adjusted Offensive Efficiency — how many points a team scores per 100 possessions, adjusted for opponent strength. Higher ranking = better offense.'],
+                    ['AdjDE', 'Adjusted Defensive Efficiency — how many points a team gives up per 100 possessions. Higher ranking = better defense.'],
+                    ['EFG%', 'Effective Field Goal % — shooting percentage that gives extra credit for 3-pointers. Higher ranking = better shooting.'],
+                    ['EFGD%', 'Opponent Effective Field Goal % — how well a team limits opponent shooting. Higher ranking = better at stopping opponent shots.'],
+                    ['TOR', 'Turnover Rate — how often a team turns the ball over. Higher ranking = fewer turnovers (good).'],
+                    ['TORD', 'Opponent Turnover Rate — how often a team forces opponent turnovers. Higher ranking = forces more turnovers (good).'],
+                    ['ORB', 'Offensive Rebound % — how often a team grabs its own missed shots. Higher ranking = better offensive rebounding.'],
+                    ['DRB', 'Defensive Rebound % — how often a team grabs opponent missed shots. Higher ranking = better defensive rebounding.'],
+                    ['3P%', '3-Point % — how well a team shoots from 3-point range. Higher ranking = better 3-point shooting.'],
+                    ['3PRD', 'Opponent 3-Point Rate — how often opponents shoot 3s against this team. Higher ranking = allows fewer 3-point attempts.'],
+                    ['Tempo', 'How fast a team plays (possessions per game). A low tempo = slow pace = fewer total possessions in the game.'],
+                    ['BARTHAG', 'Overall power rating — basically how good a team is overall. Like a grade for the whole team.'],
+                    ['Coach S16', 'How many times a coach has reached the Sweet 16 before. More experience can matter in big moments.'],
+                  ].map(([abbr, def]) => (
+                    <div key={abbr} style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 6, padding: '8px 12px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: '#a5b4fc', marginBottom: 2 }}>{abbr}</div>
+                      <div style={{ fontSize: 11, color: '#777', lineHeight: 1.5 }}>{def}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Key Idea Box */}
+              <div style={{ ...S.card, marginBottom: 24, borderColor: 'rgba(245,158,11,0.3)' }}>
+                <h3 style={{ color: GOLD2, marginBottom: 10 }}>💡 The Big Idea: Why Do Upsets Happen?</h3>
+                <p style={{ color: '#ccc', fontSize: 14, lineHeight: 1.8 }}>
+                  Think of it this way: if a 1 seed and a 16 seed played 1,000 games against each other, the 1 seed would almost certainly win most of them. But in a real tournament, they only play <strong style={{ color: GOLD2 }}>once</strong>. That one game can go wrong for anyone.
+                </p>
+                <p style={{ color: '#ccc', fontSize: 14, lineHeight: 1.8, marginTop: 8 }}>
+                  Upsets are more likely when:
+                </p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
+                  {[
+                    ['🐢 Slow pace', 'Fewer total possessions = more variance = underdogs need fewer lucky plays to win'],
+                    ['🎯 3-point shooting', 'A hot shooting night from deep can erase a talent gap fast'],
+                    ['🔄 Turnover battles', 'If the underdog forces turnovers, they can control more possessions than expected'],
+                    ['🎓 Experienced coaches', 'Coaches who've been here before tend to keep their teams calm under pressure'],
+                  ].map(([icon, text]) => (
+                    <div key={icon} style={{ display: 'flex', gap: 10, padding: '8px 12px', background: 'rgba(245,158,11,0.06)', borderRadius: 8, border: '1px solid rgba(245,158,11,0.15)' }}>
+                      <span style={{ fontSize: 16, flexShrink: 0 }}>{icon.split(' ')[0]}</span>
+                      <div>
+                        <span style={{ color: GOLD2, fontWeight: 700, fontSize: 13 }}>{icon.split(' ').slice(1).join(' ')}: </span>
+                        <span style={{ color: '#aaa', fontSize: 13 }}>{text}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Round by Round */}
+              <h3 style={{ color: ACCENT2, fontFamily: "'Playfair Display', serif", marginBottom: 16, fontSize: 20 }}>🏀 First Round Matchup Guide</h3>
+              <p style={{ color: '#888', fontSize: 13, marginBottom: 20, lineHeight: 1.6 }}>
+                For each matchup below, we show what the data says about when upsets happen. The fractions show how often each scenario led to the favorite winning over the past 10 tournaments.
+              </p>
+
+              {[
+                {
+                  matchup: '1 vs. 16',
+                  record: '38/40 = 0.95',
+                  recordNote: '1 seeds win 38 out of 40 times (95% of the time)',
+                  color: '#ef4444',
+                  scenarios: [
+                    { label: 'Watch out if the 1 seed plays very slowly', detail: 'When the 1 seed's tempo ranks outside the top 300 (super slow), the 1 seed is only 8/10 = 0.80. Otherwise they're 30/30 = 1.00.', tip: 'A slow game gives the underdog more chances for lucky plays.' },
+                    { label: 'Watch out if the 16 seed is great at turnovers', detail: 'When the 16 seed has both TOR and TORD ranked in the top 70, the 1 seed is only 1/3 = 0.33. Otherwise 37/37 = 1.00.', tip: 'This year: No matchups meet either scenario. Safe to pick all 1 seeds.' },
+                  ],
+                  thisYear: 'No matchups meet either upset scenario this year. All 1 seeds look safe.',
+                },
+                {
+                  matchup: '2 vs. 15',
+                  record: '36/40 = 0.90',
+                  recordNote: '2 seeds win 36 out of 40 times (90% of the time)',
+                  color: '#f97316',
+                  scenarios: [
+                    { label: 'Watch out if the 2 seed has weak defense', detail: 'When the 2 seed's AdjDE ranks outside the top 25, they're only 10/14 = 0.71. With top-25 defense, they're 26/26 = 1.00.', tip: 'Even favorites lose more when their defense is shaky.' },
+                    { label: 'Watch out if the 15 seed shoots inside well AND limits 3s', detail: 'When the 15 seed's 2P%D and 3PRD are both in the top 140, the 2 seed is 13/17 = 0.76. Otherwise 23/23 = 1.00.', tip: 'This year: Purdue meets the first scenario. Idaho meets the second. They don't play each other though.' },
+                  ],
+                  thisYear: 'Purdue has weaker defense. Idaho has solid defensive stats. They don't play each other so no perfect upset scenario.',
+                },
+                {
+                  matchup: '3 vs. 14',
+                  record: '35/40 = 0.875',
+                  recordNote: '3 seeds win 35 out of 40 times (87.5% of the time)',
+                  color: '#eab308',
+                  scenarios: [
+                    { label: 'Watch out if the 3 seed turns it over a lot', detail: 'When the 3 seed's TOR ranks outside the top 200, they're only 5/8 = 0.625. Otherwise 30/32 = 0.94.', tip: 'Turnovers give underdogs extra possessions — free chances to score.' },
+                    { label: 'Watch out if the 14 seed forces LOTS of turnovers', detail: 'When the 14 seed's TORD is in the top 25, the 3 seed is only 1/4 = 0.25. Otherwise 34/36 = 0.94.', tip: 'This year: Michigan State meets the first scenario. North Dakota St. has the best TORD of all 14 seeds (ranked 59th).' },
+                  ],
+                  thisYear: 'Michigan State turns it over a lot (scenario 1). North Dakota St. forces turnovers well. This could be an upset worth considering.',
+                },
+                {
+                  matchup: '4 vs. 13',
+                  record: '32/40 = 0.80',
+                  recordNote: '4 seeds win 32 out of 40 times (80% of the time)',
+                  color: '#22c55e',
+                  scenarios: [
+                    { label: 'Watch out if the 4 seed plays slowly', detail: 'When the 4 seed's tempo ranks outside the top 250, they're only 5/9 = 0.56. Otherwise 27/31 = 0.87.', tip: 'Slow pace again — fewer possessions means more unpredictable outcomes.' },
+                    { label: 'Watch out if the 13 seed shoots really well', detail: 'When the 13 seed's EFG% is in the top 40, the 4 seed is 13/18 = 0.72. Otherwise 19/22 = 0.86.', tip: 'This year: No teams meet either scenario. 4 seeds look safe.' },
+                  ],
+                  thisYear: 'No 13 seeds meet the upset criteria this year. 4 seeds look relatively safe.',
+                },
+                {
+                  matchup: '5 vs. 12',
+                  record: '27/40 = 0.675',
+                  recordNote: '5 seeds win 27 out of 40 times (67.5% of the time) — this is the most common first-round upset!',
+                  color: '#06b6d4',
+                  scenarios: [
+                    { label: 'Watch out if the 5 seed can't force turnovers', detail: 'When the 5 seed's TORD ranks outside the top 175, they're only 9/16 = 0.56. Otherwise 18/24 = 0.75.', tip: 'A 5 seed that can't create turnovers gives the 12 seed more chances.' },
+                    { label: 'Watch out if the 12 seed has great shot defense', detail: 'When the 12 seed's EFGD% is in the top 50, the 5 seed is only 8/17 = 0.47 — basically a coin flip! Otherwise 19/23 = 0.83.', tip: 'This year: Wisconsin and Texas Tech meet scenario 1. Northern Iowa meets scenario 2. None play each other directly.' },
+                  ],
+                  thisYear: '5 vs 12 is the most popular upset pick every year. Wisconsin has the worst TORD of all 5 seeds (ranked 324th) AND the weakest BARTHAG of all 5 seeds. Worth considering.',
+                },
+                {
+                  matchup: '6 vs. 11',
+                  record: '19/40 = 0.475',
+                  recordNote: '6 seeds actually LOSE more than they win! Only 19 out of 40 times (47.5%) do 6 seeds win.',
+                  color: '#8b5cf6',
+                  scenarios: [
+                    { label: 'Watch out if the 6 seed turns it over a lot', detail: 'When the 6 seed's TOR ranks outside the top 140, they're only 3/12 = 0.25. Otherwise 16/28 = 0.57.', tip: 'At this seed, even a small weakness gets punished.' },
+                    { label: 'Watch out if the 11 seed's coach has more experience', detail: 'When the 11 seed's coach has at least as many Sweet 16 appearances as the 6 seed's coach, the 6 seed is only 7/25 = 0.28. Otherwise 12/15 = 0.80.', tip: 'This year: Louisville and Tennessee meet scenario 1. South Florida, Texas, and NC State meet scenario 2. Louisville vs. South Florida looks like a great upset pick.' },
+                  ],
+                  thisYear: 'Louisville vs. South Florida: Louisville has turnover issues AND South Florida's coach has more experience. When both happen, 6 seeds are 1/8 = 0.125. Strong upset pick.',
+                },
+                {
+                  matchup: '7 vs. 10',
+                  record: '25/40 = 0.625',
+                  recordNote: '7 seeds win 25 out of 40 times (62.5% of the time)',
+                  color: '#ec4899',
+                  scenarios: [
+                    { label: 'Watch out if the 7 seed shoots poorly', detail: 'When the 7 seed's EFG% ranks outside the top 120, they're only 7/16 = 0.44. Otherwise 18/24 = 0.75.', tip: 'Struggling to shoot efficiently is a red flag for any favorite.' },
+                    { label: 'Watch out if the 10 seed has elite defense', detail: 'When the 10 seed's AdjDE is in the top 30, the 7 seed is only 4/13 = 0.31. Otherwise 21/27 = 0.78.', tip: 'This year: No teams meet either scenario. Texas A&M and Saint Mary's are each the closest to their scenarios.' },
+                  ],
+                  thisYear: 'No perfect upset scenarios, but Texas A&M vs. Saint Mary's could be interesting. Neither team looks dominant.',
+                },
+                {
+                  matchup: '8 vs. 9',
+                  record: '18/40 = 0.45',
+                  recordNote: '8 seeds actually lose more than they win! Only 18 out of 40 (45%). This is basically a coin flip.',
+                  color: '#14b8a6',
+                  scenarios: [
+                    { label: 'Watch out if the 9 seed plays slower', detail: 'When the 9 seed plays with a slower tempo than the 8 seed, the 8 seed is only 5/21 = 0.24! Otherwise 13/19 = 0.68.', tip: 'Slower tempo favors the underdog in close matchups.' },
+                    { label: 'Watch out if the 9 seed's coach has more Sweet 16s', detail: 'When the 9 seed's coach has been to more Sweet 16s, the 8 seed is only 5/19 = 0.26. Otherwise 13/21 = 0.62.', tip: 'This year: Clemson/Iowa and Georgia/Saint Louis meet scenario 1. Ohio State/TCU meets scenario 2.' },
+                  ],
+                  thisYear: 'Three toss-up matchups this year. Villanova looks like the safest 8 seed. The other three matchups are genuinely hard to call.',
+                },
+              ].map(({ matchup, record, recordNote, color, scenarios, thisYear }) => (
+                <div key={matchup} style={{ ...S.card, marginBottom: 20, borderColor: `${color}44` }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+                    <div style={{ background: color, color: '#fff', borderRadius: 8, padding: '6px 14px', fontSize: 16, fontWeight: 800, fontFamily: "'Playfair Display', serif", flexShrink: 0 }}>
+                      {matchup}
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 15, fontWeight: 700, color: '#fff' }}>{record}</div>
+                      <div style={{ fontSize: 12, color: '#888' }}>{recordNote}</div>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 14 }}>
+                    {scenarios.map((s, i) => (
+                      <div key={i} style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 8, padding: '10px 14px', border: '1px solid rgba(255,255,255,0.07)' }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: color, marginBottom: 4 }}>⚠️ {s.label}</div>
+                        <div style={{ fontSize: 13, color: '#ccc', marginBottom: 4 }}>{s.detail}</div>
+                        <div style={{ fontSize: 11, color: '#888', fontStyle: 'italic' }}>💡 {s.tip}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ padding: '10px 14px', background: `${color}15`, borderRadius: 8, border: `1px solid ${color}33`, fontSize: 13, color: '#ccc', lineHeight: 1.6 }}>
+                    <strong style={{ color }}>This year: </strong>{thisYear}
+                  </div>
+                </div>
+              ))}
+
+              {/* General Metrics */}
+              <h3 style={{ color: ACCENT2, fontFamily: "'Playfair Display', serif", marginBottom: 16, marginTop: 32, fontSize: 20 }}>📊 General Patterns by Seed Group</h3>
+              <p style={{ color: '#888', fontSize: 13, marginBottom: 20, lineHeight: 1.6 }}>
+                These are the stats that most often separate winners from losers in each seed group. Average rankings are out of ~360 teams.
+                <strong style={{ color: ACCENT2 }}> Lower number = better rank</strong> (1st is best, 360th is worst).
+              </p>
+
+              {[
+                {
+                  title: '1–4 Seeds: What Keeps Favorites Safe',
+                  color: '#ef4444',
+                  description: 'Higher-seeded favorites tend to survive when they have these qualities. Watch out for 1-4 seeds that are weak in these areas.',
+                  metrics: [
+                    { name: 'AdjDE (Defense)', winners: '25th', losers: '41st', note: 'Good defense protects leads' },
+                    { name: 'TORD (Force turnovers)', winners: '155th', losers: '214th', note: 'Disrupting opponents matters' },
+                    { name: '3P%D (Limit opponent 3s)', winners: '87th', losers: '102nd', note: 'Underdogs love 3-point shooting' },
+                    { name: 'Tempo (Game speed)', winners: '154th', losers: '196th', note: 'Faster pace benefits favorites' },
+                  ],
+                  best: [['1 seed', 'Michigan'], ['2 seed', 'Iowa State'], ['3 seed', 'Gonzaga'], ['4 seed', 'Nebraska']],
+                  worst: [['1 seed', 'Florida'], ['2 seed', 'Purdue'], ['3 seed', 'Illinois'], ['4 seed', 'Alabama']],
+                },
+                {
+                  title: '5–8 Seeds: What Helps Slight Favorites',
+                  color: '#f97316',
+                  description: 'These seeds are favorites but still vulnerable. Offense matters most here.',
+                  metrics: [
+                    { name: 'AdjOE (Offense)', winners: '34th', losers: '44th', note: 'Scoring well is the top indicator' },
+                    { name: 'EFG% (Shooting)', winners: '94th', losers: '107th', note: 'Efficient shooting helps a lot' },
+                    { name: 'TOR (Ball security)', winners: '90th', losers: '130th', note: 'Don't give the ball away' },
+                    { name: 'Tempo (Game speed)', winners: '209th', losers: '180th', note: 'Slower pace helps 5-8 seeds (opposite of 1-4!)' },
+                  ],
+                  best: [['5 seed', 'Wisconsin'], ['6 seed', 'BYU'], ['7 seed', 'UCLA'], ['8 seed', 'Ohio State']],
+                  worst: [['5 seed', 'St. John's'], ['6 seed', 'Tennessee'], ['7 seed', 'Saint Mary's'], ['8 seed', 'Villanova']],
+                },
+                {
+                  title: '9–12 Seeds: What Helps Underdogs',
+                  color: '#22c55e',
+                  description: 'These underdogs can pull off upsets with strong defense, turnover forcing, and experienced coaches.',
+                  metrics: [
+                    { name: 'AdjDE (Defense)', winners: '52nd', losers: '72nd', note: 'Defense wins in upset games' },
+                    { name: 'EFGD% (Limit opponent shooting)', winners: '90th', losers: '100th', note: 'Make opponents miss' },
+                    { name: 'TORD (Force turnovers)', winners: '140th', losers: '153rd', note: 'Create extra possessions' },
+                    { name: 'Coach S16 (Coach experience)', winners: '2.5 Sweet 16s', losers: '0.9 Sweet 16s', note: 'Experienced coaches make a big difference here' },
+                  ],
+                  best: [['9 seed', 'TCU'], ['10 seed', 'Texas A&M'], ['11 seed', 'South Florida'], ['12 seed', 'Northern Iowa']],
+                  worst: [['9 seed', 'Saint Louis'], ['10 seed', 'UCF'], ['11 seed', 'Texas'], ['12 seed', 'Akron']],
+                },
+                {
+                  title: '13–16 Seeds: Cinderella Checklist',
+                  color: '#8b5cf6',
+                  description: 'The biggest upsets. Look for teams that shoot 3s well, win the turnover battle, and score efficiently.',
+                  metrics: [
+                    { name: 'EFG% (Shooting)', winners: '82nd', losers: '112th', note: 'Cinderellas shoot efficiently' },
+                    { name: 'TOR (Ball security)', winners: '117th', losers: '154th', note: 'Take care of the ball' },
+                    { name: '3P% (3-point shooting)', winners: '111th', losers: '125th', note: 'Threes are how upsets happen' },
+                    { name: '3PR (Shoot lots of 3s)', winners: '156th', losers: '183rd', note: 'More 3-point attempts = more chances' },
+                  ],
+                  best: [['13 seed', 'Hofstra'], ['14 seed', 'Wright St.'], ['15 seed', 'Queens'], ['16 seed', 'UMBC']],
+                  worst: [['13 seed', 'Hawaii'], ['14 seed', 'Penn'], ['15 seed', 'Furman'], ['16 seed', 'Prairie View']],
+                },
+              ].map(({ title, color, description, metrics, best, worst }) => (
+                <div key={title} style={{ ...S.card, marginBottom: 20, borderColor: `${color}44` }}>
+                  <h4 style={{ color, marginBottom: 6, fontSize: 15 }}>{title}</h4>
+                  <p style={{ color: '#888', fontSize: 13, marginBottom: 14, lineHeight: 1.6 }}>{description}</p>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 16 }}>
+                    {metrics.map(m => (
+                      <div key={m.name} style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 8, padding: '10px 12px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                        <div style={{ fontSize: 12, fontWeight: 700, color, marginBottom: 4 }}>{m.name}</div>
+                        <div style={{ display: 'flex', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
+                          <span style={{ fontSize: 11, color: '#22c55e' }}>✓ Winners: {m.winners}</span>
+                          <span style={{ fontSize: 11, color: '#ef4444' }}>✗ Losers: {m.losers}</span>
+                        </div>
+                        <div style={{ fontSize: 11, color: '#666', fontStyle: 'italic' }}>{m.note}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                    <div style={{ flex: 1, minWidth: 180 }}>
+                      <div style={{ fontSize: 10, color: '#22c55e', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 6, fontWeight: 700 }}>Best by these metrics</div>
+                      {best.map(([seed, team]) => (
+                        <div key={seed} style={{ display: 'flex', gap: 8, fontSize: 12, marginBottom: 3 }}>
+                          <span style={{ color: '#555', minWidth: 50 }}>{seed}:</span>
+                          <span style={{ color: '#ccc', fontWeight: 600 }}>{team}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 180 }}>
+                      <div style={{ fontSize: 10, color: '#ef4444', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 6, fontWeight: 700 }}>Most vulnerable</div>
+                      {worst.map(([seed, team]) => (
+                        <div key={seed} style={{ display: 'flex', gap: 8, fontSize: 12, marginBottom: 3 }}>
+                          <span style={{ color: '#555', minWidth: 50 }}>{seed}:</span>
+                          <span style={{ color: '#ccc', fontWeight: 600 }}>{team}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              {/* Sweet 16 Section */}
+              <h3 style={{ color: ACCENT2, fontFamily: "'Playfair Display', serif", marginBottom: 16, marginTop: 32, fontSize: 20 }}>🔥 Picking Your Sweet 16</h3>
+              <p style={{ color: '#888', fontSize: 13, marginBottom: 20, lineHeight: 1.6 }}>
+                Getting to the Sweet 16 is where points really start to add up in your bracket. Here's what the data says about which teams from each group tend to make it.
+              </p>
+              {[
+                { seeds: '1 Seeds', made: '32/40 = 0.80', color: '#ef4444', notes: [
+                  'Arizona is the strongest — meets both key scenarios (low turnover rate + good rebounding).',
+                  'Florida is the most vulnerable — worst metrics of the 1 seeds.',
+                  'All 1 seeds are still strong picks for the Sweet 16.',
+                ]},
+                { seeds: '2 Seeds', made: '25/40 = 0.625', color: '#f97316', notes: [
+                  'Houston is the standout — meets both key criteria (top-20 offense AND defense).',
+                  'When both criteria are met, 2 seeds are 13/13 = 1.00 historically.',
+                  'Iowa State and Purdue are slightly more vulnerable this year.',
+                ]},
+                { seeds: '7 Seeds', made: '9/40 = 0.225', color: '#22c55e', notes: [
+                  'UCLA is the best 7 seed — meets both key criteria (3-point shooting + top-20 offense).',
+                  'When a 7 seed meets both criteria, they're 4/5 = 0.80 historically.',
+                  'Could UCLA cause some chaos?',
+                ]},
+                { seeds: '5 Seeds', made: '16/40 = 0.40', color: '#06b6d4', notes: [
+                  'St. John's, Vanderbilt, and Wisconsin meet the key tempo criteria.',
+                  'Texas Tech does not meet either key scenario — most vulnerable 5 seed.',
+                  'When a 5 seed meets both criteria, they're 5/5 = 1.00 historically.',
+                ]},
+              ].map(({ seeds, made, color, notes }) => (
+                <div key={seeds} style={{ ...S.card, marginBottom: 16, borderColor: `${color}44` }}>
+                  <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 10 }}>
+                    <div style={{ background: color, color: '#fff', borderRadius: 6, padding: '4px 12px', fontSize: 14, fontWeight: 700 }}>{seeds}</div>
+                    <div style={{ fontSize: 14, color: '#fff', fontWeight: 600 }}>{made} make the Sweet 16</div>
+                  </div>
+                  <ul style={{ margin: 0, paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    {notes.map((n, i) => <li key={i} style={{ fontSize: 13, color: '#bbb', lineHeight: 1.6 }}>{n}</li>)}
+                  </ul>
+                </div>
+              ))}
+
+              {/* Elite 8 */}
+              <h3 style={{ color: ACCENT2, fontFamily: "'Playfair Display', serif", marginBottom: 16, marginTop: 32, fontSize: 20 }}>⚡ Elite 8 & Beyond</h3>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>
+                {[
+                  { round: 'Elite 8', seeds: '1 Seeds', stat: '25/40 = 0.625', color: '#ef4444', tip: 'Arizona and Michigan look strongest. Duke's weak 3PRD (lets opponents shoot lots of 3s) is a concern. Florida looks vulnerable.' },
+                  { round: 'Elite 8', seeds: '2 Seeds', stat: '16/40 = 0.40', color: '#f97316', tip: 'UConn and Houston meet both key criteria and are 16/29 = 0.55 historically when they do. Purdue and Iowa State do not meet both criteria — historically 0/11.' },
+                  { round: 'Final Four', seeds: '1 Seeds', stat: '18/40 = 0.45', color: '#8b5cf6', tip: 'Only Duke meets the top-5 AdjOE criteria. Arizona was strong all the way until here — their stats are close but don't technically qualify.' },
+                  { round: 'Championship', seeds: 'Champions', stat: '10 champions analyzed', color: GOLD2, tip: '70% of champions ranked in the top 5 nationally for offense. Duke fits many champion metrics but has a concerning 3PRD (341st). Arizona and Michigan are also strong picks.' },
+                ].map(({ round, seeds, stat, color, tip }) => (
+                  <div key={round + seeds} style={{ ...S.card, borderColor: `${color}44` }}>
+                    <div style={{ fontSize: 10, color, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4, fontWeight: 700 }}>{round} — {seeds}</div>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: '#fff', marginBottom: 8 }}>{stat}</div>
+                    <div style={{ fontSize: 12, color: '#aaa', lineHeight: 1.6 }}>{tip}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Miscellaneous Tips */}
+              <h3 style={{ color: ACCENT2, fontFamily: "'Playfair Display', serif", marginBottom: 16, marginTop: 8, fontSize: 20 }}>🎲 Bonus Tips</h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 24 }}>
+                {[
+                  { icon: '📋', title: 'First Four teams are at a disadvantage', body: '11 seeds overall make the second round 52.5% of the time (21/40). But First Four at-large teams only make it 40% of the time (8/20) and reach the Sweet 16 just 10% of the time (2/20). Playing an extra game and traveling more takes a toll.' },
+                  { icon: '🏫', title: 'The conference with the most teams usually underperforms', body: 'Historically, the conference that sends the most teams to the tournament tends to be overseeded. This year the SEC sent 10 teams. Consider being slightly skeptical of SEC teams outside the top seeds.' },
+                  { icon: '🌟', title: 'Champions usually have scoring depth', body: 'All 10 recent champions had at least 3 players averaging 10+ points per game. None had a single player averaging 20+ points. Teams that share the ball and have multiple weapons tend to go furthest. Keep this in mind when picking your champion.' },
+                ].map(({ icon, title, body }) => (
+                  <div key={title} style={{ display: 'flex', gap: 14, padding: '14px 16px', background: 'rgba(255,255,255,0.03)', borderRadius: 10, border: '1px solid rgba(255,255,255,0.07)' }}>
+                    <div style={{ fontSize: 24, flexShrink: 0 }}>{icon}</div>
+                    <div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: '#fff', marginBottom: 4 }}>{title}</div>
+                      <div style={{ fontSize: 13, color: '#aaa', lineHeight: 1.6 }}>{body}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ textAlign: 'center', padding: '16px', color: '#555', fontSize: 12, borderTop: '1px solid rgba(255,255,255,0.06)', marginTop: 8 }}>
+                Analysis based on data from the past 10 NCAA Tournaments. All stats from Bart Torvik's college basketball database.
+              </div>
             </div>
           )}
 
