@@ -2154,6 +2154,9 @@ export default function App() {
               clearTeamDownstream(next, region, winner.name, 1);
               const original = ffPlaceholders[key];
               if (original) game[side] = { ...original };
+              // Also clear the opponent's downstream picks since the matchup is now reset
+              const otherSide = side === 'top' ? 'bottom' : 'top';
+              if (game[otherSide]?.name) clearTeamDownstream(next, region, game[otherSide].name, 1);
             } else if (slot?.isFFPlaceholder || slot?.name === winner.name) {
               game[side] = { ...winner, isFFPlaceholder: false };
             }
@@ -2245,10 +2248,12 @@ export default function App() {
           const slot = game[side];
           const slotSeed = Number(slot?.seed);
           if (slotSeed === Number(seed)) {
-            if (isUnpick) {
+if (isUnpick) {
               clearMammalDownstream(next, region, winner.name, 1);
               const original = mammalFfPlaceholders[key];
               if (original) game[side] = { ...original };
+              const otherSide = side === 'top' ? 'bottom' : 'top';
+              if (game[otherSide]?.name) clearMammalDownstream(next, region, game[otherSide].name, 1);
             } else if (slot?.isFFPlaceholder || slot?.name === winner.name) {
               game[side] = { ...winner, isFFPlaceholder: false };
             }
