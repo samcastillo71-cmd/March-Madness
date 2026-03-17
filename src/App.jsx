@@ -1575,6 +1575,7 @@ export default function App() {
   const [viewingBracket,       setViewingBracket]       = useState(null);
   const [loadingBracket,       setLoadingBracket]       = useState(null);
   const [mammalLastSaved,      setMammalLastSaved]      = useState(null);
+  const [legalPage, setLegalPage] = useState(null);
 
   const saveTimer         = useRef(null);
   const prevBracket       = useRef(null);
