@@ -2600,7 +2600,7 @@ if (legalPage === 'terms') return <TermsOfServicePage onBack={() => setLegalPage
       <div style={{ textAlign: 'center' }}>
         <div style={{ fontSize: 88, marginBottom: 12 }} role="img" aria-label="Basketball">🏀</div>
         <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 48, color: ACCENT2, letterSpacing: 2, lineHeight: 1.1 }}>
-          MARCH MADNESS<br />{tournamentYear}
+          MARCH MADNESS
         </h1>
         <p style={{ color: '#777', fontSize: 16, marginTop: 10 }}>School-Wide Bracket Challenge</p>
       </div>
