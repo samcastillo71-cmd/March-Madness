@@ -3242,7 +3242,7 @@ Keep all language at a middle school reading level. Make it engaging and educati
                   color: '#8b5cf6',
                   scenarios: [
                     { label: 'Watch out if the 6 seed turns it over a lot', detail: "When the 6 seed's TOR ranks outside the top 140, they're only 3/12 = 0.25. Otherwise 16/28 = 0.57.", tip: 'At this seed, even a small weakness gets punished.' },
-                    { label: "Watch out if the 11 seed's coach has more experience", detail: "When the 11 seed's coach has at least as many Sweet 16 appearances as the 6 seed's coach, the 6 seed is only 7/25 = 0.28. Otherwise 12/15 = 0.80.", tip: 'This year: Louisville and Tennessee meet scenario 1. South Florida, Texas, and NC State meet scenario 2. Louisville vs. South Florida looks like a great upset pick.' },
+                    { label: "Watch out if the 11 seed's coach has more experience", detail: "When the 11 seed's coach has at least as many Sweet 16 appearances as the 6 seed's coach, the 6 seed is only 7/25 = 0.28. Otherwise 12/15 = 0.80.", tip: "This year: Louisville and Tennessee meet scenario 1. South Florida, Texas, and NC State meet scenario 2. Louisville vs. South Florida looks like a great upset pick." },
                   ],
                   thisYear: "Louisville vs. South Florida: Louisville has turnover issues AND South Florida's coach has more experience. When both happen, 6 seeds are 1/8 = 0.125. Strong upset pick.",
                 },
@@ -3264,7 +3264,7 @@ Keep all language at a middle school reading level. Make it engaging and educati
                   color: '#14b8a6',
                   scenarios: [
                     { label: 'Watch out if the 9 seed plays slower', detail: 'When the 9 seed plays with a slower tempo than the 8 seed, the 8 seed is only 5/21 = 0.24! Otherwise 13/19 = 0.68.', tip: 'Slower tempo favors the underdog in close matchups.' },
-                    { label: "Watch out if the 9 seed's coach has more Sweet 16s", detail: "When the 9 seed's coach has been to more Sweet 16s, the 8 seed is only 5/19 = 0.26. Otherwise 13/21 = 0.62.", tip: 'This year: Clemson/Iowa and Georgia/Saint Louis meet scenario 1. Ohio State/TCU meets scenario 2.' },
+                    { label: "Watch out if the 9 seed's coach has more Sweet 16s", detail: "When the 9 seed's coach has been to more Sweet 16s, the 8 seed is only 5/19 = 0.26. Otherwise 13/21 = 0.62.", tip: "This year: Clemson/Iowa and Georgia/Saint Louis meet scenario 1. Ohio State/TCU meets scenario 2." },
                   ],
                   thisYear: 'Three toss-up matchups this year. Villanova looks like the safest 8 seed. The other three matchups are genuinely hard to call.',
                 },
@@ -3322,11 +3322,11 @@ Keep all language at a middle school reading level. Make it engaging and educati
                   metrics: [
                     { name: 'AdjOE (Offense)', winners: '34th', losers: '44th', note: 'Scoring well is the top indicator' },
                     { name: 'EFG% (Shooting)', winners: '94th', losers: '107th', note: 'Efficient shooting helps a lot' },
-                    { name: 'TOR (Ball security)', winners: '90th', losers: '130th', note: 'Don't give the ball away' },
+                    { name: 'TOR (Ball security)', winners: '90th', losers: '130th', note: "Don't give the ball away" },
                     { name: 'Tempo (Game speed)', winners: '209th', losers: '180th', note: 'Slower pace helps 5-8 seeds (opposite of 1-4!)' },
                   ],
                   best: [['5 seed', 'Wisconsin'], ['6 seed', 'BYU'], ['7 seed', 'UCLA'], ['8 seed', 'Ohio State']],
-                  worst: [['5 seed', 'St. John's'], ['6 seed', 'Tennessee'], ['7 seed', 'Saint Mary's'], ['8 seed', 'Villanova']],
+                  worst: [['5 seed', "St. John's"], ['6 seed', 'Tennessee'], ['7 seed', "Saint Mary's"], ['8 seed', 'Villanova']],
                 },
                 {
                   title: '9–12 Seeds: What Helps Underdogs',
