@@ -323,16 +323,17 @@ function FFGameCard({ region, seed, ffTeams, pick, isLocked, onFirstFourPick, ke
         <div style={{ fontSize: 10, color: RC[region], fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 8 }}>
           {(regionNames && regionNames[region]) || region} — #{seed} seed play-in
         </div>
-        {ffTeams.map(team => {
+{ffTeams.map(team => {
           const isPick = pick === team.name;
+          const isLoser = pick && pick !== team.name;
           return (
             <div key={team.name}
               onClick={e => { e.stopPropagation(); !isLocked && onFirstFourPick(keyStr, team, region, seed); }}
               role="button" tabIndex={isLocked ? -1 : 0} aria-pressed={isPick}
               aria-label={`Pick ${team.name}`}
               onKeyDown={e => { if ((e.key === 'Enter' || e.key === ' ') && !isLocked) { e.preventDefault(); onFirstFourPick(keyStr, team, region, seed); } }}
-              style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', borderRadius: 7, marginBottom: 5, cursor: isLocked ? 'default' : 'pointer', background: isPick ? 'rgba(99,102,241,0.2)' : 'rgba(255,255,255,0.03)', border: isPick ? '1px solid rgba(99,102,241,0.5)' : '1px solid rgba(255,255,255,0.07)', transition: 'all .12s', outline: 'none' }}>
-              <TeamLogo espnId={team.espnId} name={team.name} size={20} />
+              style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', borderRadius: 7, marginBottom: 5, cursor: isLocked ? 'default' : 'pointer', background: isPick ? 'rgba(99,102,241,0.2)' : 'rgba(255,255,255,0.03)', border: isPick ? '1px solid rgba(99,102,241,0.5)' : '1px solid rgba(255,255,255,0.07)', transition: 'all .12s', outline: 'none', opacity: isLoser ? 0.35 : 1 }}>
+        <TeamLogo espnId={team.espnId} name={team.name} size={20} />
               <span style={{ fontSize: 10, color: '#777', fontWeight: 700, minWidth: 14 }}>{team.seed}</span>
               <span style={{ fontSize: team.name?.length > 18 ? 11 : team.name?.length > 13 ? 13 : 12, fontWeight: isPick ? 700 : 400, color: isPick ? '#a5b4fc' : '#bbb', flex: 1 }}>{team.name}</span>
               {isPick && <span style={{ color: '#818cf8', fontSize: 13 }} aria-hidden="true">✓</span>}
@@ -2136,11 +2137,30 @@ export default function App() {
 
   const handleFirstFourPick = useCallback((key, winner, region, seed) => {
     if (locked && !isAdmin) return;
-    const isUnpick = firstFourPicks[key] === winner.name;
+const isUnpick = firstFourPicks[key] === winner.name;
     setFirstFourPicks(prev => {
       if (prev[key] === winner.name) { const n = { ...prev }; delete n[key]; return n; }
       return { ...prev, [key]: winner.name };
     });
+    if (isUnpick) {
+      setBracket(prev => {
+        const next = JSON.parse(JSON.stringify(prev));
+        const r64 = next[region]?.rounds[0];
+        if (!r64) return prev;
+        r64.forEach(game => {
+          ['top','bottom'].forEach(side => {
+            const slot = game[side];
+            if (Number(slot?.seed) === Number(seed) && !slot?.isFFPlaceholder) {
+              clearTeamDownstream(next, region, slot.name, 1);
+              const original = ffPlaceholders[key];
+              if (original) game[side] = { ...original };
+            }
+          });
+        });
+        return next;
+      });
+      return;
+    }
     setBracket(prev => {
       const next = JSON.parse(JSON.stringify(prev));
       const r64 = next[region]?.rounds[0];
@@ -2234,11 +2254,30 @@ export default function App() {
 
   const handleMammalFirstFourPick = useCallback((key, winner, region, seed) => {
     if (mammalLocked && !isAdmin) return;
-    const isUnpick = mammalFirstFourPicks[key] === winner.name;
+const isUnpick = mammalFirstFourPicks[key] === winner.name;
     setMammalFirstFourPicks(prev => {
       if (prev[key] === winner.name) { const n = { ...prev }; delete n[key]; return n; }
       return { ...prev, [key]: winner.name };
     });
+    if (isUnpick) {
+      setMammalBracket(prev => {
+        const next = JSON.parse(JSON.stringify(prev));
+        const r64 = next[region]?.rounds[0];
+        if (!r64) return prev;
+        r64.forEach(game => {
+          ['top','bottom'].forEach(side => {
+            const slot = game[side];
+            if (Number(slot?.seed) === Number(seed) && !slot?.isFFPlaceholder) {
+              clearMammalDownstream(next, region, slot.name, 1);
+              const original = mammalFfPlaceholders[key];
+              if (original) game[side] = { ...original };
+            }
+          });
+        });
+        return next;
+      });
+      return;
+    }
     const applyPick = (prev) => {
       const next = JSON.parse(JSON.stringify(prev));
       const r64 = next[region]?.rounds[0];
