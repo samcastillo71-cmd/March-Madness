@@ -1730,8 +1730,6 @@ function TermsOfServicePage({ onBack }) {
     </div>
   );
 }
-// ── TERMS OF SERVICE PAGE ─────────────────────────────────────────────────────
-function TermsOfServicePage({ onBack }) 
 
 // ── MAIN APP ──────────────────────────────────────────────────────────────────
 export default function App() {
