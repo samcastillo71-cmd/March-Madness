@@ -3375,13 +3375,11 @@ Keep all language at a middle school reading level. Make it engaging and educati
           {/* ══ UPSET GUIDE TAB ══ */}
           {tab === 'upsetguide' && (
             <div style={{ padding: 24, maxWidth: 860, margin: '0 auto' }}>
-            <UpsetGuideMatchupTool
+           <UpsetGuideMatchupTool
   researchData={researchData}
   bbSources={bbSources}
   officialBracket={officialBracket}
 />
-
-<div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 32, marginBottom: 28 }}>
               {/* Header */}
               <div style={{ marginBottom: 28 }}>
                 <h2 style={{ fontFamily: "'Playfair Display', serif", color: ACCENT2, marginBottom: 8, fontSize: 28 }}>🎯 Upset Guide</h2>
@@ -3742,7 +3740,7 @@ Keep all language at a middle school reading level. Make it engaging and educati
                 ))}
               </div>
 
-              <div style={{ textAlign: 'center', padding: '16px', color: '#555', fontSize: 12, borderTop: '1px solid rgba(255,255,255,0.06)', marginTop: 8 }}>
+<div style={{ textAlign: 'center', padding: '16px', color: '#555', fontSize: 12, borderTop: '1px solid rgba(255,255,255,0.06)', marginTop: 8 }}>
                 Analysis based on data from the past 10 NCAA Tournaments. All stats from Bart Torvik's college basketball database.
               </div>
             </div>
