@@ -3160,7 +3160,7 @@ Keep all language at a middle school reading level. Make it engaging and educati
                     ['🐢 Slow pace', 'Fewer total possessions = more variance = underdogs need fewer lucky plays to win'],
                     ['🎯 3-point shooting', 'A hot shooting night from deep can erase a talent gap fast'],
                     ['🔄 Turnover battles', 'If the underdog forces turnovers, they can control more possessions than expected'],
-                    ['🎓 Experienced coaches', 'Coaches who've been here before tend to keep their teams calm under pressure'],
+                    ['🎓 Experienced coaches', "Coaches who've been here before tend to keep their teams calm under pressure"],
                   ].map(([icon, text]) => (
                     <div key={icon} style={{ display: 'flex', gap: 10, padding: '8px 12px', background: 'rgba(245,158,11,0.06)', borderRadius: 8, border: '1px solid rgba(245,158,11,0.15)' }}>
                       <span style={{ fontSize: 16, flexShrink: 0 }}>{icon.split(' ')[0]}</span>
@@ -3186,7 +3186,7 @@ Keep all language at a middle school reading level. Make it engaging and educati
                   recordNote: '1 seeds win 38 out of 40 times (95% of the time)',
                   color: '#ef4444',
                   scenarios: [
-                    { label: 'Watch out if the 1 seed plays very slowly', detail: 'When the 1 seed's tempo ranks outside the top 300 (super slow), the 1 seed is only 8/10 = 0.80. Otherwise they're 30/30 = 1.00.', tip: 'A slow game gives the underdog more chances for lucky plays.' },
+                    { label: 'Watch out if the 1 seed plays very slowly', detail: "When the 1 seed's tempo ranks outside the top 300 (super slow), the 1 seed is only 8/10 = 0.80. Otherwise they're 30/30 = 1.00.", tip: 'A slow game gives the underdog more chances for lucky plays.' },
                     { label: 'Watch out if the 16 seed is great at turnovers', detail: 'When the 16 seed has both TOR and TORD ranked in the top 70, the 1 seed is only 1/3 = 0.33. Otherwise 37/37 = 1.00.', tip: 'This year: No matchups meet either scenario. Safe to pick all 1 seeds.' },
                   ],
                   thisYear: 'No matchups meet either upset scenario this year. All 1 seeds look safe.',
@@ -3197,10 +3197,10 @@ Keep all language at a middle school reading level. Make it engaging and educati
                   recordNote: '2 seeds win 36 out of 40 times (90% of the time)',
                   color: '#f97316',
                   scenarios: [
-                    { label: 'Watch out if the 2 seed has weak defense', detail: 'When the 2 seed's AdjDE ranks outside the top 25, they're only 10/14 = 0.71. With top-25 defense, they're 26/26 = 1.00.', tip: 'Even favorites lose more when their defense is shaky.' },
-                    { label: 'Watch out if the 15 seed shoots inside well AND limits 3s', detail: 'When the 15 seed's 2P%D and 3PRD are both in the top 140, the 2 seed is 13/17 = 0.76. Otherwise 23/23 = 1.00.', tip: 'This year: Purdue meets the first scenario. Idaho meets the second. They don't play each other though.' },
+                    { label: 'Watch out if the 2 seed has weak defense', detail: "When the 2 seed's AdjDE ranks outside the top 25, they're only 10/14 = 0.71. With top-25 defense, they're 26/26 = 1.00.", tip: 'Even favorites lose more when their defense is shaky.' },
+                    { label: 'Watch out if the 15 seed shoots inside well AND limits 3s', detail: "When the 15 seed's 2P%D and 3PRD are both in the top 140, the 2 seed is 13/17 = 0.76. Otherwise 23/23 = 1.00.', tip: 'This year: Purdue meets the first scenario. Idaho meets the second. They don't play each other though." },
                   ],
-                  thisYear: 'Purdue has weaker defense. Idaho has solid defensive stats. They don't play each other so no perfect upset scenario.',
+                  thisYear: "Purdue has weaker defense. Idaho has solid defensive stats. They don't play each other so no perfect upset scenario.",
                 },
                 {
                   matchup: '3 vs. 14',
@@ -3208,8 +3208,8 @@ Keep all language at a middle school reading level. Make it engaging and educati
                   recordNote: '3 seeds win 35 out of 40 times (87.5% of the time)',
                   color: '#eab308',
                   scenarios: [
-                    { label: 'Watch out if the 3 seed turns it over a lot', detail: 'When the 3 seed's TOR ranks outside the top 200, they're only 5/8 = 0.625. Otherwise 30/32 = 0.94.', tip: 'Turnovers give underdogs extra possessions — free chances to score.' },
-                    { label: 'Watch out if the 14 seed forces LOTS of turnovers', detail: 'When the 14 seed's TORD is in the top 25, the 3 seed is only 1/4 = 0.25. Otherwise 34/36 = 0.94.', tip: 'This year: Michigan State meets the first scenario. North Dakota St. has the best TORD of all 14 seeds (ranked 59th).' },
+                    { label: 'Watch out if the 3 seed turns it over a lot', detail: "When the 3 seed's TOR ranks outside the top 200, they're only 5/8 = 0.625. Otherwise 30/32 = 0.94.", tip: 'Turnovers give underdogs extra possessions — free chances to score.' },
+                    { label: 'Watch out if the 14 seed forces LOTS of turnovers', detail: "When the 14 seed's TORD is in the top 25, the 3 seed is only 1/4 = 0.25. Otherwise 34/36 = 0.94.", tip: 'This year: Michigan State meets the first scenario. North Dakota St. has the best TORD of all 14 seeds (ranked 59th).' },
                   ],
                   thisYear: 'Michigan State turns it over a lot (scenario 1). North Dakota St. forces turnovers well. This could be an upset worth considering.',
                 },
@@ -3219,8 +3219,8 @@ Keep all language at a middle school reading level. Make it engaging and educati
                   recordNote: '4 seeds win 32 out of 40 times (80% of the time)',
                   color: '#22c55e',
                   scenarios: [
-                    { label: 'Watch out if the 4 seed plays slowly', detail: 'When the 4 seed's tempo ranks outside the top 250, they're only 5/9 = 0.56. Otherwise 27/31 = 0.87.', tip: 'Slow pace again — fewer possessions means more unpredictable outcomes.' },
-                    { label: 'Watch out if the 13 seed shoots really well', detail: 'When the 13 seed's EFG% is in the top 40, the 4 seed is 13/18 = 0.72. Otherwise 19/22 = 0.86.', tip: 'This year: No teams meet either scenario. 4 seeds look safe.' },
+                    { label: 'Watch out if the 4 seed plays slowly', detail: "When the 4 seed's tempo ranks outside the top 250, they're only 5/9 = 0.56. Otherwise 27/31 = 0.87.", tip: 'Slow pace again — fewer possessions means more unpredictable outcomes.' },
+                    { label: 'Watch out if the 13 seed shoots really well', detail: "When the 13 seed's EFG% is in the top 40, the 4 seed is 13/18 = 0.72. Otherwise 19/22 = 0.86.", tip: 'This year: No teams meet either scenario. 4 seeds look safe.' },
                   ],
                   thisYear: 'No 13 seeds meet the upset criteria this year. 4 seeds look relatively safe.',
                 },
@@ -3230,8 +3230,8 @@ Keep all language at a middle school reading level. Make it engaging and educati
                   recordNote: '5 seeds win 27 out of 40 times (67.5% of the time) — this is the most common first-round upset!',
                   color: '#06b6d4',
                   scenarios: [
-                    { label: 'Watch out if the 5 seed can't force turnovers', detail: 'When the 5 seed's TORD ranks outside the top 175, they're only 9/16 = 0.56. Otherwise 18/24 = 0.75.', tip: 'A 5 seed that can't create turnovers gives the 12 seed more chances.' },
-                    { label: 'Watch out if the 12 seed has great shot defense', detail: 'When the 12 seed's EFGD% is in the top 50, the 5 seed is only 8/17 = 0.47 — basically a coin flip! Otherwise 19/23 = 0.83.', tip: 'This year: Wisconsin and Texas Tech meet scenario 1. Northern Iowa meets scenario 2. None play each other directly.' },
+                    { label: "Watch out if the 5 seed can't force turnovers", detail: "When the 5 seed's TORD ranks outside the top 175, they're only 9/16 = 0.56. Otherwise 18/24 = 0.75.", tip: "A 5 seed that can't create turnovers gives the 12 seed more chances." },
+                    { label: "Watch out if the 12 seed has great shot defense", detail: "When the 12 seed's EFGD% is in the top 50, the 5 seed is only 8/17 = 0.47 — basically a coin flip! Otherwise 19/23 = 0.83.", tip: 'This year: Wisconsin and Texas Tech meet scenario 1. Northern Iowa meets scenario 2. None play each other directly.' },
                   ],
                   thisYear: '5 vs 12 is the most popular upset pick every year. Wisconsin has the worst TORD of all 5 seeds (ranked 324th) AND the weakest BARTHAG of all 5 seeds. Worth considering.',
                 },
@@ -3241,10 +3241,10 @@ Keep all language at a middle school reading level. Make it engaging and educati
                   recordNote: '6 seeds actually LOSE more than they win! Only 19 out of 40 times (47.5%) do 6 seeds win.',
                   color: '#8b5cf6',
                   scenarios: [
-                    { label: 'Watch out if the 6 seed turns it over a lot', detail: 'When the 6 seed's TOR ranks outside the top 140, they're only 3/12 = 0.25. Otherwise 16/28 = 0.57.', tip: 'At this seed, even a small weakness gets punished.' },
-                    { label: 'Watch out if the 11 seed's coach has more experience', detail: 'When the 11 seed's coach has at least as many Sweet 16 appearances as the 6 seed's coach, the 6 seed is only 7/25 = 0.28. Otherwise 12/15 = 0.80.', tip: 'This year: Louisville and Tennessee meet scenario 1. South Florida, Texas, and NC State meet scenario 2. Louisville vs. South Florida looks like a great upset pick.' },
+                    { label: 'Watch out if the 6 seed turns it over a lot', detail: "When the 6 seed's TOR ranks outside the top 140, they're only 3/12 = 0.25. Otherwise 16/28 = 0.57.", tip: 'At this seed, even a small weakness gets punished.' },
+                    { label: "Watch out if the 11 seed's coach has more experience", detail: "When the 11 seed's coach has at least as many Sweet 16 appearances as the 6 seed's coach, the 6 seed is only 7/25 = 0.28. Otherwise 12/15 = 0.80.", tip: 'This year: Louisville and Tennessee meet scenario 1. South Florida, Texas, and NC State meet scenario 2. Louisville vs. South Florida looks like a great upset pick.' },
                   ],
-                  thisYear: 'Louisville vs. South Florida: Louisville has turnover issues AND South Florida's coach has more experience. When both happen, 6 seeds are 1/8 = 0.125. Strong upset pick.',
+                  thisYear: "Louisville vs. South Florida: Louisville has turnover issues AND South Florida's coach has more experience. When both happen, 6 seeds are 1/8 = 0.125. Strong upset pick.",
                 },
                 {
                   matchup: '7 vs. 10',
@@ -3252,10 +3252,10 @@ Keep all language at a middle school reading level. Make it engaging and educati
                   recordNote: '7 seeds win 25 out of 40 times (62.5% of the time)',
                   color: '#ec4899',
                   scenarios: [
-                    { label: 'Watch out if the 7 seed shoots poorly', detail: 'When the 7 seed's EFG% ranks outside the top 120, they're only 7/16 = 0.44. Otherwise 18/24 = 0.75.', tip: 'Struggling to shoot efficiently is a red flag for any favorite.' },
-                    { label: 'Watch out if the 10 seed has elite defense', detail: 'When the 10 seed's AdjDE is in the top 30, the 7 seed is only 4/13 = 0.31. Otherwise 21/27 = 0.78.', tip: 'This year: No teams meet either scenario. Texas A&M and Saint Mary's are each the closest to their scenarios.' },
+                    { label: 'Watch out if the 7 seed shoots poorly', detail: "When the 7 seed's EFG% ranks outside the top 120, they're only 7/16 = 0.44. Otherwise 18/24 = 0.75.", tip: 'Struggling to shoot efficiently is a red flag for any favorite.' },
+                    { label: 'Watch out if the 10 seed has elite defense', detail: "When the 10 seed's AdjDE is in the top 30, the 7 seed is only 4/13 = 0.31. Otherwise 21/27 = 0.78.", tip: "This year: No teams meet either scenario. Texas A&M and Saint Mary's are each the closest to their scenarios." },
                   ],
-                  thisYear: 'No perfect upset scenarios, but Texas A&M vs. Saint Mary's could be interesting. Neither team looks dominant.',
+                  thisYear: "No perfect upset scenarios, but Texas A&M vs. Saint Mary's could be interesting. Neither team looks dominant.",
                 },
                 {
                   matchup: '8 vs. 9',
@@ -3264,7 +3264,7 @@ Keep all language at a middle school reading level. Make it engaging and educati
                   color: '#14b8a6',
                   scenarios: [
                     { label: 'Watch out if the 9 seed plays slower', detail: 'When the 9 seed plays with a slower tempo than the 8 seed, the 8 seed is only 5/21 = 0.24! Otherwise 13/19 = 0.68.', tip: 'Slower tempo favors the underdog in close matchups.' },
-                    { label: 'Watch out if the 9 seed's coach has more Sweet 16s', detail: 'When the 9 seed's coach has been to more Sweet 16s, the 8 seed is only 5/19 = 0.26. Otherwise 13/21 = 0.62.', tip: 'This year: Clemson/Iowa and Georgia/Saint Louis meet scenario 1. Ohio State/TCU meets scenario 2.' },
+                    { label: "Watch out if the 9 seed's coach has more Sweet 16s", detail: "When the 9 seed's coach has been to more Sweet 16s, the 8 seed is only 5/19 = 0.26. Otherwise 13/21 = 0.62.", tip: 'This year: Clemson/Iowa and Georgia/Saint Louis meet scenario 1. Ohio State/TCU meets scenario 2.' },
                   ],
                   thisYear: 'Three toss-up matchups this year. Villanova looks like the safest 8 seed. The other three matchups are genuinely hard to call.',
                 },
@@ -3411,13 +3411,13 @@ Keep all language at a middle school reading level. Make it engaging and educati
                 ]},
                 { seeds: '7 Seeds', made: '9/40 = 0.225', color: '#22c55e', notes: [
                   'UCLA is the best 7 seed — meets both key criteria (3-point shooting + top-20 offense).',
-                  'When a 7 seed meets both criteria, they're 4/5 = 0.80 historically.',
+                  "When a 7 seed meets both criteria, they're 4/5 = 0.80 historically.",
                   'Could UCLA cause some chaos?',
                 ]},
                 { seeds: '5 Seeds', made: '16/40 = 0.40', color: '#06b6d4', notes: [
                   'St. John's, Vanderbilt, and Wisconsin meet the key tempo criteria.',
                   'Texas Tech does not meet either key scenario — most vulnerable 5 seed.',
-                  'When a 5 seed meets both criteria, they're 5/5 = 1.00 historically.',
+                  "When a 5 seed meets both criteria, they're 5/5 = 1.00 historically.",
                 ]},
               ].map(({ seeds, made, color, notes }) => (
                 <div key={seeds} style={{ ...S.card, marginBottom: 16, borderColor: `${color}44` }}>
@@ -3435,9 +3435,9 @@ Keep all language at a middle school reading level. Make it engaging and educati
               <h3 style={{ color: ACCENT2, fontFamily: "'Playfair Display', serif", marginBottom: 16, marginTop: 32, fontSize: 20 }}>⚡ Elite 8 & Beyond</h3>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>
                 {[
-                  { round: 'Elite 8', seeds: '1 Seeds', stat: '25/40 = 0.625', color: '#ef4444', tip: 'Arizona and Michigan look strongest. Duke's weak 3PRD (lets opponents shoot lots of 3s) is a concern. Florida looks vulnerable.' },
+                  { round: 'Elite 8', seeds: '1 Seeds', stat: '25/40 = 0.625', color: '#ef4444', tip: "Arizona and Michigan look strongest. Duke's weak 3PRD (lets opponents shoot lots of 3s) is a concern. Florida looks vulnerable." },
                   { round: 'Elite 8', seeds: '2 Seeds', stat: '16/40 = 0.40', color: '#f97316', tip: 'UConn and Houston meet both key criteria and are 16/29 = 0.55 historically when they do. Purdue and Iowa State do not meet both criteria — historically 0/11.' },
-                  { round: 'Final Four', seeds: '1 Seeds', stat: '18/40 = 0.45', color: '#8b5cf6', tip: 'Only Duke meets the top-5 AdjOE criteria. Arizona was strong all the way until here — their stats are close but don't technically qualify.' },
+                  { round: 'Final Four', seeds: '1 Seeds', stat: '18/40 = 0.45', color: '#8b5cf6', tip: "Only Duke meets the top-5 AdjOE criteria. Arizona was strong all the way until here — their stats are close but don't technically qualify." },
                   { round: 'Championship', seeds: 'Champions', stat: '10 champions analyzed', color: GOLD2, tip: '70% of champions ranked in the top 5 nationally for offense. Duke fits many champion metrics but has a concerning 3PRD (341st). Arizona and Michigan are also strong picks.' },
                 ].map(({ round, seeds, stat, color, tip }) => (
                   <div key={round + seeds} style={{ ...S.card, borderColor: `${color}44` }}>
