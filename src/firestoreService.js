@@ -1,6 +1,6 @@
 // src/firestoreService.js
-// All Firestore read/write operations in one place.
-// You never need to edit this file.
+// No Google authentication — identity is name-based with localStorage UUID.
+// Admin access is password-based, stored in Firestore.
 
 import {
   doc, getDoc, setDoc, deleteDoc, getDocs,
@@ -11,11 +11,10 @@ import { db } from './firebase';
 
 // ── USER BRACKET ──────────────────────────────────────────────────────────────
 
-export async function saveBracket(uid, bracketData, displayName, photoURL) {
+export async function saveBracket(uid, bracketData, displayName) {
   await setDoc(doc(db, 'brackets', uid), {
     bracket:     JSON.stringify(bracketData),
     displayName: displayName || 'Anonymous',
-    photoURL:    photoURL || null,
     updatedAt:   serverTimestamp(),
   }, { merge: true });
 }
@@ -27,7 +26,18 @@ export async function loadBracket(uid) {
   return raw ? JSON.parse(raw) : null;
 }
 
-// ── OFFICIAL RESULTS BRACKET (admin writes, everyone reads) ───────────────────
+// Find a bracket by display name (for returning users on new devices)
+export async function findBracketByName(displayName) {
+  if (!displayName?.trim()) return null;
+  const snap = await getDocs(collection(db, 'brackets'));
+  const name = displayName.trim().toLowerCase();
+  const match = snap.docs.find(d => (d.data().displayName || '').toLowerCase() === name);
+  if (!match) return null;
+  const raw = match.data().bracket;
+  return { uid: match.id, bracket: raw ? JSON.parse(raw) : null };
+}
+
+// ── OFFICIAL RESULTS BRACKET ──────────────────────────────────────────────────
 
 export async function saveOfficialBracket(bracketData) {
   await setDoc(doc(db, 'admin', 'officialBracket'), {
@@ -42,7 +52,7 @@ export function subscribeToOfficialBracket(callback) {
   });
 }
 
-// ── TOURNAMENT CONFIG (locked status) ─────────────────────────────────────────
+// ── TOURNAMENT CONFIG ─────────────────────────────────────────────────────────
 
 export function subscribeToConfig(callback) {
   return onSnapshot(doc(db, 'tournament', 'config'), snap => {
@@ -52,18 +62,14 @@ export function subscribeToConfig(callback) {
 }
 
 export async function setTournamentLocked(locked) {
-  await setDoc(doc(db, 'tournament', 'config'), {
-    locked,
-    updatedAt: serverTimestamp(),
-  }, { merge: true });
+  await setDoc(doc(db, 'tournament', 'config'), { locked, updatedAt: serverTimestamp() }, { merge: true });
 }
 
 // ── LEADERBOARD ───────────────────────────────────────────────────────────────
 
-export async function updateLeaderboardEntry(uid, displayName, photoURL, score, isTeacher = false) {
+export async function updateLeaderboardEntry(uid, displayName, score, isTeacher = false) {
   await setDoc(doc(db, 'leaderboard', uid), {
     displayName: displayName || 'Anonymous',
-    photoURL:    photoURL || null,
     score,
     isTeacher:   !!isTeacher,
     updatedAt:   serverTimestamp(),
@@ -71,75 +77,36 @@ export async function updateLeaderboardEntry(uid, displayName, photoURL, score, 
 }
 
 export function subscribeToLeaderboard(callback, n = 200) {
-  const q = query(
-    collection(db, 'leaderboard'),
-    orderBy('score', 'desc'),
-    limit(n)
-  );
+  const q = query(collection(db, 'leaderboard'), orderBy('score', 'desc'), limit(n));
   return onSnapshot(q, snap => {
     callback(snap.docs.map((d, i) => ({ uid: d.id, rank: i + 1, ...d.data() })));
   });
 }
 
-// ── ADMIN CHECK ───────────────────────────────────────────────────────────────
+// ── ADMIN PASSWORD ────────────────────────────────────────────────────────────
+// Password is stored as a plain string in Firestore under admin/auth.
+// This is acceptable for a school hobby app — no PII is gated behind it,
+// only the ability to enter results and manage the bracket.
 
-export async function checkIsAdmin(uid) {
-  const snap = await getDoc(doc(db, 'admins', uid));
-  return snap.exists();
+export async function getAdminPasswordHash() {
+  const snap = await getDoc(doc(db, 'admin', 'auth'));
+  if (!snap.exists()) return null;
+  return snap.data().password || null;
 }
 
-// ── TEACHER CHECK ─────────────────────────────────────────────────────────────
-
-export async function checkIsTeacher(uid) {
-  const snap = await getDoc(doc(db, 'teachers', uid));
-  return snap.exists();
+export async function setAdminPassword(password) {
+  await setDoc(doc(db, 'admin', 'auth'), { password, updatedAt: serverTimestamp() });
 }
 
-// ── USER REGISTRY ─────────────────────────────────────────────────────────────
-// Every user is registered on sign-in so admins can manage roles without
-// ever touching Firebase Console.
-
-export async function registerUser(uid, displayName, photoURL, email) {
-  await setDoc(doc(db, 'users', uid), {
-    displayName: displayName || 'Anonymous',
-    photoURL:    photoURL || null,
-    email:       email || null,
-    lastSeen:    serverTimestamp(),
-  }, { merge: true });
+export async function checkAdminPassword(password) {
+  const snap = await getDoc(doc(db, 'admin', 'auth'));
+  if (!snap.exists()) return false;
+  return snap.data().password === password;
 }
 
-export function subscribeToAllUsers(callback) {
-  return onSnapshot(collection(db, 'users'), snap => {
-    callback(snap.docs.map(d => ({ uid: d.id, ...d.data() })));
-  });
-}
-
-// ── ROLE MANAGEMENT ───────────────────────────────────────────────────────────
-
-export async function grantTeacherRole(uid) {
-  await setDoc(doc(db, 'teachers', uid), { grantedAt: serverTimestamp() });
-}
-
-export async function revokeTeacherRole(uid) {
-  await deleteDoc(doc(db, 'teachers', uid));
-}
-
-export async function grantAdminRole(uid) {
-  await setDoc(doc(db, 'admins', uid), { grantedAt: serverTimestamp() });
-}
-
-export async function revokeAdminRole(uid) {
-  await deleteDoc(doc(db, 'admins', uid));
-}
-
-export async function loadTeacherUids() {
-  const snap = await getDocs(collection(db, 'teachers'));
-  return new Set(snap.docs.map(d => d.id));
-}
-
-export async function loadAdminUids() {
-  const snap = await getDocs(collection(db, 'admins'));
-  return new Set(snap.docs.map(d => d.id));
+export async function adminExists() {
+  const snap = await getDoc(doc(db, 'admin', 'auth'));
+  return snap.exists() && !!snap.data().password;
 }
 
 // ── TEAM RESEARCH DATA ────────────────────────────────────────────────────────
@@ -157,47 +124,36 @@ export async function loadResearchData() {
 }
 
 export async function saveResearchData(teamsObj) {
-  await setDoc(doc(db, 'admin', 'researchData'), {
-    teams:     teamsObj,
-    updatedAt: serverTimestamp(),
-  });
+  await setDoc(doc(db, 'admin', 'researchData'), { teams: teamsObj, updatedAt: serverTimestamp() });
 }
 
 export async function saveOneTeamResearch(teamName, cardData) {
   const snap = await getDoc(doc(db, 'admin', 'researchData'));
   const existing = snap.exists() ? (snap.data().teams || {}) : {};
   existing[teamName] = cardData;
-  await setDoc(doc(db, 'admin', 'researchData'), {
-    teams:     existing,
-    updatedAt: serverTimestamp(),
-  });
+  await setDoc(doc(db, 'admin', 'researchData'), { teams: existing, updatedAt: serverTimestamp() });
 }
 
 export function subscribeToResearchData(callback) {
   return onSnapshot(doc(db, 'admin', 'researchData'), snap => {
     if (!snap.exists()) { callback({}); return; }
     const d = snap.data();
-    if (d.teams && typeof d.teams === 'object') {
-      callback(d.teams);
-    } else {
-      // Flat format — migrate by picking only team-shaped entries
-      const teams = {};
-      Object.entries(d).forEach(([k, v]) => {
-        if (k !== 'updatedAt' && typeof v === 'object' && v !== null) {
-          teams[k] = v;
-        }
-      });
-      callback(teams);
-    }
+    if (d.teams && typeof d.teams === 'object') { callback(d.teams); return; }
+    const teams = {};
+    Object.entries(d).forEach(([k, v]) => {
+      if (k !== 'updatedAt' && typeof v === 'object' && v !== null) teams[k] = v;
+    });
+    callback(teams);
   });
 }
 
-// ── MAMMALS TOURNAMENT ────────────────────────────────────────────────────────
+// ── MAMMAL TOURNAMENT ─────────────────────────────────────────────────────────
 
-export async function saveMammalBracket(uid, bracketData, displayName, photoURL) {
+export async function saveMammalBracket(uid, bracketData, displayName) {
   await setDoc(doc(db, 'brackets_mammals', uid), {
-    bracket: JSON.stringify(bracketData), displayName: displayName || 'Anonymous',
-    photoURL: photoURL || null, updatedAt: serverTimestamp(),
+    bracket:     JSON.stringify(bracketData),
+    displayName: displayName || 'Anonymous',
+    updatedAt:   serverTimestamp(),
   }, { merge: true });
 }
 
@@ -228,15 +184,15 @@ export function subscribeToMammalConfig(callback) {
 }
 
 export async function setMammalTournamentLocked(locked) {
-  await setDoc(doc(db, 'tournament', 'config_mammals'), {
-    locked, updatedAt: serverTimestamp(),
-  }, { merge: true });
+  await setDoc(doc(db, 'tournament', 'config_mammals'), { locked, updatedAt: serverTimestamp() }, { merge: true });
 }
 
-export async function updateMammalLeaderboardEntry(uid, displayName, photoURL, score, isTeacher = false) {
+export async function updateMammalLeaderboardEntry(uid, displayName, score, isTeacher = false) {
   await setDoc(doc(db, 'leaderboard_mammals', uid), {
-    displayName: displayName || 'Anonymous', photoURL: photoURL || null,
-    score, isTeacher: !!isTeacher, updatedAt: serverTimestamp(),
+    displayName: displayName || 'Anonymous',
+    score,
+    isTeacher:   !!isTeacher,
+    updatedAt:   serverTimestamp(),
   }, { merge: true });
 }
 
@@ -248,18 +204,14 @@ export function subscribeToMammalLeaderboard(callback, n = 200) {
 }
 
 export async function saveMammalResearchData(teamsObj) {
-  await setDoc(doc(db, 'admin', 'researchData_mammals'), {
-    teams: teamsObj, updatedAt: serverTimestamp(),
-  });
+  await setDoc(doc(db, 'admin', 'researchData_mammals'), { teams: teamsObj, updatedAt: serverTimestamp() });
 }
 
 export async function saveOneMammalResearch(animalName, cardData) {
   const snap = await getDoc(doc(db, 'admin', 'researchData_mammals'));
   const existing = snap.exists() ? (snap.data().teams || {}) : {};
   existing[animalName] = cardData;
-  await setDoc(doc(db, 'admin', 'researchData_mammals'), {
-    teams: existing, updatedAt: serverTimestamp(),
-  });
+  await setDoc(doc(db, 'admin', 'researchData_mammals'), { teams: existing, updatedAt: serverTimestamp() });
 }
 
 export function subscribeToMammalResearchData(callback) {
@@ -270,7 +222,19 @@ export function subscribeToMammalResearchData(callback) {
 }
 
 export async function saveMammalRoster(rosterData) {
-  await setDoc(doc(db, 'admin', 'mammalRoster'), {
-    ...rosterData, updatedAt: serverTimestamp(),
-  });
+  await setDoc(doc(db, 'admin', 'mammalRoster'), { ...rosterData, updatedAt: serverTimestamp() });
+}
+
+// ── LEADERBOARD ADMIN HELPERS ─────────────────────────────────────────────────
+
+export async function getAllBracketUids(isMammal = false) {
+  const snap = await getDocs(collection(db, isMammal ? 'brackets_mammals' : 'brackets'));
+  return snap.docs.map(d => ({ uid: d.id, displayName: d.data().displayName }));
+}
+
+export async function deleteBracketAndScore(uid, isMammal = false) {
+  await Promise.all([
+    deleteDoc(doc(db, isMammal ? 'brackets_mammals' : 'brackets', uid)).catch(() => {}),
+    deleteDoc(doc(db, isMammal ? 'leaderboard_mammals' : 'leaderboard', uid)).catch(() => {}),
+  ]);
 }
