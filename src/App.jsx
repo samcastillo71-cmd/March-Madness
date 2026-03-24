@@ -829,9 +829,11 @@ export default function App() {
   // ── USER IDENTITY (no login) ──────────────────────────────────────────────
   const [uid,          setUid]          = useState(null);
   const [displayName,  setDisplayName]  = useState('');
-  const [nameInput,    setNameInput]    = useState('');
-  const [nameLoading,  setNameLoading]  = useState(false);
-  const [nameError,    setNameError]    = useState('');
+  const [nameInput,      setNameInput]      = useState('');
+  const [studentIdInput, setStudentIdInput] = useState('');
+  const [nameLoading,    setNameLoading]    = useState(false);
+  const [nameError,      setNameError]      = useState('');
+  const [nameStep,       setNameStep]       = useState('name-entry'); // 'name-entry' | 'id'
   const [isTeacher,    setIsTeacher]    = useState(false);
 
   // ── ADMIN ─────────────────────────────────────────────────────────────────
@@ -924,8 +926,8 @@ export default function App() {
 
   // ── RESTORE SESSION FROM LOCALSTORAGE ─────────────────────────────────────
   useEffect(() => {
-    const savedUid  = localStorage.getItem('mm_uid');
-    const savedName = localStorage.getItem('mm_name');
+    const savedUid       = localStorage.getItem('mm_uid');
+    const savedName      = localStorage.getItem('mm_name');
     const savedIsTeacher = localStorage.getItem('mm_teacher') === 'true';
     const savedIsAdmin   = localStorage.getItem('mm_admin')   === 'true';
     if (savedUid && savedName) {
@@ -1061,42 +1063,55 @@ export default function App() {
     return () => clearTimeout(mammalSaveTimer.current);
   }, [mammalBracket, mammalFirstFourPicks, uid, displayName, mammalLocked, isAdmin, mammalScore, isTeacher]);
 
-  // ── NAME ENTRY HANDLER ────────────────────────────────────────────────────
-  const handleNameSubmit = async () => {
+  // ── NAME ENTRY HANDLERS ──────────────────────────────────────────────────
+  // Step 1: student enters name, we validate and move to ID step
+  const handleNameFirstSubmit = () => {
     const name = nameInput.trim();
-    if (!name) { setNameError('Please enter your name.'); return; }
+    if (!name) { setNameError('Please enter your first and last name.'); return; }
     if (name.length < 2) { setNameError('Name must be at least 2 characters.'); return; }
+    setNameError('');
+    setNameStep('id'); // move to school ID step
+  };
+
+  // Step 2: student enters school ID, used as unique identifier
+  const handleIdSubmit = async () => {
+    const id   = studentIdInput.trim();
+    const name = nameInput.trim();
+    if (!id) { setNameError('Please enter your school ID.'); return; }
+    if (id.length < 3) { setNameError('ID must be at least 3 characters.'); return; }
     setNameLoading(true); setNameError('');
     try {
-      // Check if a bracket already exists with this name
-      const existing = await findBracketByName(name);
-      let userUid;
+      const existing = await loadBracket(id);
       if (existing) {
-        // Found existing bracket — use that UID to restore their bracket
-        userUid = existing.uid;
-        if (existing.bracket) {
-          if (existing.bracket._firstFourPicks) {
-            const { _firstFourPicks, ...b } = existing.bracket;
-            setFirstFourPicks(_firstFourPicks);
-            setBracket(applyFirstFourPicks(b, _firstFourPicks));
-          } else setBracket(existing.bracket);
-        }
+        const bracketSnap = await getDoc(doc(db, 'brackets', id));
+        const savedName = bracketSnap.exists() ? bracketSnap.data().displayName : name;
+        if (existing._firstFourPicks) {
+          const { _firstFourPicks, ...b } = existing;
+          setFirstFourPicks(_firstFourPicks);
+          setBracket(applyFirstFourPicks(b, _firstFourPicks));
+        } else setBracket(existing);
+        localStorage.setItem('mm_uid', id);
+        localStorage.setItem('mm_name', savedName);
+        localStorage.setItem('mm_teacher', 'false');
+        localStorage.setItem('mm_admin', 'false');
+        setUid(id);
+        setDisplayName(savedName);
       } else {
-        // New user — generate a UUID
-        userUid = generateUUID();
+        localStorage.setItem('mm_uid', id);
+        localStorage.setItem('mm_name', name);
+        localStorage.setItem('mm_teacher', 'false');
+        localStorage.setItem('mm_admin', 'false');
+        setUid(id);
+        setDisplayName(name);
       }
-      localStorage.setItem('mm_uid', userUid);
-      localStorage.setItem('mm_name', name);
-      localStorage.setItem('mm_teacher', 'false');
-      localStorage.setItem('mm_admin', 'false');
-      setUid(userUid);
-      setDisplayName(name);
     } catch (e) {
       setNameError('Something went wrong. Please try again.');
-      console.warn('Name submit error:', e);
+      console.warn('ID submit error:', e);
     }
     setNameLoading(false);
   };
+
+  const handleNameSubmit = handleIdSubmit;
 
   // ── ADMIN LOGIN ───────────────────────────────────────────────────────────
   const handleAdminLogin = async () => {
@@ -1148,6 +1163,7 @@ export default function App() {
     setUid(null); setDisplayName(''); setIsAdmin(false); setIsTeacher(false);
     setBracket(buildInitialBracket()); setMammalBracket(buildInitialBracket());
     setFirstFourPicks({}); setMammalFirstFourPicks({});
+    setStudentIdInput(''); setNameInput(''); setNameStep('name-entry');
     setTab('bracket');
   };
 
@@ -1695,23 +1711,61 @@ export default function App() {
           <p style={{ color: '#777', fontSize: 16, marginTop: 10 }}>School-Wide Bracket Challenge</p>
         </div>
         <div style={{ ...S.card, textAlign: 'center', maxWidth: 400, padding: '36px 40px', width: '100%' }}>
-          <p style={{ color: '#888', fontSize: 14, marginBottom: 8, lineHeight: 1.7 }}>Enter your name to fill out your bracket and compete with your classmates.</p>
-          <p style={{ color: '#555', fontSize: 12, marginBottom: 24, lineHeight: 1.6 }}>Already submitted a bracket? Enter the same name and your picks will be restored.</p>
-          <input
-            placeholder="Your first and last name"
-            value={nameInput}
-            onChange={e => setNameInput(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && handleNameSubmit()}
-            style={{ ...S.input, marginBottom: 16, fontSize: 16, textAlign: 'center' }}
-            autoFocus
-          />
-          {nameError && <div style={{ color: '#f87171', fontSize: 13, marginBottom: 12 }}>{nameError}</div>}
-          <button style={{ ...S.btn(), width: '100%', fontSize: 16, padding: '12px 22px' }} onClick={handleNameSubmit} disabled={nameLoading}>
-            {nameLoading ? 'Loading...' : "Let's Go →"}
-          </button>
-          <div style={{ marginTop: 20, padding: '10px 14px', background: 'rgba(22,163,74,0.07)', borderRadius: 8, border: '1px solid rgba(22,163,74,0.2)', fontSize: 12, color: '#777', lineHeight: 1.6 }}>
-            💡 No account needed. Your bracket is saved to this device.
-          </div>
+
+          {/* Step 1: Enter name */}
+          {nameStep === 'name-entry' && (
+            <>
+              <p style={{ color: '#aaa', fontSize: 15, fontWeight: 700, marginBottom: 6 }}>What's your name?</p>
+              <p style={{ color: '#666', fontSize: 13, marginBottom: 20, lineHeight: 1.6 }}>
+                Enter your first and last name. This is how you'll appear on the leaderboard.
+              </p>
+              <input
+                placeholder="First and last name"
+                value={nameInput}
+                onChange={e => { setNameInput(e.target.value); setNameError(''); }}
+                onKeyDown={e => e.key === 'Enter' && handleNameFirstSubmit()}
+                style={{ ...S.input, marginBottom: 16, fontSize: 16, textAlign: 'center' }}
+                autoFocus
+              />
+              {nameError && <div style={{ color: '#f87171', fontSize: 13, marginBottom: 12 }}>{nameError}</div>}
+              <button style={{ ...S.btn(), width: '100%', fontSize: 16, padding: '12px 22px' }} onClick={handleNameFirstSubmit}>
+                Continue
+              </button>
+            </>
+          )}
+
+          {/* Step 2: Enter school ID */}
+          {nameStep === 'id' && (
+            <>
+              <div style={{ marginBottom: 20, padding: '10px 14px', background: 'rgba(22,163,74,0.08)', borderRadius: 8, border: '1px solid rgba(22,163,74,0.2)', fontSize: 14, color: ACCENT2, fontWeight: 600 }}>
+                Hi, {nameInput}!
+              </div>
+              <p style={{ color: '#aaa', fontSize: 15, fontWeight: 700, marginBottom: 6 }}>Enter your School ID</p>
+              <p style={{ color: '#666', fontSize: 13, marginBottom: 6, lineHeight: 1.6 }}>
+                This keeps your bracket linked to you so you can return to it anytime.
+              </p>
+              <p style={{ color: '#555', fontSize: 12, marginBottom: 20 }}>
+                Example: <span style={{ color: ACCENT2, fontFamily: 'monospace', fontSize: 13 }}>JDoe123</span>
+              </p>
+              <input
+                placeholder="Your school ID"
+                value={studentIdInput}
+                onChange={e => { setStudentIdInput(e.target.value); setNameError(''); }}
+                onKeyDown={e => e.key === 'Enter' && handleIdSubmit()}
+                style={{ ...S.input, marginBottom: 16, fontSize: 16, textAlign: 'center', letterSpacing: 1 }}
+                autoFocus
+              />
+              {nameError && <div style={{ color: '#f87171', fontSize: 13, marginBottom: 12 }}>{nameError}</div>}
+              <button style={{ ...S.btn(), width: '100%', fontSize: 16, padding: '12px 22px' }} onClick={handleIdSubmit} disabled={nameLoading}>
+                {nameLoading ? 'Loading...' : "Let's Go!"}
+              </button>
+              <button onClick={() => { setNameStep('name-entry'); setNameError(''); }} style={{ background: 'none', border: 'none', color: '#555', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', marginTop: 12 }}>Back</button>
+              <div style={{ marginTop: 12, fontSize: 12, color: '#555', lineHeight: 1.6 }}>
+                Already have a bracket? Enter the same ID and it will be restored automatically.
+              </div>
+            </>
+          )}
+
         </div>
       </div>
       <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, padding: '12px 20px', display: 'flex', justifyContent: 'center', gap: 20, borderTop: '1px solid rgba(255,255,255,0.06)', background: 'rgba(10,26,14,0.95)' }}>
