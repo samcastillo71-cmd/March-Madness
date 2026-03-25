@@ -1206,9 +1206,43 @@ if (game.winner?.name === clicked.name) {
     });
   }, [isAdmin, clearTeamDownstream]);
 
-  const handlePick        = useCallback(makePickHandler(setBracket, locked, saveOfficialBracket), [locked, isAdmin, makePickHandler]);
-  const handleMammalPick  = useCallback(makePickHandler(setMammalBracket, mammalLocked, saveMammalOfficialBracket), [mammalLocked, isAdmin, makePickHandler]);
+  const handlePick = useCallback((region, rIdx, gIdx, side) => {
+    if (rIdx === 0) {
+      setBracket(prev => {
+        const game = prev[region]?.rounds[0]?.[gIdx];
+        const clicked = side === 'top' ? game?.top : game?.bottom;
+        if (clicked && game?.winner?.name === clicked.name) {
+          setFirstFourPicks(fp => {
+            const updated = { ...fp };
+            const key = `${region}-${clicked.seed}`;
+            if (updated[key] === clicked.name) { delete updated[key]; }
+            return updated;
+          });
+        }
+        return prev;
+      });
+    }
+    makePickHandler(setBracket, locked, saveOfficialBracket)(region, rIdx, gIdx, side);
+  }, [locked, isAdmin, makePickHandler, ffPlaceholders]);
 
+  const handleMammalPick = useCallback((region, rIdx, gIdx, side) => {
+    if (rIdx === 0) {
+      setMammalBracket(prev => {
+        const game = prev[region]?.rounds[0]?.[gIdx];
+        const clicked = side === 'top' ? game?.top : game?.bottom;
+        if (clicked && game?.winner?.name === clicked.name) {
+          setMammalFirstFourPicks(fp => {
+            const updated = { ...fp };
+            const key = `${region}-${clicked.seed}`;
+            if (updated[key] === clicked.name) { delete updated[key]; }
+            return updated;
+          });
+        }
+        return prev;
+      });
+    }
+    makePickHandler(setMammalBracket, mammalLocked, saveMammalOfficialBracket)(region, rIdx, gIdx, side);
+  }, [mammalLocked, isAdmin, makePickHandler, mammalFfPlaceholders]);
   const makeFFPickHandler = useCallback((setBracketFn, isLocked, saveOfficialFn) => (idx, side) => {
     if (isLocked && !isAdmin) return;
     setBracketFn(prev => {
