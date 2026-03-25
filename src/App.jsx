@@ -833,7 +833,7 @@ export default function App() {
   const [studentIdInput, setStudentIdInput] = useState('');
   const [nameLoading,    setNameLoading]    = useState(false);
   const [nameError,      setNameError]      = useState('');
-  const [nameStep,       setNameStep]       = useState('name-entry'); // 'name-entry' | 'id'
+  const [nameStep, setNameStep] = useState('username'); // 'username' | 'new-name'
   const [isTeacher,    setIsTeacher]    = useState(false);
 
   // ── ADMIN ─────────────────────────────────────────────────────────────────
@@ -1063,15 +1063,120 @@ export default function App() {
     return () => clearTimeout(mammalSaveTimer.current);
   }, [mammalBracket, mammalFirstFourPicks, uid, displayName, mammalLocked, isAdmin, mammalScore, isTeacher]);
 
-  // ── NAME ENTRY HANDLERS ──────────────────────────────────────────────────
-  // Step 1: student enters name, we validate and move to ID step
-  const handleNameFirstSubmit = () => {
-    const name = nameInput.trim();
-    if (!name) { setNameError('Please enter your first and last name.'); return; }
-    if (name.length < 2) { setNameError('Name must be at least 2 characters.'); return; }
-    setNameError('');
-    setNameStep('id'); // move to school ID step
-  };
+  // ── NAME ENTRY HANDLERS ──────────────────────────────────────────────────────
+// Step 1: student enters username — check if they exist already
+const handleUsernameSubmit = async () => {
+  const id = studentIdInput.trim();
+  if (!id) { setNameError('Please enter your username.'); return; }
+  if (id.length < 3) { setNameError('Username must be at least 3 characters.'); return; }
+  setNameLoading(true); setNameError('');
+  try {
+    const bracketSnap = await getDoc(doc(db, 'brackets', id));
+    if (bracketSnap.exists()) {
+      // Returning user — load their saved name and bracket, skip name step
+      const savedName = bracketSnap.data().displayName || id;
+      const existing = bracketSnap.data();
+      if (existing._firstFourPicks) {
+        const { _firstFourPicks, displayName: _dn, ...b } = existing;
+        setFirstFourPicks(_firstFourPicks);
+        setBracket(applyFirstFourPicks(b, _firstFourPicks));
+      } else {
+        const { displayName: _dn, ...b } = existing;
+        setBracket(b);
+      }
+      localStorage.setItem('mm_uid', id);
+      localStorage.setItem('mm_name', savedName);
+      localStorage.setItem('mm_teacher', 'false');
+      localStorage.setItem('mm_admin', 'false');
+      setUid(id);
+      setDisplayName(savedName);
+    } else {
+      // New user — need a display name
+      setNameStep('new-name');
+    }
+  } catch (e) {
+    setNameError('Something went wrong. Please try again.');
+    console.warn('Username submit error:', e);
+  }
+  setNameLoading(false);
+};
+
+// Step 2 (new users only): student enters their display name
+const handleNewNameSubmit = async () => {
+  const name = nameInput.trim();
+  const id   = studentIdInput.trim();
+  if (!name) { setNameError('Please enter your first and last name.'); return; }
+  if (name.length < 2) { setNameError('Name must be at least 2 characters.'); return; }
+  setNameLoading(true); setNameError('');
+  try {
+    localStorage.setItem('mm_uid', id);
+    localStorage.setItem('mm_name', name);
+    localStorage.setItem('mm_teacher', 'false');
+    localStorage.setItem('mm_admin', 'false');
+    setUid(id);
+    setDisplayName(name);
+  } catch (e) {
+    setNameError('Something went wrong. Please try again.');
+    console.warn('New name submit error:', e);
+  }
+  setNameLoading(false);
+};
+
+const handleNameSubmit = handleUsernameSubmit;
+
+// ── ADMIN LOGIN ───────────────────────────────────────────────────────────────
+const handleAdminLogin = async () => {
+  if (!adminPwInput.trim()) { setAdminPwError('Enter the admin password.'); return; }
+  setAdminPwLoading(true); setAdminPwError('');
+  try {
+    const ok = await checkAdminPassword(adminPwInput.trim());
+    if (ok) {
+      setIsAdmin(true);
+      localStorage.setItem('mm_admin', 'true');
+      setShowAdminLogin(false);
+      setAdminPwInput('');
+      setTab('admin');
+    } else {
+      setAdminPwError('Incorrect password.');
+    }
+  } catch (e) { setAdminPwError('Error checking password. Try again.'); }
+  setAdminPwLoading(false);
+};
+
+const handleAdminSetup = async () => {
+  if (!newAdminPw.trim()) { setAdminPwError('Enter a password.'); return; }
+  if (newAdminPw !== newAdminPw2) { setAdminPwError('Passwords do not match.'); return; }
+  setAdminPwLoading(true); setAdminPwError('');
+  try {
+    await setAdminPassword(newAdminPw.trim());
+    setIsAdmin(true);
+    localStorage.setItem('mm_admin', 'true');
+    setSetupMode(false);
+    setShowAdminLogin(false);
+    setTab('admin');
+  } catch (e) { setAdminPwError('Failed to set password. Try again.'); }
+  setAdminPwLoading(false);
+};
+
+const handleOpenAdmin = async () => {
+  if (isAdmin) { setTab('admin'); return; }
+  const exists = await adminExists();
+  if (!exists) setSetupMode(true);
+  else setSetupMode(false);
+  setShowAdminLogin(true);
+};
+
+const handleSignOut = () => {
+  localStorage.removeItem('mm_uid');
+  localStorage.removeItem('mm_name');
+  localStorage.removeItem('mm_teacher');
+  localStorage.removeItem('mm_admin');
+  setUid(null); setDisplayName(''); setIsAdmin(false); setIsTeacher(false);
+  setBracket(buildInitialBracket()); setMammalBracket(buildInitialBracket());
+  setFirstFourPicks({}); setMammalFirstFourPicks({});
+  setStudentIdInput(''); setNameInput(''); setNameStep('username');
+  setTab('bracket');
+};
 
   // Step 2: student enters school ID, used as unique identifier
   const handleIdSubmit = async () => {
