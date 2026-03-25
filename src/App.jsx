@@ -1195,9 +1195,6 @@ export default function App() {
       if (!clicked || clicked.isFFPlaceholder) return prev;
 if (game.winner?.name === clicked.name) {
         game.winner = null; clearTeamDownstream(next, region, clicked.name, rIdx + 1);
-        if (rIdx === 0) {
-          syncFFPicksOnClear(clicked.name, rIdx === 0 && region ? setFirstFourPicks : setMammalFirstFourPicks, () => ffPlaceholders);
-        }
         if (isAdmin && saveOfficialFn) saveOfficialFn(next).catch(console.warn); return next;
       }
       game.winner = clicked;
