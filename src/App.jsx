@@ -1751,7 +1751,7 @@ if (game.winner?.name === clicked.name) {
     </div>
   );
 
-  // ── NAME ENTRY SCREEN ─────────────────────────────────────────────────────
+
   // ── NAME ENTRY SCREEN ─────────────────────────────────────────────────────
   if (!uid) return (
     <>
