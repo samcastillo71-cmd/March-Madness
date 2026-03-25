@@ -1239,7 +1239,7 @@ export default function App() {
   const handleMammalChampPick = useCallback(makeChampHandler(setMammalBracket, mammalLocked, saveMammalOfficialBracket), [mammalLocked, isAdmin, makeChampHandler]);
   const handleChampScore = useCallback((field, val) => setBracket(prev => ({ ...prev, championship: { ...prev.championship, [field]: val } })), []);
 
-  const makeFirstFourHandler = useCallback((setBracketFn, setPicksFn, getPicksFn, getFfPlaceholders, isLocked, saveOfficialFn) => (key, winner, region, seed) => {
+ const makeFirstFourHandler = useCallback((setBracketFn, setPicksFn, getPicksFn, getFfPlaceholders, isLocked, saveOfficialFn) => (key, winner, region, seed) => {
     if (isLocked && !isAdmin) return;
     const currentPicks = getPicksFn();
     const isUnpick = currentPicks[key] === winner.name;
@@ -1268,6 +1268,22 @@ export default function App() {
       return next;
     });
   }, [isAdmin, clearTeamDownstream]);
+
+  // Sync FF picks when a team is cleared from inside the main bracket
+  const syncFFPicksOnClear = useCallback((teamName, setPicksFn, getFfPlaceholders) => {
+    const placeholders = getFfPlaceholders();
+    setPicksFn(prev => {
+      const updated = { ...prev };
+      let changed = false;
+      Object.entries(placeholders).forEach(([key, slot]) => {
+        if (prev[key] === teamName) {
+          delete updated[key];
+          changed = true;
+        }
+      });
+      return changed ? updated : prev;
+    });
+  }, []);
 
   const firstFourPicksRef = useRef(firstFourPicks);
   useEffect(() => { firstFourPicksRef.current = firstFourPicks; }, [firstFourPicks]);
