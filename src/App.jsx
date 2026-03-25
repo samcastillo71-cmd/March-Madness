@@ -1740,15 +1740,14 @@ export default function App() {
               <div style={{ marginBottom: 20, padding: '10px 14px', background: 'rgba(22,163,74,0.08)', borderRadius: 8, border: '1px solid rgba(22,163,74,0.2)', fontSize: 14, color: ACCENT2, fontWeight: 600 }}>
                 Hi, {nameInput}!
               </div>
-              <p style={{ color: '#aaa', fontSize: 15, fontWeight: 700, marginBottom: 6 }}>Enter your School ID</p>
-              <p style={{ color: '#666', fontSize: 13, marginBottom: 6, lineHeight: 1.6 }}>
-                This keeps your bracket linked to you so you can return to it anytime.
-              </p>
-              <p style={{ color: '#555', fontSize: 12, marginBottom: 20 }}>
-                Example: <span style={{ color: ACCENT2, fontFamily: 'monospace', fontSize: 13 }}>JDoe123</span>
-              </p>
-              <input
-                placeholder="Your school ID"
+              <p style={{ color: '#aaa', fontSize: 15, fontWeight: 700, marginBottom: 6 }}>Choose a username</p>
+<p style={{ color: '#666', fontSize: 13, marginBottom: 6, lineHeight: 1.6 }}>
+  Pick anything you'll remember — this saves your bracket so you can come back to it.
+</p>
+<p style={{ color: '#555', fontSize: 12, marginBottom: 20 }}>
+  Example: <span style={{ color: ACCENT2, fontFamily: 'monospace', fontSize: 13 }}>HoopsFan22</span>
+</p>
+<input placeholder="Choose a username" ...
                 value={studentIdInput}
                 onChange={e => { setStudentIdInput(e.target.value); setNameError(''); }}
                 onKeyDown={e => e.key === 'Enter' && handleIdSubmit()}
