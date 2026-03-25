@@ -1216,62 +1216,6 @@ const handleSignOut = () => {
     setNameLoading(false);
   };
 
-  const handleNameSubmit = handleIdSubmit;
-
-  // ── ADMIN LOGIN ───────────────────────────────────────────────────────────
-  const handleAdminLogin = async () => {
-    if (!adminPwInput.trim()) { setAdminPwError('Enter the admin password.'); return; }
-    setAdminPwLoading(true); setAdminPwError('');
-    try {
-      const ok = await checkAdminPassword(adminPwInput.trim());
-      if (ok) {
-        setIsAdmin(true);
-        localStorage.setItem('mm_admin', 'true');
-        setShowAdminLogin(false);
-        setAdminPwInput('');
-        setTab('admin');
-      } else {
-        setAdminPwError('Incorrect password.');
-      }
-    } catch (e) { setAdminPwError('Error checking password. Try again.'); }
-    setAdminPwLoading(false);
-  };
-
-  const handleAdminSetup = async () => {
-    if (!newAdminPw.trim()) { setAdminPwError('Enter a password.'); return; }
-    if (newAdminPw !== newAdminPw2) { setAdminPwError('Passwords do not match.'); return; }
-    setAdminPwLoading(true); setAdminPwError('');
-    try {
-      await setAdminPassword(newAdminPw.trim());
-      setIsAdmin(true);
-      localStorage.setItem('mm_admin', 'true');
-      setSetupMode(false);
-      setShowAdminLogin(false);
-      setTab('admin');
-    } catch (e) { setAdminPwError('Failed to set password. Try again.'); }
-    setAdminPwLoading(false);
-  };
-
-  const handleOpenAdmin = async () => {
-    if (isAdmin) { setTab('admin'); return; }
-    const exists = await adminExists();
-    if (!exists) setSetupMode(true);
-    else setSetupMode(false);
-    setShowAdminLogin(true);
-  };
-
-  const handleSignOut = () => {
-    localStorage.removeItem('mm_uid');
-    localStorage.removeItem('mm_name');
-    localStorage.removeItem('mm_teacher');
-    localStorage.removeItem('mm_admin');
-    setUid(null); setDisplayName(''); setIsAdmin(false); setIsTeacher(false);
-    setBracket(buildInitialBracket()); setMammalBracket(buildInitialBracket());
-    setFirstFourPicks({}); setMammalFirstFourPicks({});
-    setStudentIdInput(''); setNameInput(''); setNameStep('name-entry');
-    setTab('bracket');
-  };
-
   // ── PICK HANDLERS ─────────────────────────────────────────────────────────
   const clearTeamDownstream = useCallback((next, region, teamName, fromRound) => {
     for (let r = fromRound; r < 4; r++) {
