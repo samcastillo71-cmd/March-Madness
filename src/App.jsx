@@ -1752,6 +1752,7 @@ if (game.winner?.name === clicked.name) {
   );
 
   // ── NAME ENTRY SCREEN ─────────────────────────────────────────────────────
+  // ── NAME ENTRY SCREEN ─────────────────────────────────────────────────────
   if (!uid) return (
     <>
       <div style={{ ...S.app, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 36, minHeight: '100vh' }}>
@@ -1762,57 +1763,56 @@ if (game.winner?.name === clicked.name) {
         </div>
         <div style={{ ...S.card, textAlign: 'center', maxWidth: 400, padding: '36px 40px', width: '100%' }}>
 
-          {/* Step 1: Enter name */}
-          {nameStep === 'name-entry' && (
+          {/* Step 1: Enter username (all users) */}
+          {nameStep === 'username' && (
             <>
+              <p style={{ color: '#aaa', fontSize: 15, fontWeight: 700, marginBottom: 6 }}>Enter your username</p>
+              <p style={{ color: '#666', fontSize: 13, marginBottom: 8, lineHeight: 1.6 }}>
+                Returning? Enter your username to pick up where you left off.
+              </p>
+              <p style={{ color: '#555', fontSize: 12, marginBottom: 20 }}>
+                New here? Pick any username you'll remember — example: <span style={{ color: ACCENT2, fontFamily: 'monospace', fontSize: 13 }}>HoopsFan22</span>
+              </p>
+              <input
+                placeholder="Your username"
+                value={studentIdInput}
+                onChange={e => { setStudentIdInput(e.target.value); setNameError(''); }}
+                onKeyDown={e => e.key === 'Enter' && handleUsernameSubmit()}
+                style={{ ...S.input, marginBottom: 16, fontSize: 16, textAlign: 'center', letterSpacing: 1 }}
+                autoFocus
+              />
+              {nameError && <div style={{ color: '#f87171', fontSize: 13, marginBottom: 12 }}>{nameError}</div>}
+              <button style={{ ...S.btn(), width: '100%', fontSize: 16, padding: '12px 22px' }} onClick={handleUsernameSubmit} disabled={nameLoading}>
+                {nameLoading ? 'Checking...' : 'Continue'}
+              </button>
+            </>
+          )}
+
+          {/* Step 2: New users only — enter display name */}
+          {nameStep === 'new-name' && (
+            <>
+              <div style={{ marginBottom: 20, padding: '10px 14px', background: 'rgba(22,163,74,0.08)', borderRadius: 8, border: '1px solid rgba(22,163,74,0.2)', fontSize: 13, color: ACCENT2 }}>
+                Username <span style={{ fontWeight: 700, fontFamily: 'monospace' }}>{studentIdInput}</span> is available!
+              </div>
               <p style={{ color: '#aaa', fontSize: 15, fontWeight: 700, marginBottom: 6 }}>What's your name?</p>
               <p style={{ color: '#666', fontSize: 13, marginBottom: 20, lineHeight: 1.6 }}>
-                Enter your first and last name. This is how you'll appear on the leaderboard.
+                Enter your first and last name. This is how you'll appear on the leaderboard. You won't need to enter this again.
               </p>
               <input
                 placeholder="First and last name"
                 value={nameInput}
                 onChange={e => { setNameInput(e.target.value); setNameError(''); }}
-                onKeyDown={e => e.key === 'Enter' && handleNameFirstSubmit()}
+                onKeyDown={e => e.key === 'Enter' && handleNewNameSubmit()}
                 style={{ ...S.input, marginBottom: 16, fontSize: 16, textAlign: 'center' }}
                 autoFocus
               />
               {nameError && <div style={{ color: '#f87171', fontSize: 13, marginBottom: 12 }}>{nameError}</div>}
-              <button style={{ ...S.btn(), width: '100%', fontSize: 16, padding: '12px 22px' }} onClick={handleNameFirstSubmit}>
-                Continue
+              <button style={{ ...S.btn(), width: '100%', fontSize: 16, padding: '12px 22px' }} onClick={handleNewNameSubmit} disabled={nameLoading}>
+                {nameLoading ? 'Setting up...' : "Let's Go!"}
               </button>
-            </>
-          )}
-
-          {/* Step 2: Enter school ID */}
-          {nameStep === 'id' && (
-            <>
-              <div style={{ marginBottom: 20, padding: '10px 14px', background: 'rgba(22,163,74,0.08)', borderRadius: 8, border: '1px solid rgba(22,163,74,0.2)', fontSize: 14, color: ACCENT2, fontWeight: 600 }}>
-                Hi, {nameInput}!
-              </div>
-              <p style={{ color: '#aaa', fontSize: 15, fontWeight: 700, marginBottom: 6 }}>Choose a username</p>
-<p style={{ color: '#666', fontSize: 13, marginBottom: 6, lineHeight: 1.6 }}>
-  Pick anything you'll remember — this saves your bracket so you can come back to it.
-</p>
-<p style={{ color: '#555', fontSize: 12, marginBottom: 20 }}>
-  Example: <span style={{ color: ACCENT2, fontFamily: 'monospace', fontSize: 13 }}>HoopsFan22</span>
-</p>
-<input
-  placeholder="Choose a username"
-  value={studentIdInput}
-                onChange={e => { setStudentIdInput(e.target.value); setNameError(''); }}
-                onKeyDown={e => e.key === 'Enter' && handleIdSubmit()}
-                style={{ ...S.input, marginBottom: 16, fontSize: 16, textAlign: 'center', letterSpacing: 1 }}
-                autoFocus
-              />
-              {nameError && <div style={{ color: '#f87171', fontSize: 13, marginBottom: 12 }}>{nameError}</div>}
-              <button style={{ ...S.btn(), width: '100%', fontSize: 16, padding: '12px 22px' }} onClick={handleIdSubmit} disabled={nameLoading}>
-                {nameLoading ? 'Loading...' : "Let's Go!"}
+              <button onClick={() => { setNameStep('username'); setNameError(''); }} style={{ background: 'none', border: 'none', color: '#555', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', marginTop: 12 }}>
+                Back
               </button>
-              <button onClick={() => { setNameStep('name-entry'); setNameError(''); }} style={{ background: 'none', border: 'none', color: '#555', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', marginTop: 12 }}>Back</button>
-              <div style={{ marginTop: 12, fontSize: 12, color: '#555', lineHeight: 1.6 }}>
-                Already have a bracket? Enter the same ID and it will be restored automatically.
-              </div>
             </>
           )}
 
