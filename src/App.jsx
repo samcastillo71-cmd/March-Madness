@@ -1747,7 +1747,8 @@ export default function App() {
 <p style={{ color: '#555', fontSize: 12, marginBottom: 20 }}>
   Example: <span style={{ color: ACCENT2, fontFamily: 'monospace', fontSize: 13 }}>HoopsFan22</span>
 </p>
-<input placeholder="Choose a username" ...
+<input 
+  placeholder="Choose a username" ...
                 value={studentIdInput}
                 onChange={e => { setStudentIdInput(e.target.value); setNameError(''); }}
                 onKeyDown={e => e.key === 'Enter' && handleIdSubmit()}
