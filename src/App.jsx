@@ -167,7 +167,7 @@ function findLiveScore(liveScores, teamName) {
   return sub ? sub[1] : null;
 }
 
-const GameSlot = memo(function GameSlot({ game, onPick, locked, isChampionship, onScoreChange, flipped, roundIdx = 0, liveScores = {}, isHorizontal = false }) {
+const GameSlot = memo(function GameSlot({ game, onPick, locked, isChampionship, onScoreChange, flipped, roundIdx = 0, liveScores = {}, isHorizontal = false, onCompare }) {
   if (!game) return null;
   const { top, bottom, winner } = game;
   const slotBg     = isChampionship ? 'rgba(245,158,11,0.08)' : ROUND_COLORS[roundIdx] || ROUND_COLORS[0];
@@ -231,6 +231,11 @@ const GameSlot = memo(function GameSlot({ game, onPick, locked, isChampionship, 
         </div>
         <Team team={bottom} side="bottom" />
       </div>
+      {onCompare && top && bottom && !top.isFFPlaceholder && !bottom.isFFPlaceholder && (
+        <div onClick={() => onCompare(top, bottom)} style={{ textAlign: 'center', padding: '3px 8px', background: 'rgba(255,255,255,0.03)', borderTop: '1px solid rgba(255,255,255,0.06)', cursor: 'pointer', fontSize: 10, color: '#666', letterSpacing: 0.5, userSelect: 'none' }}>
+          Compare
+        </div>
+      )}
     </div>
   );
 
@@ -246,6 +251,11 @@ const GameSlot = memo(function GameSlot({ game, onPick, locked, isChampionship, 
           <input placeholder="Score 1" value={game.scoreTop || ''} onChange={e => onScoreChange?.('scoreTop', e.target.value)} style={scoreInput} />
           <span style={{ color: '#777', fontSize: 11, alignSelf: 'center' }}>-</span>
           <input placeholder="Score 2" value={game.scoreBottom || ''} onChange={e => onScoreChange?.('scoreBottom', e.target.value)} style={scoreInput} />
+        </div>
+      )}
+      {onCompare && top && bottom && !top.isFFPlaceholder && !bottom.isFFPlaceholder && (
+        <div onClick={() => onCompare(top, bottom)} style={{ textAlign: 'center', padding: '3px 8px', background: 'rgba(255,255,255,0.03)', borderTop: '1px solid rgba(255,255,255,0.06)', cursor: 'pointer', fontSize: 10, color: '#666', letterSpacing: 0.5, userSelect: 'none' }}>
+          Compare
         </div>
       )}
     </div>
@@ -432,6 +442,60 @@ function MammalResearchCard({ animalName, card, isAdmin, onFieldSave, onGenerate
   );
 }
 
+// ── COMPARE MODAL ─────────────────────────────────────────────────────────────
+function CompareModal({ teamA, teamB, cardA, cardB, isMammal, onClose }) {
+  const bbStats = [
+    ['Rank', 'rank'], ['Conference', 'conference'], ['Record', 'record'],
+    ['KenPom', 'kenpom'], ['Offense', 'offense'], ['Defense', 'defense'],
+    ['Pace', 'pace'], ['Odds', 'odds'], ['Strengths', 'strengths'], ['Weaknesses', 'weaknesses'],
+  ];
+  const mammalStats = [
+    ['Habitat', 'habitat'], ['Diet', 'diet'], ['Superpower', 'superpower'],
+    ['Battle Strength', 'battleStrength'], ['Size', 'size'], ['Speed', 'speed'], ['Lifespan', 'lifespan'],
+  ];
+  const stats = isMammal ? mammalStats : bbStats;
+  const accent = isMammal ? '#86efac' : '#4ade80';
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.88)', zIndex: 2000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: 20, overflowY: 'auto' }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: 'rgba(22,163,74,0.10)', border: '1px solid rgba(22,163,74,0.30)', borderRadius: 12, padding: 20, maxWidth: 700, width: '100%', marginTop: 20 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+          <h2 style={{ fontFamily: "'Playfair Display', serif", color: accent, margin: 0, fontSize: 20 }}>Head-to-Head</h2>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#888', fontSize: 22, cursor: 'pointer' }}>×</button>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'flex-end', marginBottom: 20, gap: 8 }}>
+          <div style={{ flex: 1, textAlign: 'right', paddingRight: 12 }}>
+            {!isMammal && <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 6 }}><TeamLogo espnId={teamA.espnId} name={teamA.name} size={44} /></div>}
+            {isMammal && cardA?.wikiImageUrl && <img src={cardA.wikiImageUrl} alt={teamA.name} style={{ width: 60, height: 60, objectFit: 'cover', borderRadius: 8, display: 'block', marginLeft: 'auto', marginBottom: 6 }} />}
+            <div style={{ fontSize: 11, color: accent }}>#{teamA.seed}</div>
+            <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 18, fontWeight: 700, color: '#fff' }}>{teamA.name}</div>
+          </div>
+          <div style={{ fontSize: 13, color: '#444', fontWeight: 700, flexShrink: 0, paddingBottom: 4 }}>VS</div>
+          <div style={{ flex: 1, textAlign: 'left', paddingLeft: 12 }}>
+            {!isMammal && <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: 6 }}><TeamLogo espnId={teamB.espnId} name={teamB.name} size={44} /></div>}
+            {isMammal && cardB?.wikiImageUrl && <img src={cardB.wikiImageUrl} alt={teamB.name} style={{ width: 60, height: 60, objectFit: 'cover', borderRadius: 8, display: 'block', marginBottom: 6 }} />}
+            <div style={{ fontSize: 11, color: accent }}>#{teamB.seed}</div>
+            <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 18, fontWeight: 700, color: '#fff' }}>{teamB.name}</div>
+          </div>
+        </div>
+        {stats.map(([label, key]) => (
+          <div key={key} style={{ display: 'flex', alignItems: 'flex-start', borderTop: '1px solid rgba(255,255,255,0.06)', padding: '10px 0', gap: 8 }}>
+            <div style={{ flex: 1, textAlign: 'right', fontSize: 13, color: '#ccc', lineHeight: 1.5 }}>
+              {cardA ? (cardA[key] || <span style={{ color: '#333' }}>—</span>) : <span style={{ color: '#555', fontStyle: 'italic', fontSize: 12 }}>No data</span>}
+            </div>
+            <div style={{ width: 120, textAlign: 'center', fontSize: 10, color: '#555', textTransform: 'uppercase', letterSpacing: 1, fontWeight: 700, paddingTop: 2, flexShrink: 0 }}>{label}</div>
+            <div style={{ flex: 1, textAlign: 'left', fontSize: 13, color: '#ccc', lineHeight: 1.5 }}>
+              {cardB ? (cardB[key] || <span style={{ color: '#333' }}>—</span>) : <span style={{ color: '#555', fontStyle: 'italic', fontSize: 12 }}>No data</span>}
+            </div>
+          </div>
+        ))}
+        <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 16, marginTop: 8, textAlign: 'right' }}>
+          <button style={{ background: 'rgba(255,255,255,0.07)', border: 'none', color: '#888', padding: '7px 20px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit', fontSize: 14 }} onClick={onClose}>Close</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── VIEW BRACKET MODAL ────────────────────────────────────────────────────────
 function ViewBracketModal({ data, onClose }) {
   const { displayName, bracket, isMammal } = data;
@@ -568,7 +632,8 @@ function TeamEntryPanel({ onTeamsSaved, onRequestGenerateResearch, regionNames, 
             {['East','West','South','Midwest'].map(r => (
               <div key={r} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                 <span style={{ fontSize: 11, color: RC[r], fontWeight: 700 }}>{r}:</span>
-                <input value={regionNames[r]} onChange={e => onRegionNamesChange({ ...regionNames, [r]: e.target.value })} placeholder={r} style={{ ...S.input, width: 120, padding: '4px 8px', fontSize: 12 }} />
+                <input value={regionNames[r]} onChange={e => onRegionNamesChange({ ...regionNames, [r]: e.target.value })} placeholder={r} style={{ ...S.input, width: 120, padding: '4px 8px', fontSize: 12, borderColor: (regionNames[r] || '').length > 15 ? '#f59e0b' : undefined }} />
+                {(regionNames[r] || '').length > 15 && <span style={{ fontSize: 10, color: '#f59e0b' }} title="Long names may wrap in the bracket view.">⚠️</span>}
               </div>
             ))}
           </div>
@@ -669,7 +734,8 @@ function MammalEntryPanel({ onAnimalsSaved, onRequestGenerateMammalResearch, onR
             {['East','West','South','Midwest'].map(r => (
               <div key={r} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                 <span style={{ fontSize: 11, color: RC[r], fontWeight: 700 }}>{r}:</span>
-                <input value={regionNames[r]} onChange={e => onRegionNamesChange({ ...regionNames, [r]: e.target.value })} placeholder={r} style={{ ...S.input, width: 120, padding: '4px 8px', fontSize: 12 }} />
+                <input value={regionNames[r]} onChange={e => onRegionNamesChange({ ...regionNames, [r]: e.target.value })} placeholder={r} style={{ ...S.input, width: 120, padding: '4px 8px', fontSize: 12, borderColor: (regionNames[r] || '').length > 15 ? '#f59e0b' : undefined }} />
+                {(regionNames[r] || '').length > 15 && <span style={{ fontSize: 10, color: '#f59e0b' }} title="Long names may wrap in the bracket view.">⚠️</span>}
               </div>
             ))}
           </div>
@@ -855,8 +921,11 @@ export default function App() {
   const [saving,           setSaving]          = useState(false);
   const [lastSaved,        setLastSaved]       = useState(null);
   const [researchData,     setResearchData]    = useState({});
-  const [selectedTeam,     setSelectedTeam]    = useState(null);
-  const [adminSubTab,      setAdminSubTab]     = useState('dashboard');
+  const [selectedTeam,        setSelectedTeam]        = useState(null);
+  const [bbActiveRegion,      setBbActiveRegion]      = useState('East');
+  const [compareModal,        setCompareModal]        = useState(null);
+  const [comparePicking,      setComparePicking]      = useState(false);
+  const [adminSubTab,         setAdminSubTab]         = useState('dashboard');
   const [generating,       setGenerating]      = useState(false);
   const [genProgress,      setGenProgress]     = useState({ done: 0, total: 0, current: '' });
   const [genError,         setGenError]        = useState('');
@@ -882,6 +951,7 @@ export default function App() {
   const [mammalLeaderboard,     setMammalLeaderboard]     = useState([]);
   const [mammalResearchData,    setMammalResearchData]    = useState({});
   const [mammalSelectedAnimal,  setMammalSelectedAnimal]  = useState(null);
+  const [mammalActiveRegion,    setMammalActiveRegion]    = useState('East');
   const [mammalFirstFourPicks,  setMammalFirstFourPicks]  = useState({});
   const [mammalFfPlaceholders,  setMammalFfPlaceholders]  = useState({});
   const [mammalGenerating,      setMammalGenerating]      = useState(false);
@@ -907,6 +977,62 @@ export default function App() {
   const mammalMyRank   = useMemo(() => mammalLeaderboard.findIndex(e => e.uid === uid) + 1, [mammalLeaderboard, uid]);
   const ffGamesList    = useMemo(() => Object.entries(ffPlaceholders).map(([key, slot]) => { const [region] = key.split('-'); return { region, seed: slot.seed, ffTeams: slot.ffTeams, key }; }), [ffPlaceholders]);
   const mammalFFGamesList = useMemo(() => Object.entries(mammalFfPlaceholders).map(([key, slot]) => { const [region] = key.split('-'); return { region, seed: slot.seed, ffTeams: slot.ffTeams, key }; }), [mammalFfPlaceholders]);
+
+  const bbTeamsByRegion = useMemo(() => {
+    const src = officialBracket ?? bracket;
+    const empty = { East: [], West: [], South: [], Midwest: [] };
+    if (!src) return empty;
+    const result = { East: [], West: [], South: [], Midwest: [] };
+    ['East', 'West', 'South', 'Midwest'].forEach(region => {
+      (src[region]?.rounds?.[0] || []).forEach(game => {
+        ['top', 'bottom'].forEach(side => {
+          const slot = game[side];
+          if (!slot) return;
+          if (slot.isFFPlaceholder) {
+            (slot.ffTeams || []).forEach(t => result[region].push({ name: t.name, seed: t.seed, espnId: t.espnId }));
+          } else {
+            result[region].push({ name: slot.name, seed: slot.seed, espnId: slot.espnId });
+          }
+        });
+      });
+      result[region].sort((a, b) => a.seed - b.seed);
+    });
+    return result;
+  }, [officialBracket, bracket]);
+
+  const mammalAnimalsByRegion = useMemo(() => {
+    const result = { East: [], West: [], South: [], Midwest: [] };
+    Object.entries(mammalResearchData).forEach(([name, card]) => {
+      const region = (card?.region && result[card.region] !== undefined) ? card.region : 'East';
+      result[region].push({ name, seed: card?.seed ?? 999 });
+    });
+    ['East', 'West', 'South', 'Midwest'].forEach(r => result[r].sort((a, b) => a.seed - b.seed));
+    return result;
+  }, [mammalResearchData]);
+
+  // Auto-select first team/animal when research data first arrives, and activate their region tab
+  useEffect(() => {
+    if (allTeamNames.length === 0 || selectedTeam) return;
+    const regions = ['East', 'West', 'South', 'Midwest'];
+    for (const region of regions) {
+      const first = bbTeamsByRegion[region]?.find(t => allTeamNames.includes(t.name));
+      if (first) { setBbActiveRegion(region); setSelectedTeam(first.name); return; }
+    }
+    setSelectedTeam(allTeamNames[0]);
+  }, [allTeamNames, bbTeamsByRegion]);
+
+  useEffect(() => {
+    if (allAnimalNames.length === 0 || mammalSelectedAnimal) return;
+    const regions = ['East', 'West', 'South', 'Midwest'];
+    for (const region of regions) {
+      if (mammalAnimalsByRegion[region]?.length > 0) {
+        setMammalActiveRegion(region);
+        setMammalSelectedAnimal(mammalAnimalsByRegion[region][0].name);
+        return;
+      }
+    }
+    setMammalSelectedAnimal(allAnimalNames[0]);
+  }, [allAnimalNames, mammalAnimalsByRegion]);
 
   // ── LOAD YEAR + SOURCES ───────────────────────────────────────────────────
   useEffect(() => {
@@ -1515,6 +1641,17 @@ if (game.winner?.name === clicked.name) {
     setLoadingBracket(null);
   }, []);
 
+  const handleCompare = useCallback((teamA, teamB, isMammal) => {
+    const data = isMammal ? mammalResearchData : researchData;
+    setCompareModal({
+      teamA: { name: teamA.name, seed: teamA.seed, espnId: teamA.espnId },
+      teamB: { name: teamB.name, seed: teamB.seed, espnId: teamB.espnId },
+      cardA: data[teamA.name] ?? null,
+      cardB: data[teamB.name] ?? null,
+      isMammal,
+    });
+  }, [researchData, mammalResearchData]);
+
   // ── BRACKET RENDER ────────────────────────────────────────────────────────
   const renderBracket = (isMammal) => {
     const CW = 240, SH = 89, FF_SCALE = 1.25;
@@ -1552,6 +1689,8 @@ if (game.winner?.name === clicked.name) {
       );
     };
 
+    const onCompareGame = (top, bottom) => handleCompare(top, bottom, isMammal);
+
     const RoundCol = ({ region, rIdx, flip, dir }) => {
       const games = activeBracket[region]?.rounds[rIdx] || [];
       const positions = ROUND_ABS[rIdx];
@@ -1561,7 +1700,7 @@ if (game.winner?.name === clicked.name) {
             const pos = positions[gIdx] ?? gIdx * SH;
             return (
               <div key={gIdx} style={{ position: 'absolute', left: 0, right: 0, ...(dir === 'top' ? { top: pos } : { bottom: pos }) }}>
-                <GameSlot game={game} locked={isLocked && !isAdmin} flipped={flip} roundIdx={rIdx} liveScores={isMammal ? {} : liveScores} onPick={side => onPick(region, rIdx, gIdx, side)} />
+                <GameSlot game={game} locked={isLocked && !isAdmin} flipped={flip} roundIdx={rIdx} liveScores={isMammal ? {} : liveScores} onPick={side => onPick(region, rIdx, gIdx, side)} onCompare={onCompareGame} />
               </div>
             );
           })}
@@ -1627,7 +1766,7 @@ if (game.winner?.name === clicked.name) {
           <div style={{ width: CW * 3, flexShrink: 0, height: TOP_H, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'center', paddingBottom: FF_GAP }}>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
               <div style={{ fontSize: 13, fontWeight: 800, color: '#34d399', letterSpacing: 1.5, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{ff0Label}</div>
-              <ScaledGame><GameSlot game={activeBracket.finalFour?.[0]} onPick={s => onFFPick(0, s)} locked={isLocked && !isAdmin} roundIdx={4} liveScores={isMammal ? {} : liveScores} /></ScaledGame>
+              <ScaledGame><GameSlot game={activeBracket.finalFour?.[0]} onPick={s => onFFPick(0, s)} locked={isLocked && !isAdmin} roundIdx={4} liveScores={isMammal ? {} : liveScores} onCompare={onCompareGame} /></ScaledGame>
             </div>
           </div>
           {[3,2,1,0].map(rIdx => <RoundCol key={rIdx} region="West" rIdx={rIdx} flip={true} dir="top" />)}
@@ -1647,7 +1786,7 @@ if (game.winner?.name === clicked.name) {
                 <span style={{ fontSize: 18 }}>{champEmoji}</span>
               </div>
               <ScaledGame isHoriz>
-                <GameSlot game={activeBracket.championship} onPick={onChampPick} locked={isLocked && !isAdmin} isChampionship isHorizontal onScoreChange={isMammal ? undefined : handleChampScore} roundIdx={-1} liveScores={isMammal ? {} : liveScores} />
+                <GameSlot game={activeBracket.championship} onPick={onChampPick} locked={isLocked && !isAdmin} isChampionship isHorizontal onScoreChange={isMammal ? undefined : handleChampScore} roundIdx={-1} liveScores={isMammal ? {} : liveScores} onCompare={onCompareGame} />
               </ScaledGame>
               {activeBracket.championship?.winner && (
                 <div style={{ textAlign: 'center', padding: '4px 14px', background: isMammal ? 'rgba(134,239,172,0.15)' : 'rgba(245,158,11,0.18)', borderRadius: 6, border: `1px solid ${isMammal ? 'rgba(134,239,172,0.4)' : 'rgba(245,158,11,0.5)'}` }}>
@@ -1669,7 +1808,7 @@ if (game.winner?.name === clicked.name) {
           {[0,1,2,3].map(rIdx => <RoundCol key={rIdx} region="South" rIdx={rIdx} flip={false} dir="bot" />)}
           <div style={{ width: CW * 3, flexShrink: 0, height: TOP_H, display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'center', paddingTop: FF_GAP }}>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-              <ScaledGame><GameSlot game={activeBracket.finalFour?.[1]} onPick={s => onFFPick(1, s)} locked={isLocked && !isAdmin} roundIdx={4} liveScores={isMammal ? {} : liveScores} /></ScaledGame>
+              <ScaledGame><GameSlot game={activeBracket.finalFour?.[1]} onPick={s => onFFPick(1, s)} locked={isLocked && !isAdmin} roundIdx={4} liveScores={isMammal ? {} : liveScores} onCompare={onCompareGame} /></ScaledGame>
               <div style={{ fontSize: 13, fontWeight: 800, color: '#34d399', letterSpacing: 1.5, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{ff1Label}</div>
             </div>
           </div>
@@ -1883,8 +2022,8 @@ if (game.winner?.name === clicked.name) {
 
   const TournamentSelector = () => (
     <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 20, background: 'rgba(255,255,255,0.04)', borderRadius: 12, padding: 4, width: 'fit-content', border: '1px solid rgba(255,255,255,0.08)' }}>
-      <button onClick={() => setActiveTournament('basketball')} style={{ padding: '8px 20px', borderRadius: 9, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, fontWeight: 700, background: activeTournament === 'basketball' ? ACCENT : 'transparent', color: activeTournament === 'basketball' ? '#fff' : '#888', transition: 'all .15s' }}>🏀 Basketball</button>
-      <button onClick={() => setActiveTournament('mammals')} style={{ padding: '8px 20px', borderRadius: 9, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, fontWeight: 700, background: activeTournament === 'mammals' ? '#16a34a' : 'transparent', color: activeTournament === 'mammals' ? '#fff' : '#888', transition: 'all .15s' }}>🦁 Mammal Madness</button>
+      <button onClick={() => { setActiveTournament('basketball'); setComparePicking(false); }} style={{ padding: '8px 20px', borderRadius: 9, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, fontWeight: 700, background: activeTournament === 'basketball' ? ACCENT : 'transparent', color: activeTournament === 'basketball' ? '#fff' : '#888', transition: 'all .15s' }}>🏀 Basketball</button>
+      <button onClick={() => { setActiveTournament('mammals'); setComparePicking(false); }} style={{ padding: '8px 20px', borderRadius: 9, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, fontWeight: 700, background: activeTournament === 'mammals' ? '#16a34a' : 'transparent', color: activeTournament === 'mammals' ? '#fff' : '#888', transition: 'all .15s' }}>🦁 Mammal Madness</button>
     </div>
   );
 
@@ -1904,6 +2043,7 @@ if (game.winner?.name === clicked.name) {
         <OfflineBar />
         {confirmDialog && <ConfirmDialog message={confirmDialog.message} onConfirm={confirmDialog.onConfirm} onCancel={() => setConfirmDialog(null)} />}
         {viewingBracket && <ViewBracketModal data={viewingBracket} onClose={() => setViewingBracket(null)} />}
+        {compareModal && <CompareModal {...compareModal} onClose={() => { setCompareModal(null); setComparePicking(false); }} />}
 
         <header style={S.header}>
           <div style={S.logo}>🏀 MARCH MADNESS {tournamentYear}</div>
@@ -1974,9 +2114,56 @@ if (game.winner?.name === clicked.name) {
                     <div style={{ ...S.card, textAlign: 'center', padding: 48, color: '#777' }}><div style={{ fontSize: 40, marginBottom: 16 }}>📊</div><div style={{ fontSize: 16, marginBottom: 8 }}>No research data yet</div><div style={{ fontSize: 13 }}>{isAdmin ? 'Go to Admin → 🏀 Basketball → Generate Research' : 'Check back after the admin generates research'}</div></div>
                   ) : (
                     <>
-                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 24 }}>
-                        {allTeamNames.map(t => <button key={t} style={{ ...S.btn(selectedTeam === t ? ACCENT : 'rgba(255,255,255,0.05)', selectedTeam === t ? '#fff' : '#aaa'), padding: '7px 16px', fontSize: 13 }} onClick={() => setSelectedTeam(t)}>{t}</button>)}
+                      <div style={{ display: 'flex', gap: 4, overflowX: 'auto', marginBottom: 0, paddingBottom: 4, borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                        {['East','West','South','Midwest'].map(r => (
+                          <button key={r} style={{ ...S.navBtn(bbActiveRegion === r), borderBottom: bbActiveRegion === r ? `2px solid ${RC[r]}` : '2px solid transparent', borderRadius: '6px 6px 0 0', padding: '8px 18px', flexShrink: 0 }} onClick={() => setBbActiveRegion(r)}>
+                            {bbRegionNames[r] || r}
+                          </button>
+                        ))}
                       </div>
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', margin: '14px 0 24px' }}>
+                        {(bbTeamsByRegion[bbActiveRegion] || []).length === 0
+                          ? <div style={{ color: '#666', fontSize: 13, fontStyle: 'italic' }}>No teams in this region yet.</div>
+                          : (bbTeamsByRegion[bbActiveRegion] || []).map(t => (
+                              <button key={t.name} style={{ ...S.btn(selectedTeam === t.name ? ACCENT : 'rgba(255,255,255,0.05)', selectedTeam === t.name ? '#fff' : '#aaa'), padding: '7px 16px', fontSize: 13 }} onClick={() => { setSelectedTeam(t.name); setComparePicking(false); }}>
+                                #{t.seed} {t.name}
+                              </button>
+                            ))
+                        }
+                      </div>
+                      {selectedTeam && !comparePicking && (
+                        <div style={{ marginBottom: 12 }}>
+                          <button style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', color: '#888', padding: '5px 16px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12 }} onClick={() => setComparePicking(true)}>
+                            Compare with another team
+                          </button>
+                        </div>
+                      )}
+                      {comparePicking && (
+                        <div style={{ background: 'rgba(99,102,241,0.07)', border: '1px solid rgba(99,102,241,0.25)', borderRadius: 10, padding: '14px 16px', marginBottom: 16 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                            <span style={{ fontSize: 13, color: '#a5b4fc' }}>Select a team to compare with <strong style={{ color: '#4ade80' }}>{selectedTeam}</strong></span>
+                            <button style={{ background: 'rgba(255,255,255,0.07)', border: 'none', color: '#888', padding: '4px 12px', borderRadius: 6, cursor: 'pointer', fontFamily: 'inherit', fontSize: 11 }} onClick={() => setComparePicking(false)}>Cancel</button>
+                          </div>
+                          <div style={{ display: 'flex', gap: 4, overflowX: 'auto', marginBottom: 10, paddingBottom: 2 }}>
+                            {['East','West','South','Midwest'].map(r => (
+                              <button key={r} style={{ background: bbActiveRegion === r ? 'rgba(22,163,74,0.2)' : 'rgba(255,255,255,0.04)', border: `1px solid ${bbActiveRegion === r ? 'rgba(22,163,74,0.4)' : 'rgba(255,255,255,0.08)'}`, color: bbActiveRegion === r ? '#4ade80' : '#888', padding: '5px 14px', borderRadius: 6, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, flexShrink: 0 }} onClick={() => setBbActiveRegion(r)}>
+                                {bbRegionNames[r] || r}
+                              </button>
+                            ))}
+                          </div>
+                          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                            {(bbTeamsByRegion[bbActiveRegion] || []).filter(t => t.name !== selectedTeam).map(t => {
+                              const teamAObj = Object.values(bbTeamsByRegion).flat().find(x => x.name === selectedTeam) || { name: selectedTeam, seed: '?' };
+                              return (
+                                <button key={t.name} style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', color: '#aaa', padding: '5px 12px', borderRadius: 6, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12 }}
+                                  onClick={() => { setCompareModal({ teamA: teamAObj, teamB: t, cardA: researchData[selectedTeam] ?? null, cardB: researchData[t.name] ?? null, isMammal: false }); setComparePicking(false); }}>
+                                  #{t.seed} {t.name}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
                       {selectedTeam && <ResearchCard teamName={selectedTeam} card={researchData[selectedTeam]} isAdmin={isAdmin} onFieldSave={handleResearchFieldSave} />}
                     </>
                   )}
@@ -1996,9 +2183,56 @@ if (game.winner?.name === clicked.name) {
                     <div style={{ ...S.card, textAlign: 'center', padding: 48, color: '#777', borderColor: 'rgba(134,239,172,0.15)' }}><div style={{ fontSize: 40, marginBottom: 16 }}>🦁</div><div style={{ fontSize: 16, marginBottom: 8 }}>No animal data yet</div><div style={{ fontSize: 13 }}>{isAdmin ? 'Go to Admin → Mammal Madness → Generate Facts' : 'Check back after the admin sets up the animals'}</div></div>
                   ) : (
                     <>
-                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 24 }}>
-                        {allAnimalNames.map(a => <button key={a} style={{ ...S.btn(mammalSelectedAnimal === a ? '#16a34a' : 'rgba(255,255,255,0.05)', mammalSelectedAnimal === a ? '#fff' : '#aaa'), padding: '7px 16px', fontSize: 13 }} onClick={() => setMammalSelectedAnimal(a)}>{a}</button>)}
+                      <div style={{ display: 'flex', gap: 4, overflowX: 'auto', marginBottom: 0, paddingBottom: 4, borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                        {['East','West','South','Midwest'].map(r => (
+                          <button key={r} style={{ ...S.navBtn(mammalActiveRegion === r), borderBottom: mammalActiveRegion === r ? '2px solid #86efac' : '2px solid transparent', borderRadius: '6px 6px 0 0', padding: '8px 18px', flexShrink: 0 }} onClick={() => setMammalActiveRegion(r)}>
+                            {mammalRegionNames[r] || r}
+                          </button>
+                        ))}
                       </div>
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', margin: '14px 0 24px' }}>
+                        {(mammalAnimalsByRegion[mammalActiveRegion] || []).length === 0
+                          ? <div style={{ color: '#666', fontSize: 13, fontStyle: 'italic' }}>No animals in this region yet.</div>
+                          : (mammalAnimalsByRegion[mammalActiveRegion] || []).map(a => (
+                              <button key={a.name} style={{ ...S.btn(mammalSelectedAnimal === a.name ? '#16a34a' : 'rgba(255,255,255,0.05)', mammalSelectedAnimal === a.name ? '#fff' : '#aaa'), padding: '7px 16px', fontSize: 13 }} onClick={() => { setMammalSelectedAnimal(a.name); setComparePicking(false); }}>
+                                #{a.seed} {a.name}
+                              </button>
+                            ))
+                        }
+                      </div>
+                      {mammalSelectedAnimal && !comparePicking && (
+                        <div style={{ marginBottom: 12 }}>
+                          <button style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', color: '#888', padding: '5px 16px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12 }} onClick={() => setComparePicking(true)}>
+                            Compare with another animal
+                          </button>
+                        </div>
+                      )}
+                      {comparePicking && (
+                        <div style={{ background: 'rgba(134,239,172,0.05)', border: '1px solid rgba(134,239,172,0.2)', borderRadius: 10, padding: '14px 16px', marginBottom: 16 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                            <span style={{ fontSize: 13, color: '#86efac' }}>Select an animal to compare with <strong style={{ color: '#86efac' }}>{mammalSelectedAnimal}</strong></span>
+                            <button style={{ background: 'rgba(255,255,255,0.07)', border: 'none', color: '#888', padding: '4px 12px', borderRadius: 6, cursor: 'pointer', fontFamily: 'inherit', fontSize: 11 }} onClick={() => setComparePicking(false)}>Cancel</button>
+                          </div>
+                          <div style={{ display: 'flex', gap: 4, overflowX: 'auto', marginBottom: 10, paddingBottom: 2 }}>
+                            {['East','West','South','Midwest'].map(r => (
+                              <button key={r} style={{ background: mammalActiveRegion === r ? 'rgba(134,239,172,0.15)' : 'rgba(255,255,255,0.04)', border: `1px solid ${mammalActiveRegion === r ? 'rgba(134,239,172,0.4)' : 'rgba(255,255,255,0.08)'}`, color: mammalActiveRegion === r ? '#86efac' : '#888', padding: '5px 14px', borderRadius: 6, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, flexShrink: 0 }} onClick={() => setMammalActiveRegion(r)}>
+                                {mammalRegionNames[r] || r}
+                              </button>
+                            ))}
+                          </div>
+                          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                            {(mammalAnimalsByRegion[mammalActiveRegion] || []).filter(a => a.name !== mammalSelectedAnimal).map(a => {
+                              const animalAObj = Object.values(mammalAnimalsByRegion).flat().find(x => x.name === mammalSelectedAnimal) || { name: mammalSelectedAnimal, seed: '?' };
+                              return (
+                                <button key={a.name} style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', color: '#aaa', padding: '5px 12px', borderRadius: 6, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12 }}
+                                  onClick={() => { setCompareModal({ teamA: animalAObj, teamB: a, cardA: mammalResearchData[mammalSelectedAnimal] ?? null, cardB: mammalResearchData[a.name] ?? null, isMammal: true }); setComparePicking(false); }}>
+                                  #{a.seed} {a.name}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
                       {mammalSelectedAnimal && <MammalResearchCard animalName={mammalSelectedAnimal} card={mammalResearchData[mammalSelectedAnimal]} isAdmin={isAdmin} onFieldSave={handleMammalResearchFieldSave} generating={mammalGeneratingOne === mammalSelectedAnimal} onGenerate={handleGenerateOneMammal} />}
                     </>
                   )}
@@ -2019,7 +2253,7 @@ if (game.winner?.name === clicked.name) {
                     {leaderboard.length === 0 ? <div style={{ color: '#888', textAlign: 'center', padding: 24 }}>No entries yet — be the first!</div>
                       : leaderboard.map((e, i) => (
                         <div key={e.uid} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '11px 12px', background: e.uid === uid ? 'rgba(22,163,74,0.08)' : 'transparent', borderRadius: 8, marginBottom: 3, border: e.uid === uid ? '1px solid rgba(22,163,74,0.25)' : '1px solid transparent' }}>
-                          <span style={{ fontSize: 17, fontWeight: 700, color: i === 0 ? ACCENT2 : i === 1 ? '#aaa' : i === 2 ? '#cd7f32' : '#444', minWidth: 30, fontFamily: "'Playfair Display', serif" }}>#{i+1}</span>
+                          <span style={{ fontSize: 17, fontWeight: 700, color: i === 0 ? ACCENT2 : i === 1 ? '#aaa' : i === 2 ? '#cd7f32' : '#888', minWidth: 30, fontFamily: "'Playfair Display', serif" }}>#{i+1}</span>
                           <Avatar name={e.displayName} size={26} />
                           <span style={{ flex: 1, fontWeight: e.uid === uid ? 700 : 400, color: e.uid === uid ? ACCENT2 : '#bbb', fontSize: 14 }}>
                             {formatName(e.displayName)}{e.uid === uid ? ' (You)' : ''}
@@ -2040,7 +2274,7 @@ if (game.winner?.name === clicked.name) {
                     {mammalLeaderboard.length === 0 ? <div style={{ color: '#888', textAlign: 'center', padding: 24 }}>No mammal entries yet!</div>
                       : mammalLeaderboard.map((e, i) => (
                         <div key={e.uid} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '11px 12px', background: e.uid === uid ? 'rgba(134,239,172,0.08)' : 'transparent', borderRadius: 8, marginBottom: 3, border: e.uid === uid ? '1px solid rgba(134,239,172,0.25)' : '1px solid transparent' }}>
-                          <span style={{ fontSize: 17, fontWeight: 700, color: i === 0 ? '#86efac' : i === 1 ? '#aaa' : i === 2 ? '#cd7f32' : '#444', minWidth: 30, fontFamily: "'Playfair Display', serif" }}>#{i+1}</span>
+                          <span style={{ fontSize: 17, fontWeight: 700, color: i === 0 ? '#86efac' : i === 1 ? '#aaa' : i === 2 ? '#cd7f32' : '#888', minWidth: 30, fontFamily: "'Playfair Display', serif" }}>#{i+1}</span>
                           <Avatar name={e.displayName} size={26} />
                           <span style={{ flex: 1, fontWeight: e.uid === uid ? 700 : 400, color: e.uid === uid ? '#86efac' : '#bbb', fontSize: 14 }}>
                             {formatName(e.displayName)}{e.uid === uid ? ' (You)' : ''}
