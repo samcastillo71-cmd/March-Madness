@@ -448,7 +448,7 @@ Remove all inline `style={{}}` objects from App.jsx during refactor. The `S.*` s
 | `beforeunload` — unsaved picks lost | Add `window.beforeunload` handler when `hasPendingChanges` ref is true |
 | `CURRENT_YEAR = 2025` hardcoded | Remove constant; read `year` from `tournament/config` Firestore doc |
 | `Vercel.json` wrong case | Rename to `vercel.json` |
-| Claude model fallback chain | Simplify to `claude-haiku-4-5-20251001` only; remove stale fallbacks |
+| Claude model fallback chain | Simplify to `claude-haiku-4-5` only (no date suffix per SDK convention); remove stale fallbacks |
 
 ---
 
