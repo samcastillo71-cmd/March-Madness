@@ -77,7 +77,7 @@ File is currently `Vercel.json` (capital V). Vercel's deployment servers run Lin
 
 After Google sign-in, first-time users see a single screen:
 - Their Google display name shown (editable — some students go by nicknames)
-- School selector: 4 buttons, one per participating school — **exact school names TBC with operator before implementation** (Hart MS is confirmed; remaining 3 need confirmation)
+- School selector: **Hart · Van Hoosen · West · Reuther** (4 buttons, one per school)
 - "Let's go →" submits and creates their `users/{uid}` doc
 
 Returning users skip this entirely.
@@ -144,8 +144,8 @@ tournament/config
   school_locks:
     hart:         false         ← teacher for that school
     van_hoosen:   false
-    rochester_ms: false
-    delta_kelly:  false
+    west:         false
+    reuther:      false
   year:           2026
   deadline:       timestamp     ← NEW: auto-lock at this time
   bbRegionNames:  { East: "East", ... }
