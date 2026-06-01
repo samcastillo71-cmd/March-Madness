@@ -4,7 +4,151 @@ This is a living document. Each session appends a new entry. Start from the **bo
 
 ---
 
-## Handoff: 2026-05-31
+## Handoff: 2026-06-01
+
+### Current Task State
+
+**Phases 0–3 complete. Phase 4 is next (and last).**
+
+All implementation work is on branch `claude/keen-gates-kMze6`. The branch is pushed to `samcastillo71-cmd/March-Madness`. No PR has been created yet — do that when Phase 4 is done and verified.
+
+---
+
+### What Was Done This Session
+
+**Phase 1 — Authentication & Data Model**
+- `src/firebase.js` — added `auth` and `googleProvider` exports
+- `src/firestoreService.js` — added user CRUD (`createOrUpdateUser`, `getUser`, `subscribeToUser`, `updateUserDisplayName`); updated `saveBracket` + `saveMammalBracket` to write `school` field; updated leaderboard writes to include `uid` and `school`; added `setSchoolLocked`, `setMammalSchoolLocked`, `setDeadline`; deleted `findBracketByName`
+- `src/auth/AuthContext.jsx` — Firebase Auth context; `onAuthStateChanged` with domain check (only `@rcs-k12.us` and `@rochester.k12.mi.us`); `needsOnboarding` flag; role, school, superAdmin derived from Firestore `users/{uid}`
+- `src/auth/GoogleSignIn.jsx` — Google Sign-In button
+- `src/auth/Onboarding.jsx` — display name input + 4-school selector (hart, van_hoosen, west, reuther)
+- `src/main.jsx` — wrapped with `<AuthProvider>`, added `src/styles/base.css` import
+- `src/App.jsx` — replaced username/localStorage identity with `useAuth()`; removed all localStorage `mm_uid`/`mm_name`/`mm_admin` reads/writes; auth gates (loading → spinner, not logged in → GoogleSignIn, needsOnboarding → Onboarding)
+
+**Phase 2 — UI Refactor & Design System**
+- `src/styles/tokens.css` — all CSS custom properties (paper, ink, banner, accent, region colors)
+- `src/styles/base.css` — Tailwind v4 import, Google Fonts, paper texture background, print CSS
+- `vite.config.js` — added `@tailwindcss/vite` plugin
+- `src/components/Avatar.jsx`, `TeamLogo.jsx`, `OfflineBar.jsx`, `ConfirmDialog.jsx`, `EditableField.jsx`, `GameSlot.jsx`, `ResearchCard.jsx`, `MammalResearchCard.jsx`, `CompareModal.jsx`, `ViewBracketModal.jsx`, `Leaderboard.jsx` — all extracted from App.jsx
+- `src/components/BracketConnector.jsx` — DOM measurement via ResizeObserver + `offsetLeft/offsetTop`; `GAME_GAP = 48px`
+- `src/components/BracketRegion.jsx` — banner with color bar, round labels, BracketConnector overlay
+
+**Phase 3 — Role-Based Admin**
+- `src/admin/AdminPanel.jsx` — role gateway: `superAdmin` → SuperAdminPanel, `teacher` → TeacherPanel, student → null
+- `src/admin/SuperAdminPanel.jsx` — full admin panel (Dashboard with both lock controls, Basketball, Mammal Madness, Users, New Season, Help tabs)
+- `src/admin/TeacherPanel.jsx` — school-scoped lock toggle + entries list for teacher's school
+- `src/admin/NewSeasonFlow.jsx` — one-button season reset, 8-step progress display
+- `src/admin/TeamEntryPanel.jsx` — extracted from App.jsx into admin/
+- `src/admin/MammalEntryPanel.jsx` — extracted from App.jsx into admin/
+- `App.jsx` — replaced inline admin tab block with `<AdminPanel ...>`; added full `bbConfig` and `mammalConfig` subscriptions
+
+---
+
+### Current Branch State
+
+- Branch: `claude/keen-gates-kMze6`
+- All commits pushed to `origin/claude/keen-gates-kMze6`
+- `npm run build` passes clean (no errors, one CSS `@import` ordering warning that's harmless)
+
+---
+
+### Phase 4 — Remaining Work
+
+**Task 4.1: Bracket lock deadline + countdown**
+Add a `DeadlineCountdown` component in the header area. The deadline is stored in Firestore `tournament/config` as an ISO string field `deadline`. Admin sets it from the dashboard. If `deadline` is set and in the future, show a pill in the header counting down (e.g. "2d 4h"). When it passes, auto-lock submissions.
+
+The plan has the full component code at line ~1852 of `docs/superpowers/plans/2026-05-31-overhaul.md`.
+
+**Task 4.2: Update Privacy Policy**
+The current PrivacyPolicyPage (still inline in App.jsx around line 155) says "no login required" and "users identify by display name" — both now false. Update to reflect Google Sign-In, two domains, school affiliation storage.
+
+**Task 4.3: Final verification and deploy**
+- `npm run build` clean
+- Sign in as each role (super admin, teacher, student) and verify correct admin panel shown
+- Verify bracket pick/save/score flow
+- Merge to main, deploy to Vercel
+
+---
+
+### Key Gotchas
+
+- **`superAdmin` is a manual Firestore flag**: No UI to grant it. Set directly in Firestore: `users/{uid}` → `superAdmin: true`. Use the operator's Google UID.
+- **Teacher role auto-detected from email domain**: `@rochester.k12.mi.us` → teacher, `@rcs-k12.us` → student. No manual assignment needed.
+- **`school` field on everything**: All bracket saves, leaderboard writes, and user docs include `school`. Leaderboard defaults to "My School" filter using `entry.school === mySchool`.
+- **`bbConfig` and `mammalConfig` are full objects**: App.jsx now stores the full config doc (not just `locked`), so `TeacherPanel` can read `config.school_locks[school]`.
+- **CSS warning is harmless**: The `@import url(...)` for Google Fonts after `@import "tailwindcss"` triggers a CSS ordering warning at build time. It doesn't affect functionality.
+- **Branch is not yet merged to main**: Do not deploy until Phase 4 is verified.
+- **`.env` key rotation**: Still an open item from Phase 0. The Firebase keys that were in the public repo should be rotated in the Firebase console + Vercel env vars. This is a manual step the operator needs to do.
+
+---
+
+### Architecture Summary (current state)
+
+```
+src/
+├── main.jsx               # AuthProvider wrapper, CSS import
+├── App.jsx                # ~1400 lines (was 2245). Auth gates, bracket logic, render tabs
+├── firebase.js            # db, auth, googleProvider exports
+├── firestoreService.js    # all Firestore reads/writes (service layer)
+├── bracketData.js         # bracket structure, scoring (unchanged)
+├── auth/
+│   ├── AuthContext.jsx    # Firebase Auth + Firestore user doc subscription
+│   ├── GoogleSignIn.jsx   # Google Sign-In button
+│   └── Onboarding.jsx     # First-login school selector
+├── admin/
+│   ├── AdminPanel.jsx     # Role gateway
+│   ├── SuperAdminPanel.jsx
+│   ├── TeacherPanel.jsx
+│   ├── NewSeasonFlow.jsx
+│   ├── TeamEntryPanel.jsx
+│   └── MammalEntryPanel.jsx
+├── components/
+│   ├── Avatar.jsx, TeamLogo.jsx, OfflineBar.jsx, ConfirmDialog.jsx
+│   ├── EditableField.jsx, GameSlot.jsx
+│   ├── ResearchCard.jsx, MammalResearchCard.jsx
+│   ├── CompareModal.jsx, ViewBracketModal.jsx, Leaderboard.jsx
+│   ├── BracketConnector.jsx   # DOM measurement, ResizeObserver
+│   └── BracketRegion.jsx
+└── styles/
+    ├── tokens.css         # CSS custom properties
+    └── base.css           # Tailwind v4, fonts, body styles
+```
+
+---
+
+### Handoff Context (paste into next session)
+
+```
+I'm working on the RCS Bracket Challenge app — a school bracket-picking web app
+for 4 Rochester Community Schools middle schools (Hart, Van Hoosen, West, Reuther).
+
+Repo: samcastillo71-cmd/March-Madness
+Branch: claude/keen-gates-kMze6
+Tech: React 18, Vite 5, Firebase 10 (Firestore + Auth), Tailwind v4, Vercel
+
+STATUS: Phases 0–3 complete. Phase 4 is the last phase.
+
+PHASE 4 TASKS:
+4.1 — Bracket lock deadline + countdown (DeadlineCountdown component in header;
+      deadline stored as ISO string in tournament/config.deadline; admin sets it;
+      auto-locks when passed). Full component code in plan at ~line 1852.
+4.2 — Update PrivacyPolicyPage (still inline in App.jsx ~line 155) — now uses
+      Google Sign-In, not username entry. Update auth/data collection language.
+4.3 — Final verification (all 3 roles), merge to main, deploy to Vercel.
+
+DOCUMENTS:
+- Plan: docs/superpowers/plans/2026-05-31-overhaul.md
+- Handoff: docs/handoff/HANDOFF.md (this file, read it for full context)
+
+KEY FACTS:
+- superAdmin is a manual Firestore flag on users/{uid} — no UI to grant it
+- Teacher role auto-detected from @rochester.k12.mi.us email domain
+- bbConfig and mammalConfig are full config objects in App.jsx state (not just locked bool)
+- CSS @import ordering warning at build time is harmless
+- Branch is NOT merged to main yet — wait until Phase 4 verified
+- .env key rotation is still a manual to-do for the operator (Firebase console + Vercel)
+```
+
 
 ### Current Task State
 
