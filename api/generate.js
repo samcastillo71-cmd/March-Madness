@@ -199,6 +199,22 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  // ── Auth: require a valid Firebase ID token from an RCS account ───────────
+  const authHeader = req.headers['authorization'] || '';
+  const idToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+  if (!idToken) return res.status(401).json({ error: 'Authentication required' });
+
+  const verifyRes = await fetch(
+    `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${process.env.VITE_FIREBASE_API_KEY}`,
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ idToken }) }
+  );
+  if (!verifyRes.ok) return res.status(401).json({ error: 'Invalid token' });
+  const { users } = await verifyRes.json();
+  const email = users?.[0]?.email ?? '';
+  if (!email.match(/@rcs-k12\.us$|@rochester\.k12\.mi\.us$/)) {
+    return res.status(403).json({ error: 'RCS account required' });
+  }
+
   const apiKey = process.env.ANTHROPIC_KEY;
   if (!apiKey) {
     console.log('[generate] ERROR: ANTHROPIC_KEY not set');
@@ -212,6 +228,9 @@ export default async function handler(req, res) {
   }
 
   const { prompt, sources = [], textOnly = false, fetchImagesOnly = false, latinName: fetchLatinName } = body || {};
+
+  // Cap sources to prevent cost amplification
+  if (sources.length > 5) return res.status(400).json({ error: 'Too many sources (max 5)' });
 
   // ── fetchImagesOnly mode: skip Claude, just fetch images for a given Latin name ──
   if (fetchImagesOnly && fetchLatinName) {
@@ -277,88 +296,57 @@ export default async function handler(req, res) {
   console.log('[generate] Calling Claude, prompt length:', fullPrompt.length, '| sources:', sources.length);
 
   // ── Call Claude ───────────────────────────────────────────────────────────
-  const MODELS = [
-    'claude-haiku-4-5-20251001',
-    'claude-haiku-4-5',
-    'claude-3-5-haiku-20241022',
-    'claude-3-haiku-20240307',
-  ];
+  const MODEL = 'claude-haiku-4-5-20251001';
 
-  let parsed = null;
-  for (const model of MODELS) {
-    console.log('[generate] Trying model:', model);
+  async function callClaude(promptText) {
     let claudeRes;
     try {
       claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
-        body: JSON.stringify({ model, max_tokens: 2048, messages: [{ role: 'user', content: fullPrompt }] }),
+        body: JSON.stringify({ model: MODEL, max_tokens: 2048, messages: [{ role: 'user', content: promptText }] }),
       });
     } catch (e) {
-      return res.status(502).json({ error: 'Failed to reach Anthropic API: ' + e.message });
+      return { error: 'Failed to reach Anthropic API: ' + e.message, status: 502 };
     }
-
     const rawBody = await claudeRes.text();
-    console.log('[generate] Model:', model, '| Status:', claudeRes.status, '| body preview:', rawBody.slice(0, 200));
-
-    if (claudeRes.status === 400 || claudeRes.status === 402) {
+    console.log('[generate] Status:', claudeRes.status, '| body preview:', rawBody.slice(0, 200));
+    if (claudeRes.status === 429) {
+      const isCredit = rawBody.toLowerCase().includes('credit') || rawBody.toLowerCase().includes('billing');
+      return { error: isCredit ? 'Claude credit balance too low.' : 'Rate limited — too many requests.', status: 429 };
+    }
+    if (!claudeRes.ok) {
       let errData; try { errData = JSON.parse(rawBody); } catch {}
       const msg = errData?.error?.message || rawBody;
       if (msg.toLowerCase().includes('credit') || msg.toLowerCase().includes('billing')) {
-        return res.status(402).json({ error: 'Claude credit balance too low. Go to console.anthropic.com to add credits.' });
+        return { error: 'Claude credit balance too low. Go to console.anthropic.com to add credits.', status: 402 };
       }
-      if (msg.toLowerCase().includes('model') || msg.toLowerCase().includes('not found') || msg.toLowerCase().includes('invalid')) {
-        console.log('[generate] Model issue, trying next...');
-        continue;
-      }
-      return res.status(400).json({ error: `Claude API error 400: ${msg.slice(0, 500)}` });
+      return { error: `Claude API error ${claudeRes.status}: ${msg.slice(0, 500)}`, status: claudeRes.status };
     }
-    if (claudeRes.status === 404) { continue; }
-    if (claudeRes.status === 429) {
-      const isCredit = rawBody.toLowerCase().includes('credit') || rawBody.toLowerCase().includes('billing');
-      res.status(429);
-      return res.json({ error: isCredit ? 'Claude credit balance too low.' : 'Rate limited — too many requests.' });
-    }
-    if (!claudeRes.ok) {
-      return res.status(claudeRes.status).json({ error: `Claude API error ${claudeRes.status}: ${rawBody.slice(0, 500)}` });
-    }
-
-    let data; try { data = JSON.parse(rawBody); } catch { continue; }
+    let data; try { data = JSON.parse(rawBody); } catch { return { error: 'Invalid response from Claude', status: 502 }; }
     const text = data.content?.[0]?.text || '{}';
     let cleaned = text.replace(/```json/gi, '').replace(/```/g, '').trim();
     const fb = cleaned.indexOf('{'), lb = cleaned.lastIndexOf('}');
     if (fb !== -1 && lb > fb) cleaned = cleaned.slice(fb, lb + 1);
-    try { parsed = JSON.parse(cleaned); break; }
-    catch { console.log('[generate] JSON parse failed, trying next model'); continue; }
+    try { return { parsed: JSON.parse(cleaned) }; }
+    catch { return { error: 'JSON parse failed', status: null }; }
   }
 
+  let parsed = null;
+  const first = await callClaude(fullPrompt);
+  if (first.status) return res.status(first.status).json({ error: first.error });
+  if (first.parsed) { parsed = first.parsed; }
+
   if (!parsed) {
-    // Retry once with a stricter prompt
     console.log('[generate] JSON parse failed — retrying with strict prompt');
     const strictPrompt = `${fullPrompt}
 
 CRITICAL: You MUST respond with ONLY a valid JSON object. No explanations, no apologies, no markdown.
 If you have limited or no information about this organism, still return the JSON structure with your best estimates and note "Limited information available" in the relevant fields.
 Start your response with { and end with }. Nothing else.`;
-
-    for (const model of MODELS) {
-      let retryRes;
-      try {
-        retryRes = await fetch('https://api.anthropic.com/v1/messages', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
-          body: JSON.stringify({ model, max_tokens: 2048, messages: [{ role: 'user', content: strictPrompt }] }),
-        });
-      } catch { continue; }
-      if (!retryRes.ok) continue;
-      const retryBody = await retryRes.text();
-      let retryData; try { retryData = JSON.parse(retryBody); } catch { continue; }
-      const retryText = retryData.content?.[0]?.text || '{}';
-      let retryCleaned = retryText.replace(/```json/gi, '').replace(/```/g, '').trim();
-      const rfb = retryCleaned.indexOf('{'), rlb = retryCleaned.lastIndexOf('}');
-      if (rfb !== -1 && rlb > rfb) retryCleaned = retryCleaned.slice(rfb, rlb + 1);
-      try { parsed = JSON.parse(retryCleaned); break; } catch { continue; }
-    }
+    const retry = await callClaude(strictPrompt);
+    if (retry.status) return res.status(retry.status).json({ error: retry.error });
+    if (retry.parsed) { parsed = retry.parsed; }
   }
 
   // Final fallback — return skeleton card so generation loop doesn't crash

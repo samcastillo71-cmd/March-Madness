@@ -18,7 +18,7 @@ import {
   deleteBracketAndScore, getAllBracketUids,
 } from './firestoreService';
 import {
-  CURRENT_YEAR, buildInitialBracket, buildInitialBracketFromTeams, calcScore,
+  buildInitialBracket, buildInitialBracketFromTeams, calcScore,
 } from './bracketData';
 
 // ── THEME ─────────────────────────────────────────────────────────────────────
@@ -931,8 +931,8 @@ export default function App() {
   const [genError,         setGenError]        = useState('');
   const [firstFourPicks,   setFirstFourPicks]  = useState({});
   const [ffPlaceholders,   setFfPlaceholders]  = useState({});
-  const [tournamentYear,   setTournamentYear]  = useState(CURRENT_YEAR);
-  const [yearDraft,        setYearDraft]       = useState(String(CURRENT_YEAR));
+  const [tournamentYear,   setTournamentYear]  = useState(new Date().getFullYear());
+  const [yearDraft,        setYearDraft]       = useState(String(new Date().getFullYear()));
   const [yearSaving,       setYearSaving]      = useState(false);
   const [liveScores,       setLiveScores]      = useState({});
   const [activeTournament, setActiveTournament] = useState('basketball');

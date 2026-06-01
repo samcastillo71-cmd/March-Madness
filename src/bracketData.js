@@ -3,8 +3,6 @@
 // Use Admin → Set Up Teams to enter teams each March.
 // Research data is now stored in Firestore and auto-generated via AI.
 
-export const CURRENT_YEAR = 2025;
-
 // Standard NCAA seeding matchup order for Round of 64 (seed index pairs, 0-based)
 // seed 1 vs 16, seed 8 vs 9, seed 5 vs 12, seed 4 vs 13, seed 6 vs 11, seed 3 vs 14, seed 7 vs 10, seed 2 vs 15
 export const R64_SEED_MATCHUPS = [
