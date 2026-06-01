@@ -862,13 +862,13 @@ function TermsOfServicePage({ onBack }) {
 }
 
 // ── AI CALL ───────────────────────────────────────────────────────────────────
-async function callAI(prompt, sources = [], textOnly = false) {
+async function callAI(prompt, sources = [], textOnly = false, token = null) {
   const BACKOFF_MS = [60000, 90000, 120000];
   let attempt = 0;
   while (true) {
     let res;
     try {
-      res = await fetch('/api/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt, sources, textOnly }) });
+      res = await fetch('/api/generate', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(token && { Authorization: `Bearer ${token}` }) }, body: JSON.stringify({ prompt, sources, textOnly }) });
     } catch (e) { await new Promise(r => setTimeout(r, 15000)); continue; }
     if (res.status === 429) {
       const body = await res.text().catch(() => '');
@@ -884,13 +884,13 @@ async function callAI(prompt, sources = [], textOnly = false) {
   }
 }
 
-async function generateResearchForTeam(teamName, seed, region, espnId, sources = []) {
+async function generateResearchForTeam(teamName, seed, region, espnId, sources = [], token = null) {
   const prompt = `You are writing a basketball team scouting report for middle school students (grades 6-8) for the ${new Date().getFullYear()} NCAA Tournament.
 Write about: ${teamName} (${region} Region, Seed #${seed})
 Use provided sources first. Fill every field with real information. Never leave blank.
 Return ONLY valid JSON:
 {"record":"W-L","rank":"#N or Unranked","coach":"Coach Name","conference":"Conference Name","kenpom":"#N","offense":"NNN.N","defense":"NN.N","pace":"NN.N","keyPlayers":[{"name":"Player Name","pos":"G/F/C","stats":"XX.X PPG / X.X RPG","note":"brief note"},{"name":"Player Name","pos":"G/F/C","stats":"XX.X PPG / X.X RPG","note":"brief note"}],"injuries":"None reported or description","odds":"+XXXX","strengths":"2-3 sentences","weaknesses":"2-3 sentences","analystNote":"1-2 sentences","espnId":"${espnId || ''}"}`;
-  return callAI(prompt, sources);
+  return callAI(prompt, sources, false, token);
 }
 
 // ── MAIN APP ──────────────────────────────────────────────────────────────────
@@ -1537,11 +1537,12 @@ if (game.winner?.name === clicked.name) {
     setGenerating(true); setGenError('');
     setGenProgress({ done: 0, total: teams.length, current: teams[0].name });
     const allData = { ...researchData };
+    const token = await firebaseUser.getIdToken();
     for (let i = 0; i < teams.length; i++) {
       const { name, seed, region, espnId } = teams[i];
       setGenProgress({ done: i, total: teams.length, current: name });
       try {
-        const card = await generateResearchForTeam(name, seed, region, espnId, bbSources);
+        const card = await generateResearchForTeam(name, seed, region, espnId, bbSources, token);
         if (card) { allData[name] = { ...card, seed, region }; await saveResearchData(allData); setResearchData({ ...allData }); }
       } catch (e) {
         setGenError(e.message); console.warn('Research gen failed:', name, e);
@@ -1561,12 +1562,13 @@ if (game.winner?.name === clicked.name) {
     setMammalGenerating(true); setMammalGenError('');
     setMammalGenProgress({ done: 0, total: animals.length, current: animals[0].name });
     const allData = { ...mammalResearchData };
+    const token = await firebaseUser.getIdToken();
     for (let i = 0; i < animals.length; i++) {
       const { name, seed, region } = animals[i];
       setMammalGenProgress({ done: i, total: animals.length, current: name });
       try {
         const prompt = `Generate a fun organism profile for middle school students. Animal: ${name} (${region}, Seed #${seed}) in March Mammal Madness. Return ONLY valid JSON: {"latinName":"Genus species","habitat":"2-3 sentences","diet":"2-3 sentences","funFacts":["fact1","fact2","fact3"],"size":"weight and length","lifespan":"X-Y years","speed":"top speed","superpower":"1 sentence","battleStrength":"1-2 sentences"}`;
-        const card = await callAI(prompt, mammalSources, true);
+        const card = await callAI(prompt, mammalSources, true, token);
         if (card) { allData[name] = { ...card, seed, region }; setMammalResearchData({ ...allData }); }
       } catch (e) {
         setMammalGenError(e.message); console.warn('Mammal gen failed:', name, e);
@@ -1584,7 +1586,8 @@ if (game.winner?.name === clicked.name) {
     try {
       const card = mammalResearchData[animalName];
       const prompt = `Generate a fun organism profile for middle school students. Animal: ${animalName} (Seed #${card?.seed || 1}) in March Mammal Madness. Return ONLY valid JSON: {"latinName":"Genus species","habitat":"2-3 sentences","diet":"2-3 sentences","funFacts":["fact1","fact2","fact3"],"size":"weight and length","lifespan":"X-Y years","speed":"top speed","superpower":"1 sentence","battleStrength":"1-2 sentences"}`;
-      const result = await callAI(prompt, mammalSources, true);
+      const token = await firebaseUser.getIdToken();
+      const result = await callAI(prompt, mammalSources, true, token);
       if (result) { const updated = { ...result, seed: card?.seed, region: card?.region }; await saveOneMammalResearch(animalName, updated); setMammalResearchData(prev => ({ ...prev, [animalName]: updated })); }
     } catch (e) { console.warn('Failed to generate for', animalName, e); }
     setMammalGeneratingOne(null);
@@ -1595,11 +1598,12 @@ if (game.winner?.name === clicked.name) {
     const animals = Object.entries(allData).filter(([, card]) => card.latinName && (!onlyRegion || card.region === onlyRegion)).map(([name, card]) => ({ name, latinName: card.latinName }));
     if (!animals.length) { setMammalGenError('No Latin names found. Generate text content first.'); return; }
     setMammalGenerating(true);
+    const token = await firebaseUser.getIdToken();
     for (let i = 0; i < animals.length; i++) {
       const { name, latinName } = animals[i];
       setMammalGenProgress({ done: i, total: animals.length, current: name });
       try {
-        const res = await fetch('/api/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ fetchImagesOnly: true, latinName }) });
+        const res = await fetch('/api/generate', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ fetchImagesOnly: true, latinName }) });
         if (res.ok) { const data = await res.json(); if (data.result && allData[name]) { allData[name] = { ...allData[name], ...data.result }; setMammalResearchData(prev => ({ ...prev, [name]: allData[name] })); } }
       } catch (e) { console.warn('Image refetch failed for', name, e); }
       if (i < animals.length - 1) await new Promise(r => setTimeout(r, 300));
