@@ -1,10 +1,10 @@
-// src/App.jsx
 import { useState, useEffect, useCallback, useRef, useMemo, memo } from 'react';
 import { Component } from 'react';
+import { signOut } from 'firebase/auth';
 import { doc, setDoc, getDoc, deleteDoc, getDocs, collection, serverTimestamp } from 'firebase/firestore';
-import { db } from './firebase';
+import { db, auth } from './firebase';
 import {
-  saveBracket, loadBracket, findBracketByName,
+  saveBracket, loadBracket,
   saveOfficialBracket, subscribeToOfficialBracket,
   subscribeToConfig, setTournamentLocked,
   subscribeToLeaderboard, updateLeaderboardEntry,
@@ -17,6 +17,9 @@ import {
   saveMammalRoster, checkAdminPassword, adminExists, setAdminPassword,
   deleteBracketAndScore, getAllBracketUids,
 } from './firestoreService';
+import { useAuth }      from './auth/AuthContext';
+import { GoogleSignIn } from './auth/GoogleSignIn';
+import { Onboarding }   from './auth/Onboarding';
 import {
   buildInitialBracket, buildInitialBracketFromTeams, calcScore,
 } from './bracketData';
@@ -48,12 +51,6 @@ const S = {
 };
 
 // ── HELPERS ───────────────────────────────────────────────────────────────────
-function generateUUID() {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
-    const r = Math.random() * 16 | 0;
-    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
-  });
-}
 
 function formatName(displayName) {
   if (!displayName) return 'Anonymous';
@@ -892,18 +889,15 @@ Return ONLY valid JSON:
 
 // ── MAIN APP ──────────────────────────────────────────────────────────────────
 export default function App() {
-  // ── USER IDENTITY (no login) ──────────────────────────────────────────────
-  const [uid,          setUid]          = useState(null);
-  const [displayName,  setDisplayName]  = useState('');
-  const [nameInput,      setNameInput]      = useState('');
-  const [studentIdInput, setStudentIdInput] = useState('');
-  const [nameLoading,    setNameLoading]    = useState(false);
-  const [nameError,      setNameError]      = useState('');
-  const [nameStep, setNameStep] = useState('username'); // 'username' | 'new-name'
-  const [isTeacher,    setIsTeacher]    = useState(false);
+  // ── AUTH (Google Sign-In) ─────────────────────────────────────────────────
+  const { loading: authLoading, isLoggedIn, needsOnboarding,
+          firebaseUser, displayName, school, role, superAdmin } = useAuth();
+
+  const uid       = firebaseUser?.uid ?? null;
+  const isAdmin   = superAdmin;
+  const isTeacher = role === 'teacher' || superAdmin;
 
   // ── ADMIN ─────────────────────────────────────────────────────────────────
-  const [isAdmin,       setIsAdmin]      = useState(false);
   const [adminPwInput,  setAdminPwInput] = useState('');
   const [adminPwError,  setAdminPwError] = useState('');
   const [adminPwLoading,setAdminPwLoading] = useState(false);
@@ -1050,19 +1044,26 @@ export default function App() {
     })();
   }, []);
 
-  // ── RESTORE SESSION FROM LOCALSTORAGE ─────────────────────────────────────
-  useEffect(() => {
-    const savedUid       = localStorage.getItem('mm_uid');
-    const savedName      = localStorage.getItem('mm_name');
-    const savedIsTeacher = localStorage.getItem('mm_teacher') === 'true';
-    const savedIsAdmin   = localStorage.getItem('mm_admin')   === 'true';
-    if (savedUid && savedName) {
-      setUid(savedUid);
-      setDisplayName(savedName);
-      setIsTeacher(savedIsTeacher);
-      setIsAdmin(savedIsAdmin);
-    }
-  }, []);
+  // ── AUTH GATES ────────────────────────────────────────────────────────────
+  if (authLoading) return (
+    <div style={{ minHeight: '100vh', background: '#0a1a0e',
+      display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <span style={{ fontFamily: "'Playfair Display', serif", fontSize: 16,
+        color: '#4ade80', fontStyle: 'italic' }}>Loading…</span>
+    </div>
+  );
+
+  if (!isLoggedIn) return (
+    <div style={{ minHeight: '100vh', background: '#0a1a0e',
+      display: 'flex', flexDirection: 'column', alignItems: 'center',
+      justifyContent: 'center', gap: 20 }}>
+      <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 26,
+        fontWeight: 900, color: '#4ade80' }}>Bracket <em>Challenge</em></h1>
+      <GoogleSignIn />
+    </div>
+  );
+
+  if (needsOnboarding) return <Onboarding />;
 
   // ── LOAD BRACKET ONCE UID IS SET ──────────────────────────────────────────
   useEffect(() => {
@@ -1161,9 +1162,9 @@ export default function App() {
     saveTimer.current = setTimeout(async () => {
       setSaving(true);
       try {
-        await saveBracket(uid, { ...bracket, _firstFourPicks: firstFourPicks }, displayName);
+        await saveBracket(uid, { ...bracket, _firstFourPicks: firstFourPicks }, displayName, school);
         const hasPicks = ['East','West','South','Midwest'].some(r => bracket[r]?.rounds?.[0]?.some(g => g.winner));
-        if (hasPicks) await updateLeaderboardEntry(uid, displayName, score, isTeacher);
+        if (hasPicks) await updateLeaderboardEntry(uid, displayName, score, isTeacher, school);
         setLastSaved(new Date());
       } catch (e) { console.warn('Save failed:', e); }
       setSaving(false);
@@ -1180,75 +1181,14 @@ export default function App() {
     clearTimeout(mammalSaveTimer.current);
     mammalSaveTimer.current = setTimeout(async () => {
       try {
-        await saveMammalBracket(uid, { ...mammalBracket, _firstFourPicks: mammalFirstFourPicks }, displayName);
+        await saveMammalBracket(uid, { ...mammalBracket, _firstFourPicks: mammalFirstFourPicks }, displayName, school);
         const hasPicks = ['East','West','South','Midwest'].some(r => mammalBracket[r]?.rounds?.[0]?.some(g => g.winner));
-        if (hasPicks) await updateMammalLeaderboardEntry(uid, displayName, mammalScore, isTeacher);
+        if (hasPicks) await updateMammalLeaderboardEntry(uid, displayName, mammalScore, isTeacher, school);
         setMammalLastSaved(new Date());
       } catch (e) { console.warn('Mammal save failed:', e); }
     }, 3000);
     return () => clearTimeout(mammalSaveTimer.current);
   }, [mammalBracket, mammalFirstFourPicks, uid, displayName, mammalLocked, isAdmin, mammalScore, isTeacher]);
-
-  // ── NAME ENTRY HANDLERS ──────────────────────────────────────────────────────
-// Step 1: student enters username — check if they exist already
-const handleUsernameSubmit = async () => {
-  const id = studentIdInput.trim();
-  if (!id) { setNameError('Please enter your username.'); return; }
-  if (id.length < 3) { setNameError('Username must be at least 3 characters.'); return; }
-  setNameLoading(true); setNameError('');
-  try {
-    const bracketSnap = await getDoc(doc(db, 'brackets', id));
-    if (bracketSnap.exists()) {
-      // Returning user — load their saved name and bracket, skip name step
-      const savedName = bracketSnap.data().displayName || id;
-      const existing = bracketSnap.data();
-      if (existing._firstFourPicks) {
-        const { _firstFourPicks, displayName: _dn, ...b } = existing;
-        setFirstFourPicks(_firstFourPicks);
-        setBracket(applyFirstFourPicks(b, _firstFourPicks));
-      } else {
-        const { displayName: _dn, ...b } = existing;
-        setBracket(b);
-      }
-      localStorage.setItem('mm_uid', id);
-      localStorage.setItem('mm_name', savedName);
-      localStorage.setItem('mm_teacher', 'false');
-      localStorage.setItem('mm_admin', 'false');
-      setUid(id);
-      setDisplayName(savedName);
-    } else {
-      // New user — need a display name
-      setNameStep('new-name');
-    }
-  } catch (e) {
-    setNameError('Something went wrong. Please try again.');
-    console.warn('Username submit error:', e);
-  }
-  setNameLoading(false);
-};
-
-// Step 2 (new users only): student enters their display name
-const handleNewNameSubmit = async () => {
-  const name = nameInput.trim();
-  const id   = studentIdInput.trim();
-  if (!name) { setNameError('Please enter your first and last name.'); return; }
-  if (name.length < 2) { setNameError('Name must be at least 2 characters.'); return; }
-  setNameLoading(true); setNameError('');
-  try {
-    localStorage.setItem('mm_uid', id);
-    localStorage.setItem('mm_name', name);
-    localStorage.setItem('mm_teacher', 'false');
-    localStorage.setItem('mm_admin', 'false');
-    setUid(id);
-    setDisplayName(name);
-  } catch (e) {
-    setNameError('Something went wrong. Please try again.');
-    console.warn('New name submit error:', e);
-  }
-  setNameLoading(false);
-};
-
-const handleNameSubmit = handleUsernameSubmit;
 
 // ── ADMIN LOGIN ───────────────────────────────────────────────────────────────
 const handleAdminLogin = async () => {
@@ -1257,8 +1197,6 @@ const handleAdminLogin = async () => {
   try {
     const ok = await checkAdminPassword(adminPwInput.trim());
     if (ok) {
-      setIsAdmin(true);
-      localStorage.setItem('mm_admin', 'true');
       setShowAdminLogin(false);
       setAdminPwInput('');
       setTab('admin');
@@ -1275,8 +1213,6 @@ const handleAdminSetup = async () => {
   setAdminPwLoading(true); setAdminPwError('');
   try {
     await setAdminPassword(newAdminPw.trim());
-    setIsAdmin(true);
-    localStorage.setItem('mm_admin', 'true');
     setSetupMode(false);
     setShowAdminLogin(false);
     setTab('admin');
@@ -1293,54 +1229,11 @@ const handleOpenAdmin = async () => {
 };
 
 const handleSignOut = () => {
-  localStorage.removeItem('mm_uid');
-  localStorage.removeItem('mm_name');
-  localStorage.removeItem('mm_teacher');
-  localStorage.removeItem('mm_admin');
-  setUid(null); setDisplayName(''); setIsAdmin(false); setIsTeacher(false);
+  signOut(auth).catch(console.warn);
   setBracket(buildInitialBracket()); setMammalBracket(buildInitialBracket());
   setFirstFourPicks({}); setMammalFirstFourPicks({});
-  setStudentIdInput(''); setNameInput(''); setNameStep('username');
   setTab('bracket');
 };
-
-  // Step 2: student enters school ID, used as unique identifier
-  const handleIdSubmit = async () => {
-    const id   = studentIdInput.trim();
-    const name = nameInput.trim();
-    if (!id) { setNameError('Please enter your school ID.'); return; }
-    if (id.length < 3) { setNameError('ID must be at least 3 characters.'); return; }
-    setNameLoading(true); setNameError('');
-    try {
-      const existing = await loadBracket(id);
-      if (existing) {
-        const bracketSnap = await getDoc(doc(db, 'brackets', id));
-        const savedName = bracketSnap.exists() ? bracketSnap.data().displayName : name;
-        if (existing._firstFourPicks) {
-          const { _firstFourPicks, ...b } = existing;
-          setFirstFourPicks(_firstFourPicks);
-          setBracket(applyFirstFourPicks(b, _firstFourPicks));
-        } else setBracket(existing);
-        localStorage.setItem('mm_uid', id);
-        localStorage.setItem('mm_name', savedName);
-        localStorage.setItem('mm_teacher', 'false');
-        localStorage.setItem('mm_admin', 'false');
-        setUid(id);
-        setDisplayName(savedName);
-      } else {
-        localStorage.setItem('mm_uid', id);
-        localStorage.setItem('mm_name', name);
-        localStorage.setItem('mm_teacher', 'false');
-        localStorage.setItem('mm_admin', 'false');
-        setUid(id);
-        setDisplayName(name);
-      }
-    } catch (e) {
-      setNameError('Something went wrong. Please try again.');
-      console.warn('ID submit error:', e);
-    }
-    setNameLoading(false);
-  };
 
   // ── PICK HANDLERS ─────────────────────────────────────────────────────────
   const clearTeamDownstream = useCallback((next, region, teamName, fromRound) => {
@@ -1939,79 +1832,6 @@ if (game.winner?.name === clicked.name) {
     </div>
   );
 
-
-  // ── NAME ENTRY SCREEN ─────────────────────────────────────────────────────
-  if (!uid) return (
-    <>
-      <div style={{ ...S.app, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 36, minHeight: '100vh' }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: 88, marginBottom: 12 }}>🏀</div>
-          <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 48, color: ACCENT2, letterSpacing: 2, lineHeight: 1.1 }}>MARCH MADNESS<br />{tournamentYear}</h1>
-          <p style={{ color: '#777', fontSize: 16, marginTop: 10 }}>School-Wide Bracket Challenge</p>
-        </div>
-        <div style={{ ...S.card, textAlign: 'center', maxWidth: 400, padding: '36px 40px', width: '100%' }}>
-
-          {/* Step 1: Enter username (all users) */}
-          {nameStep === 'username' && (
-            <>
-              <p style={{ color: '#aaa', fontSize: 15, fontWeight: 700, marginBottom: 6 }}>Enter your username</p>
-              <p style={{ color: '#666', fontSize: 13, marginBottom: 8, lineHeight: 1.6 }}>
-                Returning? Enter your username to pick up where you left off.
-              </p>
-              <p style={{ color: '#555', fontSize: 12, marginBottom: 20 }}>
-                New here? Pick any username you'll remember — example: <span style={{ color: ACCENT2, fontFamily: 'monospace', fontSize: 13 }}>HoopsFan22</span>
-              </p>
-              <input
-                placeholder="Your username"
-                value={studentIdInput}
-                onChange={e => { setStudentIdInput(e.target.value); setNameError(''); }}
-                onKeyDown={e => e.key === 'Enter' && handleUsernameSubmit()}
-                style={{ ...S.input, marginBottom: 16, fontSize: 16, textAlign: 'center', letterSpacing: 1 }}
-                autoFocus
-              />
-              {nameError && <div style={{ color: '#f87171', fontSize: 13, marginBottom: 12 }}>{nameError}</div>}
-              <button style={{ ...S.btn(), width: '100%', fontSize: 16, padding: '12px 22px' }} onClick={handleUsernameSubmit} disabled={nameLoading}>
-                {nameLoading ? 'Checking...' : 'Continue'}
-              </button>
-            </>
-          )}
-
-          {/* Step 2: New users only — enter display name */}
-          {nameStep === 'new-name' && (
-            <>
-              <div style={{ marginBottom: 20, padding: '10px 14px', background: 'rgba(22,163,74,0.08)', borderRadius: 8, border: '1px solid rgba(22,163,74,0.2)', fontSize: 13, color: ACCENT2 }}>
-                Username <span style={{ fontWeight: 700, fontFamily: 'monospace' }}>{studentIdInput}</span> is available!
-              </div>
-              <p style={{ color: '#aaa', fontSize: 15, fontWeight: 700, marginBottom: 6 }}>What's your name?</p>
-              <p style={{ color: '#666', fontSize: 13, marginBottom: 20, lineHeight: 1.6 }}>
-                Enter your first and last name. This is how you'll appear on the leaderboard. You won't need to enter this again.
-              </p>
-              <input
-                placeholder="First and last name"
-                value={nameInput}
-                onChange={e => { setNameInput(e.target.value); setNameError(''); }}
-                onKeyDown={e => e.key === 'Enter' && handleNewNameSubmit()}
-                style={{ ...S.input, marginBottom: 16, fontSize: 16, textAlign: 'center' }}
-                autoFocus
-              />
-              {nameError && <div style={{ color: '#f87171', fontSize: 13, marginBottom: 12 }}>{nameError}</div>}
-              <button style={{ ...S.btn(), width: '100%', fontSize: 16, padding: '12px 22px' }} onClick={handleNewNameSubmit} disabled={nameLoading}>
-                {nameLoading ? 'Setting up...' : "Let's Go!"}
-              </button>
-              <button onClick={() => { setNameStep('username'); setNameError(''); }} style={{ background: 'none', border: 'none', color: '#555', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', marginTop: 12 }}>
-                Back
-              </button>
-            </>
-          )}
-
-        </div>
-      </div>
-      <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, padding: '12px 20px', display: 'flex', justifyContent: 'center', gap: 20, borderTop: '1px solid rgba(255,255,255,0.06)', background: 'rgba(10,26,14,0.95)' }}>
-        <button onClick={() => setLegalPage('privacy')} style={{ background: 'none', border: 'none', color: '#555', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>Privacy Policy</button>
-        <button onClick={() => setLegalPage('terms')} style={{ background: 'none', border: 'none', color: '#555', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>Terms of Service</button>
-      </div>
-    </>
-  );
 
   // ── MAIN TABS ─────────────────────────────────────────────────────────────
   const tabs = [
