@@ -31,6 +31,7 @@ import { MammalResearchCard } from './components/MammalResearchCard';
 import { CompareModal }     from './components/CompareModal';
 import { ViewBracketModal } from './components/ViewBracketModal';
 import { Leaderboard }      from './components/Leaderboard';
+import { AdminPanel }       from './admin/AdminPanel';
 import {
   buildInitialBracket, buildInitialBracketFromTeams, calcScore,
 } from './bracketData';
@@ -149,209 +150,6 @@ function applyFirstFourPicks(bracket, picks) {
     });
   });
   return next;
-}
-
-// ── ADMIN TEAM ENTRY PANEL ────────────────────────────────────────────────────
-function makePlaceholderRoster() {
-  return {
-    year: new Date().getFullYear(),
-    East:    Array(16).fill(null).map((_, i) => ({ seed: i+1, name: `Seed ${i+1}`, espnId: '', firstFour: false })),
-    West:    Array(16).fill(null).map((_, i) => ({ seed: i+1, name: `Seed ${i+1}`, espnId: '', firstFour: false })),
-    South:   Array(16).fill(null).map((_, i) => ({ seed: i+1, name: `Seed ${i+1}`, espnId: '', firstFour: false })),
-    Midwest: Array(16).fill(null).map((_, i) => ({ seed: i+1, name: `Seed ${i+1}`, espnId: '', firstFour: false })),
-  };
-}
-
-function TeamEntryPanel({ onTeamsSaved, onRequestGenerateResearch, regionNames, onRegionNamesChange, sourcesData, onSaveSources }) {
-  const [roster,       setRoster]       = useState(makePlaceholderRoster());
-  const [activeRegion, setActiveRegion] = useState('East');
-  const [saving,       setSaving]       = useState(false);
-  const [saved,        setSaved]        = useState(false);
-  const [applying,     setApplying]     = useState(false);
-  const [applied,      setApplied]      = useState(false);
-  const [loading,      setLoading]      = useState(true);
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const snap = await getDoc(doc(db, 'admin', 'teamRoster'));
-        if (snap.exists()) {
-          const d = snap.data();
-          if (d._regionNames) onRegionNamesChange(d._regionNames);
-          delete d.updatedAt; delete d._regionNames;
-          const hasNames = ['East','West','South','Midwest'].some(r => (d[r] || []).some(t => t.name?.trim() && !t.name.startsWith('Seed')));
-          setRoster(hasNames ? d : makePlaceholderRoster());
-        }
-      } catch {}
-      setLoading(false);
-    })();
-  }, []);
-
-  const updateTeam = (region, idx, field, value) => {
-    setRoster(prev => { const n = JSON.parse(JSON.stringify(prev)); n[region][idx][field] = value; return n; });
-    setSaved(false); setApplied(false);
-  };
-
-  if (loading) return <div style={{ color: '#999', padding: 20 }}>Loading roster...</div>;
-  return (
-    <div style={{ ...S.card, marginBottom: 16 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
-        <div>
-          <h3 style={{ color: ACCENT2, marginBottom: 4 }}>Set Up This Year's Teams</h3>
-          <p style={{ color: '#999', fontSize: 13 }}>Enter all 64 teams after Selection Sunday.</p>
-          <div style={{ marginTop: 10, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-            <span style={{ fontSize: 12, color: ACCENT2, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', flexShrink: 0 }}>Region Names:</span>
-            {['East','West','South','Midwest'].map(r => (
-              <div key={r} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <span style={{ fontSize: 11, color: RC[r], fontWeight: 700 }}>{r}:</span>
-                <input value={regionNames[r]} onChange={e => onRegionNamesChange({ ...regionNames, [r]: e.target.value })} placeholder={r} style={{ ...S.input, width: 120, padding: '4px 8px', fontSize: 12, borderColor: (regionNames[r] || '').length > 15 ? '#f59e0b' : undefined }} />
-                {(regionNames[r] || '').length > 15 && <span style={{ fontSize: 10, color: '#f59e0b' }} title="Long names may wrap in the bracket view.">⚠️</span>}
-              </div>
-            ))}
-          </div>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ fontSize: 12, color: '#888' }}>Year:</span>
-            <input type="number" value={roster.year} onChange={e => { setRoster(p => ({ ...p, year: parseInt(e.target.value) })); setSaved(false); }} style={{ ...S.input, width: 82, padding: '6px 10px', fontSize: 13 }} />
-          </div>
-          <button style={{ ...S.btn(saved ? '#22c55e' : ACCENT, '#fff'), padding: '8px 20px', fontSize: 13 }} onClick={async () => { setSaving(true); try { await setDoc(doc(db, 'admin', 'teamRoster'), { ...roster, _regionNames: regionNames, updatedAt: serverTimestamp() }); setSaved(true); } catch(e) { alert('Save failed: ' + e.message); } setSaving(false); }} disabled={saving}>{saving ? 'Saving...' : saved ? 'Roster Saved' : 'Save Roster'}</button>
-          {saved && <button style={{ ...S.btn(applied ? '#22c55e' : '#f59e0b', '#000'), padding: '8px 20px', fontSize: 13 }} onClick={async () => { setApplying(true); try { const nb = buildInitialBracketFromTeams(roster); await saveOfficialBracket(nb); setApplied(true); onTeamsSaved(nb, roster); } catch(e) { alert('Apply failed: ' + e.message); } setApplying(false); }} disabled={applying}>{applying ? 'Applying...' : applied ? 'Applied!' : 'Apply to Bracket'}</button>}
-          {applied && (
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-              <span style={{ fontSize: 11, color: '#999', alignSelf: 'center' }}>Generate Research:</span>
-              {['East','West','South','Midwest'].map(r => (
-                <button key={r} style={{ ...S.btn('rgba(99,102,241,0.3)', '#a5b4fc'), padding: '6px 14px', fontSize: 12, border: '1px solid rgba(99,102,241,0.5)' }} onClick={() => onRequestGenerateResearch(roster, r)}>{regionNames[r] || r}</button>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-      {onSaveSources && (
-        <div style={{ ...S.card, marginBottom: 16, borderColor: 'rgba(99,102,241,0.25)' }}>
-          <h3 style={{ color: '#a5b4fc', marginBottom: 4, fontSize: 15 }}>Research Sources</h3>
-          <p style={{ color: '#777', fontSize: 12, marginBottom: 10 }}>URLs the AI will read before generating research.</p>
-          {sourcesData.map((s, i) => (
-            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, padding: '6px 10px', background: 'rgba(255,255,255,0.03)', borderRadius: 6 }}>
-              <span style={{ flex: 1, fontSize: 12, color: '#aaa', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.name} — {s.url}</span>
-              <button onClick={() => onSaveSources(sourcesData.filter((_, idx) => idx !== i))} style={{ background: 'none', border: 'none', color: '#666', cursor: 'pointer', fontSize: 16 }}>×</button>
-            </div>
-          ))}
-          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-            <input id="src-name" placeholder="Source name" style={{ ...S.input, flex: 1, padding: '6px 10px', fontSize: 12 }} />
-            <input id="src-url" placeholder="URL" style={{ ...S.input, flex: 2, padding: '6px 10px', fontSize: 12 }} />
-            <button style={{ ...S.btn('#6366f1', '#fff'), padding: '6px 14px', fontSize: 12 }} onClick={() => {
-              const name = document.getElementById('src-name').value.trim();
-              const url  = document.getElementById('src-url').value.trim();
-              if (!url) return;
-              onSaveSources([...sourcesData, { url, name: name || url, primary: true }]);
-              document.getElementById('src-name').value = '';
-              document.getElementById('src-url').value = '';
-            }}>+ Add</button>
-          </div>
-        </div>
-      )}
-      <div style={{ display: 'flex', gap: 4, marginBottom: 16 }}>
-        {['East','West','South','Midwest'].map(r => (
-          <button key={r} style={{ ...S.navBtn(activeRegion === r), borderBottom: activeRegion === r ? `2px solid ${RC[r]}` : '2px solid transparent', borderRadius: '6px 6px 0 0', padding: '8px 18px' }} onClick={() => setActiveRegion(r)}>
-            <span style={{ color: RC[r], marginRight: 6 }}>●</span>{regionNames[r] || r}
-          </button>
-        ))}
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-        {(roster[activeRegion] || []).map((team, idx) => (
-          <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.03)', borderRadius: 8, padding: '8px 12px', border: '1px solid rgba(255,255,255,0.07)' }}>
-            <input type="number" min="1" max="16" value={team.seed} onChange={e => updateTeam(activeRegion, idx, 'seed', parseInt(e.target.value) || e.target.value)} style={{ ...S.input, width: 48, padding: '6px 6px', fontSize: 13, textAlign: 'center' }} />
-            <input placeholder="Team name" value={team.name} onChange={e => updateTeam(activeRegion, idx, 'name', e.target.value)} style={{ ...S.input, flex: 2, padding: '6px 10px', fontSize: 13 }} />
-            <input placeholder="ESPN ID" value={team.espnId} onChange={e => updateTeam(activeRegion, idx, 'espnId', e.target.value)} style={{ ...S.input, width: 80, padding: '6px 10px', fontSize: 13 }} />
-            <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', flexShrink: 0 }}>
-              <input type="checkbox" checked={team.firstFour} onChange={e => updateTeam(activeRegion, idx, 'firstFour', e.target.checked)} />
-              <span style={{ fontSize: 11, color: team.firstFour ? '#818cf8' : '#888', whiteSpace: 'nowrap', fontWeight: team.firstFour ? 700 : 400 }}>FF</span>
-            </label>
-          </div>
-        ))}
-      </div>
-      <div style={{ marginTop: 10, padding: '8px 14px', background: 'rgba(96,165,250,0.07)', borderRadius: 8, border: '1px solid rgba(96,165,250,0.2)', fontSize: 12, color: '#93c5fd' }}>
-        ESPN ID tip: espn.com/mens-college-basketball/team/_/id/<strong>150</strong>/duke
-      </div>
-    </div>
-  );
-}
-
-// ── MAMMAL ENTRY PANEL ────────────────────────────────────────────────────────
-function MammalEntryPanel({ onAnimalsSaved, onRequestGenerateMammalResearch, onRefetchImages, regionNames, onRegionNamesChange, sourcesData, onSaveSources }) {
-  const [roster, setRoster] = useState({ East: Array(16).fill(null).map((_,i) => ({ seed:i+1, name:'', firstFour:false })), West: Array(16).fill(null).map((_,i) => ({ seed:i+1, name:'', firstFour:false })), South: Array(16).fill(null).map((_,i) => ({ seed:i+1, name:'', firstFour:false })), Midwest: Array(16).fill(null).map((_,i) => ({ seed:i+1, name:'', firstFour:false })) });
-  const [activeRegion, setActiveRegion] = useState('East');
-  const [saving, setSaving] = useState(false); const [saved, setSaved] = useState(false);
-  const [applying, setApplying] = useState(false); const [applied, setApplied] = useState(false);
-  const [loading, setLoading] = useState(true);
-  useEffect(() => {
-    (async () => {
-      try {
-        const snap = await getDoc(doc(db, 'admin', 'mammalRoster'));
-        if (snap.exists()) { const d = snap.data(); if (d._regionNames) onRegionNamesChange(d._regionNames); delete d.updatedAt; delete d._regionNames; setRoster(d); }
-      } catch {}
-      setLoading(false);
-    })();
-  }, []);
-  const updateAnimal = (region, idx, field, value) => { setRoster(prev => { const n = JSON.parse(JSON.stringify(prev)); n[region][idx][field] = value; return n; }); setSaved(false); setApplied(false); };
-  if (loading) return <div style={{ color: '#999', padding: 20 }}>Loading...</div>;
-  return (
-    <div style={{ ...S.card, marginBottom: 16, borderColor: 'rgba(134,239,172,0.25)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
-        <div>
-          <h3 style={{ color: '#86efac', marginBottom: 4 }}>Set Up Mammal Madness Animals</h3>
-          <div style={{ marginTop: 10, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-            <span style={{ fontSize: 12, color: '#86efac', fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', flexShrink: 0 }}>Region Names:</span>
-            {['East','West','South','Midwest'].map(r => (
-              <div key={r} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <span style={{ fontSize: 11, color: RC[r], fontWeight: 700 }}>{r}:</span>
-                <input value={regionNames[r]} onChange={e => onRegionNamesChange({ ...regionNames, [r]: e.target.value })} placeholder={r} style={{ ...S.input, width: 120, padding: '4px 8px', fontSize: 12, borderColor: (regionNames[r] || '').length > 15 ? '#f59e0b' : undefined }} />
-                {(regionNames[r] || '').length > 15 && <span style={{ fontSize: 10, color: '#f59e0b' }} title="Long names may wrap in the bracket view.">⚠️</span>}
-              </div>
-            ))}
-          </div>
-        </div>
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          <button style={{ ...S.btn(saved ? '#22c55e' : ACCENT, '#fff'), padding: '8px 20px', fontSize: 13 }} onClick={async () => { setSaving(true); try { await saveMammalRoster({ ...roster, _regionNames: regionNames }); setSaved(true); } catch(e) { alert('Save failed: ' + e.message); } setSaving(false); }} disabled={saving}>{saving ? 'Saving...' : saved ? 'Saved' : 'Save Roster'}</button>
-          <button style={{ ...S.btn(applied ? '#22c55e' : '#f59e0b', '#000'), padding: '8px 20px', fontSize: 13 }} onClick={async () => { setApplying(true); try { const nb = buildInitialBracketFromTeams(roster); await saveMammalOfficialBracket(nb); setApplied(true); onAnimalsSaved(nb, roster); } catch(e) { alert('Apply failed: ' + e.message); } setApplying(false); }} disabled={applying}>{applying ? 'Applying...' : applied ? 'Applied!' : 'Apply to Bracket'}</button>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-              <span style={{ fontSize: 11, color: '#999', alignSelf: 'center', minWidth: 100 }}>Generate Facts:</span>
-              {['East','West','South','Midwest'].map(r => (
-                <button key={r} style={{ ...S.btn('rgba(99,102,241,0.3)', '#a5b4fc'), padding: '6px 14px', fontSize: 12, border: '1px solid rgba(99,102,241,0.5)' }} onClick={() => onRequestGenerateMammalResearch(roster, r)}>{regionNames[r] || r}</button>
-              ))}
-            </div>
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-              <span style={{ fontSize: 11, color: '#999', alignSelf: 'center', minWidth: 100 }}>Re-fetch Images:</span>
-              {['East','West','South','Midwest'].map(r => (
-                <button key={r} style={{ ...S.btn('rgba(20,184,166,0.2)', '#5eead4'), padding: '6px 14px', fontSize: 12, border: '1px solid rgba(20,184,166,0.4)' }} onClick={() => onRefetchImages && onRefetchImages(r)}>{regionNames[r] || r}</button>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-      <div style={{ display: 'flex', gap: 4, marginBottom: 16 }}>
-        {['East','West','South','Midwest'].map(r => (
-          <button key={r} style={{ ...S.navBtn(activeRegion === r), borderBottom: activeRegion === r ? `2px solid ${RC[r]}` : '2px solid transparent', borderRadius: '6px 6px 0 0', padding: '8px 18px' }} onClick={() => setActiveRegion(r)}>
-            <span style={{ color: RC[r], marginRight: 6 }}>●</span>{regionNames[r] || r}
-          </button>
-        ))}
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-        {(roster[activeRegion] || []).map((animal, idx) => (
-          <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.03)', borderRadius: 8, padding: '8px 12px', border: '1px solid rgba(255,255,255,0.07)' }}>
-            <input type="number" min="1" max="16" value={animal.seed} onChange={e => updateAnimal(activeRegion, idx, 'seed', parseInt(e.target.value) || e.target.value)} style={{ ...S.input, width: 48, padding: '6px 6px', fontSize: 13, textAlign: 'center' }} />
-            <input placeholder="Animal name" value={animal.name} onChange={e => updateAnimal(activeRegion, idx, 'name', e.target.value)} style={{ ...S.input, flex: 1, padding: '6px 10px', fontSize: 13 }} />
-            <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', flexShrink: 0 }}>
-              <input type="checkbox" checked={animal.firstFour} onChange={e => updateAnimal(activeRegion, idx, 'firstFour', e.target.checked)} />
-              <span style={{ fontSize: 11, color: animal.firstFour ? '#818cf8' : '#888', fontWeight: animal.firstFour ? 700 : 400 }}>FF</span>
-            </label>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
 }
 
 // ── PRIVACY POLICY ────────────────────────────────────────────────────────────
@@ -494,7 +292,6 @@ export default function App() {
   const [bbActiveRegion,      setBbActiveRegion]      = useState('East');
   const [compareModal,        setCompareModal]        = useState(null);
   const [comparePicking,      setComparePicking]      = useState(false);
-  const [adminSubTab,         setAdminSubTab]         = useState('dashboard');
   const [generating,       setGenerating]      = useState(false);
   const [genProgress,      setGenProgress]     = useState({ done: 0, total: 0, current: '' });
   const [genError,         setGenError]        = useState('');
@@ -517,6 +314,8 @@ export default function App() {
   const [mammalBracket,         setMammalBracket]         = useState(() => buildInitialBracket());
   const [mammalOfficialBracket, setMammalOfficialBracket] = useState(null);
   const [mammalLocked,          setMammalLocked]          = useState(false);
+  const [mammalConfig,          setMammalConfig]          = useState(null);
+  const [bbConfig,              setBbConfig]              = useState(null);
   const [mammalLeaderboard,     setMammalLeaderboard]     = useState([]);
   const [mammalResearchData,    setMammalResearchData]    = useState({});
   const [mammalSelectedAnimal,  setMammalSelectedAnimal]  = useState(null);
@@ -676,6 +475,7 @@ export default function App() {
       setFfPlaceholders(prev => Object.keys(prev).length > 0 ? prev : extractFFPlaceholders(b));
     });
     const u2 = subscribeToConfig(cfg => {
+      setBbConfig(cfg);
       setLocked(cfg.locked ?? false);
       if (cfg.year) { setTournamentYear(cfg.year); setYearDraft(String(cfg.year)); }
       if (cfg.bbRegionNames) setBbRegionNames(cfg.bbRegionNames);
@@ -690,7 +490,7 @@ export default function App() {
       if (isAdmin) setMammalBracket(b);
       setMammalFfPlaceholders(prev => Object.keys(prev).length > 0 ? prev : extractFFPlaceholders(b));
     });
-    const u6 = subscribeToMammalConfig(cfg => setMammalLocked(cfg.locked ?? false));
+    const u6 = subscribeToMammalConfig(cfg => { setMammalConfig(cfg); setMammalLocked(cfg.locked ?? false); });
     const u7 = subscribeToMammalLeaderboard(setMammalLeaderboard);
     const u8 = subscribeToMammalResearchData(data => {
       setMammalResearchData(data);
@@ -1686,179 +1486,45 @@ if (game.winner?.name === clicked.name) {
           )}
 
           {/* ══ ADMIN TAB ══ */}
-          {tab === 'admin' && isAdmin && (
-            <div style={{ padding: 24, maxWidth: 960, margin: '0 auto' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
-                <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#e74c3c', boxShadow: '0 0 6px #e74c3c' }} />
-                <h2 style={{ fontFamily: "'Playfair Display', serif", color: '#e74c3c', margin: 0 }}>Admin Panel</h2>
-              </div>
-              <div style={{ display: 'flex', gap: 4, marginBottom: 24, borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-                {[['dashboard','Dashboard'],['teams','🏀 Basketball'],['mammals','🦁 Mammal Madness'],['users','👥 Users'],['help','Help']].map(([id, label]) => (
-                  <button key={id} style={{ ...S.navBtn(adminSubTab === id), borderBottom: adminSubTab === id ? '2px solid #e74c3c' : '2px solid transparent', borderRadius: '6px 6px 0 0', padding: '8px 18px' }} onClick={() => setAdminSubTab(id)}>{label}</button>
-                ))}
-              </div>
-
-              {adminSubTab === 'dashboard' && (
-                <>
-                  <div style={{ ...S.card, borderColor: 'rgba(22,163,74,0.3)', marginBottom: 16 }}>
-                    <h3 style={{ color: ACCENT2, marginBottom: 8, fontSize: 15 }}>Tournament Year</h3>
-                    <p style={{ color: '#999', fontSize: 13, marginBottom: 12 }}>Updates the year shown on the entry screen and header for all users.</p>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <input type="number" value={yearDraft} onChange={e => setYearDraft(e.target.value)} style={{ ...S.input, width: 110, padding: '8px 12px', fontSize: 16 }} />
-                      <button style={{ ...S.btn(ACCENT, '#fff'), padding: '8px 20px' }} onClick={handleSaveYear} disabled={yearSaving}>{yearSaving ? 'Saving...' : 'Update Year'}</button>
-                      <span style={{ fontSize: 12, color: '#777' }}>Currently: <strong style={{ color: ACCENT2 }}>{tournamentYear}</strong></span>
-                    </div>
-                  </div>
-                  <div style={{ ...S.card, borderColor: 'rgba(22,163,74,0.3)', marginBottom: 16 }}>
-                    <h3 style={{ color: ACCENT2, marginBottom: 8, fontSize: 15 }}>Admin Password</h3>
-                    <p style={{ color: '#999', fontSize: 13, marginBottom: 12 }}>Change the password used to access this admin panel.</p>
-                    <div style={{ display: 'flex', gap: 10 }}>
-                      <input type="password" placeholder="New password" id="new-admin-pw" style={{ ...S.input, flex: 1, padding: '8px 12px' }} />
-                      <button style={{ ...S.btn(ACCENT, '#fff'), padding: '8px 20px', flexShrink: 0 }} onClick={async () => {
-                        const val = document.getElementById('new-admin-pw').value.trim();
-                        if (!val) return;
-                        await setAdminPassword(val);
-                        document.getElementById('new-admin-pw').value = '';
-                        alert('Password updated.');
-                      }}>Update</button>
-                    </div>
-                  </div>
-                  <div style={{ ...S.card, borderColor: 'rgba(231,76,60,0.2)', marginBottom: 16 }}>
-                    <p style={{ color: '#999', fontSize: 14, lineHeight: 1.7, margin: 0 }}>
-                      Use the <strong style={{ color: ACCENT2 }}>Bracket tab</strong> to enter official game results — your picks become the answer key and update all scores live.<br /><br />
-                      Use <strong style={{ color: ACCENT2 }}>Admin → 🏀 Basketball</strong> every March after Selection Sunday to enter teams.
-                    </p>
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 14 }}>
-                    {[['Total Entries', leaderboard.length], ['Avg Score', leaderboard.length ? Math.round(leaderboard.reduce((a,e) => a+(e.score||0),0)/leaderboard.length)+' pts' : '-'], ['Status', locked ? 'Locked' : 'Open']].map(([l,v]) => (
-                      <div key={l} style={{ ...S.card, textAlign: 'center' }}>
-                        <div style={{ fontSize: 26, fontWeight: 700, color: ACCENT2, fontFamily: "'Playfair Display', serif" }}>{v}</div>
-                        <div style={{ fontSize: 11, color: '#777', marginTop: 4 }}>{l}</div>
-                      </div>
-                    ))}
-                  </div>
-                </>
-              )}
-
-              {adminSubTab === 'teams' && (
-                <>
-                  <TeamEntryPanel onTeamsSaved={(nb) => { setBracket(nb); setOfficialBracket(nb); }} onRequestGenerateResearch={handleGenerateResearch} regionNames={bbRegionNames} onRegionNamesChange={handleSaveBbRegionNames} sourcesData={bbSources} onSaveSources={handleSaveBbSources} />
-                  <div style={{ marginTop: 40, borderTop: '1px solid rgba(239,68,68,0.2)', paddingTop: 24 }}>
-                    <div style={{ fontSize: 11, color: '#e74c3c', letterSpacing: 2, textTransform: 'uppercase', fontWeight: 700, marginBottom: 16 }}>⚠️ Danger Zone</div>
-                    <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                      {[
-                        ['Clear Basketball Roster', 'Deletes the team roster and official bracket.', async () => { await Promise.all([deleteDoc(doc(db, 'admin', 'teamRoster')).catch(()=>{}), deleteDoc(doc(db, 'admin', 'officialBracket')).catch(()=>{})]); setOfficialBracket(null); setBracket(buildInitialBracket()); }],
-                        ['Clear Basketball Research', 'Deletes all scouting reports.', async () => { await deleteDoc(doc(db, 'admin', 'researchData')).catch(()=>{}); setResearchData({}); setSelectedTeam(null); }],
-                        ['Clear All User Brackets', 'Resets the leaderboard.', async () => { const [bs, ls] = await Promise.all([getDocs(collection(db, 'brackets')), getDocs(collection(db, 'leaderboard'))]); await Promise.all([...bs.docs.map(d => deleteDoc(d.ref)), ...ls.docs.map(d => deleteDoc(d.ref))]); setLeaderboard([]); }],
-                      ].map(([title, desc, action]) => (
-                        <div key={title} style={{ ...S.card, borderColor: 'rgba(239,68,68,0.25)', flex: 1, minWidth: 200 }}>
-                          <h4 style={{ color: '#f87171', marginBottom: 6 }}>{title}</h4>
-                          <p style={{ color: '#777', fontSize: 12, marginBottom: 12 }}>{desc}</p>
-                          <button style={{ ...S.btn('#7f1d1d', '#fca5a5'), padding: '7px 16px', fontSize: 12, border: '1px solid rgba(239,68,68,0.4)' }} onClick={() => setConfirmDialog({ message: `${title}? This cannot be undone.`, onConfirm: async () => { setConfirmDialog(null); await action(); } })}>{title}</button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </>
-              )}
-
-              {adminSubTab === 'mammals' && (
-                <>
-                  <div style={{ ...S.card, borderColor: 'rgba(134,239,172,0.2)', marginBottom: 16 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <div><h3 style={{ color: '#86efac', marginBottom: 4 }}>Mammal Bracket Lock</h3><p style={{ color: '#999', fontSize: 13, margin: 0 }}>Status: <span style={{ color: mammalLocked ? '#e74c3c' : '#22c55e', fontWeight: 700 }}>{mammalLocked ? 'Locked' : 'Open'}</span></p></div>
-                      <button style={{ ...S.btn(mammalLocked ? '#22c55e' : '#e74c3c', '#fff'), fontSize: 13, padding: '8px 20px' }}
-                        onClick={() => setConfirmDialog({ message: `${mammalLocked ? 'Unlock' : 'Lock'} all Mammal Madness brackets?`, onConfirm: async () => { setConfirmDialog(null); const nl = !mammalLocked; setMammalLocked(nl); await setMammalTournamentLocked(nl); } })}>
-                        {mammalLocked ? 'Unlock' : 'Lock All'}
-                      </button>
-                    </div>
-                  </div>
-                  <MammalEntryPanel onAnimalsSaved={(nb) => { setMammalBracket(nb); setMammalOfficialBracket(nb); }} onRequestGenerateMammalResearch={handleGenerateMammalResearch} onRefetchImages={handleRefetchMammalImages} regionNames={mammalRegionNames} onRegionNamesChange={setMammalRegionNames} sourcesData={mammalSources} onSaveSources={handleSaveMammalSources} />
-                  <div style={{ marginTop: 40, borderTop: '1px solid rgba(239,68,68,0.2)', paddingTop: 24 }}>
-                    <div style={{ fontSize: 11, color: '#e74c3c', letterSpacing: 2, textTransform: 'uppercase', fontWeight: 700, marginBottom: 16 }}>⚠️ Danger Zone</div>
-                    <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                      {[
-                        ['Clear Mammal Roster', 'Deletes the animal roster and bracket.', async () => { await Promise.all([deleteDoc(doc(db, 'admin', 'mammalRoster')).catch(()=>{}), deleteDoc(doc(db, 'admin', 'officialBracket_mammals')).catch(()=>{})]); setMammalOfficialBracket(null); setMammalBracket(buildInitialBracket()); }],
-                        ['Clear Mammal Research', 'Deletes all organism profiles.', async () => { await deleteDoc(doc(db, 'admin', 'researchData_mammals')).catch(()=>{}); setMammalResearchData({}); setMammalSelectedAnimal(null); }],
-                        ['Clear All Mammal Brackets', 'Resets the mammal leaderboard.', async () => { const [bs, ls] = await Promise.all([getDocs(collection(db, 'brackets_mammals')), getDocs(collection(db, 'leaderboard_mammals'))]); await Promise.all([...bs.docs.map(d => deleteDoc(d.ref)), ...ls.docs.map(d => deleteDoc(d.ref))]); setMammalLeaderboard([]); }],
-                      ].map(([title, desc, action]) => (
-                        <div key={title} style={{ ...S.card, borderColor: 'rgba(239,68,68,0.25)', flex: 1, minWidth: 200 }}>
-                          <h4 style={{ color: '#f87171', marginBottom: 6 }}>{title}</h4>
-                          <p style={{ color: '#777', fontSize: 12, marginBottom: 12 }}>{desc}</p>
-                          <button style={{ ...S.btn('#7f1d1d', '#fca5a5'), padding: '7px 16px', fontSize: 12, border: '1px solid rgba(239,68,68,0.4)' }} onClick={() => setConfirmDialog({ message: `${title}? This cannot be undone.`, onConfirm: async () => { setConfirmDialog(null); await action(); } })}>{title}</button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </>
-              )}
-
-              {adminSubTab === 'users' && (
-                <div>
-                  <h3 style={{ color: ACCENT2, marginBottom: 4 }}>User Entries</h3>
-                  <p style={{ color: '#777', fontSize: 13, marginBottom: 20 }}>All users who have submitted a bracket. Removing a user deletes their bracket and score.</p>
-                  {leaderboard.length === 0 ? <div style={{ ...S.card, textAlign: 'center', padding: 40, color: '#666' }}>No users yet</div> : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                      {leaderboard.map(e => (
-                        <div key={e.uid} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: 'rgba(255,255,255,0.03)', borderRadius: 8, border: '1px solid rgba(255,255,255,0.07)' }}>
-                          <Avatar name={e.displayName} size={32} />
-                          <div style={{ flex: 1 }}>
-                            <div style={{ fontSize: 14, color: '#ccc', fontWeight: 500 }}>{e.displayName || 'Anonymous'}</div>
-                            <div style={{ fontSize: 11, color: '#555' }}>Score: {e.score} pts {e.isTeacher ? '· Teacher' : ''}</div>
-                          </div>
-                          <button onClick={() => setConfirmDialog({ message: `Remove ${e.displayName}? This deletes their bracket and score.`, onConfirm: async () => { setConfirmDialog(null); await deleteBracketAndScore(e.uid, false); await deleteBracketAndScore(e.uid, true); } })} style={{ ...S.btn('rgba(239,68,68,0.15)', '#f87171'), padding: '5px 14px', fontSize: 12, border: '1px solid rgba(239,68,68,0.3)', flexShrink: 0 }}>Remove</button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  <div style={{ marginTop: 16 }}>
-                    <h4 style={{ color: '#777', marginBottom: 10, fontSize: 13 }}>Mark a user as Teacher (appears with Teacher badge on leaderboard)</h4>
-                    <div style={{ display: 'flex', gap: 8 }}>
-                      <input id="teacher-name" placeholder="Exact display name" style={{ ...S.input, flex: 1, padding: '8px 12px', fontSize: 13 }} />
-                      <button style={{ ...S.btn('#f59e0b', '#000'), padding: '8px 16px', fontSize: 13, flexShrink: 0 }} onClick={async () => {
-                        const name = document.getElementById('teacher-name').value.trim();
-                        if (!name) return;
-                        const match = leaderboard.find(e => e.displayName?.toLowerCase() === name.toLowerCase());
-                        if (!match) { alert('User not found on leaderboard.'); return; }
-                        await setDoc(doc(db, 'leaderboard', match.uid), { isTeacher: true }, { merge: true });
-                        document.getElementById('teacher-name').value = '';
-                        alert(`${match.displayName} marked as Teacher.`);
-                      }}>Mark as Teacher</button>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {adminSubTab === 'help' && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                  <div style={S.card}>
-                    <h3 style={{ color: ACCENT2, marginBottom: 14 }}>How Admin Access Works</h3>
-                    <p style={{ color: '#888', fontSize: 14, lineHeight: 1.75 }}>
-                      There is no longer a Google login requirement. Anyone can visit the app and enter their name to participate.<br /><br />
-                      Admin access is protected by the password you set in Dashboard → Admin Password. To give someone else admin access, share the password with them — they can click "Admin" in the nav and enter it.<br /><br />
-                      Admin status is stored in the browser. If you clear your browser storage, you'll need to re-enter the password.
-                    </p>
-                  </div>
-                  <div style={{ ...S.card, borderColor: 'rgba(245,158,11,0.25)' }}>
-                    <h3 style={{ color: GOLD2, marginBottom: 14 }}>Marking Teachers</h3>
-                    <p style={{ color: '#888', fontSize: 14, lineHeight: 1.75 }}>
-                      Go to Admin → Users tab. Find the teacher's name on the leaderboard, then use the "Mark as Teacher" field at the bottom. They'll get a Teacher badge on the leaderboard.
-                    </p>
-                  </div>
-                  <div style={{ ...S.card, borderColor: 'rgba(22,163,74,0.2)' }}>
-                    <h3 style={{ color: ACCENT2, marginBottom: 14 }}>New Season Checklist</h3>
-                    <p style={{ color: '#888', fontSize: 14, lineHeight: 1.75 }}>
-                      1. Update the tournament year in Dashboard.<br />
-                      2. Clear Basketball Roster & Research in Admin → 🏀 Basketball → Danger Zone.<br />
-                      3. Clear Mammal Roster & Research in Admin → 🦁 Mammal Madness → Danger Zone.<br />
-                      4. Clear all user brackets in both Danger Zones.<br />
-                      5. Enter new teams and animals, apply to brackets, generate research.<br />
-                      6. Unlock brackets when ready.
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
+          {tab === 'admin' && (isAdmin || isTeacher) && (
+            <AdminPanel
+              config={bbConfig}
+              mammalConfig={mammalConfig}
+              activeTournament={activeTournament}
+              leaderboard={leaderboard}
+              mammalLeaderboard={mammalLeaderboard}
+              tournamentYear={tournamentYear}
+              yearDraft={yearDraft}
+              setYearDraft={setYearDraft}
+              yearSaving={yearSaving}
+              handleSaveYear={handleSaveYear}
+              locked={locked}
+              setLocked={setLocked}
+              mammalLocked={mammalLocked}
+              setMammalLocked={setMammalLocked}
+              bbRegionNames={bbRegionNames}
+              handleSaveBbRegionNames={handleSaveBbRegionNames}
+              mammalRegionNames={mammalRegionNames}
+              setMammalRegionNames={setMammalRegionNames}
+              bbSources={bbSources}
+              handleSaveBbSources={handleSaveBbSources}
+              mammalSources={mammalSources}
+              handleSaveMammalSources={handleSaveMammalSources}
+              handleGenerateResearch={handleGenerateResearch}
+              handleGenerateMammalResearch={handleGenerateMammalResearch}
+              handleRefetchMammalImages={handleRefetchMammalImages}
+              setBracket={setBracket}
+              setOfficialBracket={setOfficialBracket}
+              setMammalBracket={setMammalBracket}
+              setMammalOfficialBracket={setMammalOfficialBracket}
+              setResearchData={setResearchData}
+              setSelectedTeam={setSelectedTeam}
+              setMammalResearchData={setMammalResearchData}
+              setMammalSelectedAnimal={setMammalSelectedAnimal}
+              setLeaderboard={setLeaderboard}
+              setMammalLeaderboard={setMammalLeaderboard}
+              setConfirmDialog={setConfirmDialog}
+            />
           )}
 
         </main>
