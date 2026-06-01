@@ -1,6 +1,4 @@
 // src/firestoreService.js
-// No Google authentication — identity is name-based with localStorage UUID.
-// Admin access is password-based, stored in Firestore.
 
 import {
   doc, getDoc, setDoc, deleteDoc, getDocs,
@@ -9,12 +7,46 @@ import {
 } from 'firebase/firestore';
 import { db } from './firebase';
 
+// ── USERS ─────────────────────────────────────────────────────────────────────
+
+export async function createOrUpdateUser(uid, { email, displayName, school, role }) {
+  const ref  = doc(db, 'users', uid);
+  const snap = await getDoc(ref);
+  if (snap.exists()) {
+    // Never overwrite superAdmin or role — those are server-controlled fields
+    await setDoc(ref, { email, displayName, school, updatedAt: serverTimestamp() }, { merge: true });
+  } else {
+    await setDoc(ref, {
+      email, displayName, school, role,
+      superAdmin: false,
+      createdAt:  serverTimestamp(),
+      updatedAt:  serverTimestamp(),
+    });
+  }
+}
+
+export async function getUser(uid) {
+  const snap = await getDoc(doc(db, 'users', uid));
+  return snap.exists() ? snap.data() : null;
+}
+
+export function subscribeToUser(uid, callback) {
+  return onSnapshot(doc(db, 'users', uid), snap => {
+    callback(snap.exists() ? snap.data() : null);
+  });
+}
+
+export async function updateUserDisplayName(uid, displayName) {
+  await setDoc(doc(db, 'users', uid), { displayName, updatedAt: serverTimestamp() }, { merge: true });
+}
+
 // ── USER BRACKET ──────────────────────────────────────────────────────────────
 
-export async function saveBracket(uid, bracketData, displayName) {
+export async function saveBracket(uid, bracketData, displayName, school = '') {
   await setDoc(doc(db, 'brackets', uid), {
     bracket:     JSON.stringify(bracketData),
     displayName: displayName || 'Anonymous',
+    school,
     updatedAt:   serverTimestamp(),
   }, { merge: true });
 }
@@ -24,17 +56,6 @@ export async function loadBracket(uid) {
   if (!snap.exists()) return null;
   const raw = snap.data().bracket;
   return raw ? JSON.parse(raw) : null;
-}
-
-// Find a bracket by display name (for returning users on new devices)
-export async function findBracketByName(displayName) {
-  if (!displayName?.trim()) return null;
-  const snap = await getDocs(collection(db, 'brackets'));
-  const name = displayName.trim().toLowerCase();
-  const match = snap.docs.find(d => (d.data().displayName || '').toLowerCase() === name);
-  if (!match) return null;
-  const raw = match.data().bracket;
-  return { uid: match.id, bracket: raw ? JSON.parse(raw) : null };
 }
 
 // ── OFFICIAL RESULTS BRACKET ──────────────────────────────────────────────────
@@ -67,11 +88,13 @@ export async function setTournamentLocked(locked) {
 
 // ── LEADERBOARD ───────────────────────────────────────────────────────────────
 
-export async function updateLeaderboardEntry(uid, displayName, score, isTeacher = false) {
+export async function updateLeaderboardEntry(uid, displayName, score, isTeacher = false, school = '') {
   await setDoc(doc(db, 'leaderboard', uid), {
+    uid,
     displayName: displayName || 'Anonymous',
     score,
     isTeacher:   !!isTeacher,
+    school,
     updatedAt:   serverTimestamp(),
   }, { merge: true });
 }
@@ -149,10 +172,11 @@ export function subscribeToResearchData(callback) {
 
 // ── MAMMAL TOURNAMENT ─────────────────────────────────────────────────────────
 
-export async function saveMammalBracket(uid, bracketData, displayName) {
+export async function saveMammalBracket(uid, bracketData, displayName, school = '') {
   await setDoc(doc(db, 'brackets_mammals', uid), {
     bracket:     JSON.stringify(bracketData),
     displayName: displayName || 'Anonymous',
+    school,
     updatedAt:   serverTimestamp(),
   }, { merge: true });
 }
@@ -187,13 +211,35 @@ export async function setMammalTournamentLocked(locked) {
   await setDoc(doc(db, 'tournament', 'config_mammals'), { locked, updatedAt: serverTimestamp() }, { merge: true });
 }
 
-export async function updateMammalLeaderboardEntry(uid, displayName, score, isTeacher = false) {
+export async function updateMammalLeaderboardEntry(uid, displayName, score, isTeacher = false, school = '') {
   await setDoc(doc(db, 'leaderboard_mammals', uid), {
+    uid,
     displayName: displayName || 'Anonymous',
     score,
     isTeacher:   !!isTeacher,
+    school,
     updatedAt:   serverTimestamp(),
   }, { merge: true });
+}
+
+// ── SCHOOL LOCKS & DEADLINE ───────────────────────────────────────────────────
+
+export async function setSchoolLocked(school, locked) {
+  await setDoc(doc(db, 'tournament', 'config'),
+    { [`school_locks.${school}`]: locked, updatedAt: serverTimestamp() },
+    { merge: true });
+}
+
+export async function setMammalSchoolLocked(school, locked) {
+  await setDoc(doc(db, 'tournament', 'config_mammals'),
+    { [`school_locks.${school}`]: locked, updatedAt: serverTimestamp() },
+    { merge: true });
+}
+
+export async function setDeadline(isoString) {
+  await setDoc(doc(db, 'tournament', 'config'),
+    { deadline: isoString, updatedAt: serverTimestamp() },
+    { merge: true });
 }
 
 export function subscribeToMammalLeaderboard(callback, n = 200) {

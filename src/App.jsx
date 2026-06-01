@@ -2,9 +2,9 @@
 import { useState, useEffect, useCallback, useRef, useMemo, memo } from 'react';
 import { Component } from 'react';
 import { doc, setDoc, getDoc, deleteDoc, getDocs, collection, serverTimestamp } from 'firebase/firestore';
-import { db } from './firebase';
+import { db, auth } from './firebase';
 import {
-  saveBracket, loadBracket, findBracketByName,
+  saveBracket, loadBracket,
   saveOfficialBracket, subscribeToOfficialBracket,
   subscribeToConfig, setTournamentLocked,
   subscribeToLeaderboard, updateLeaderboardEntry,
@@ -20,6 +20,9 @@ import {
 import {
   buildInitialBracket, buildInitialBracketFromTeams, calcScore,
 } from './bracketData';
+import { useAuth }      from './auth/AuthContext';
+import { GoogleSignIn } from './auth/GoogleSignIn';
+import { Onboarding }  from './auth/Onboarding';
 
 // ── THEME ─────────────────────────────────────────────────────────────────────
 const ACCENT  = '#16a34a';
@@ -892,25 +895,13 @@ Return ONLY valid JSON:
 
 // ── MAIN APP ──────────────────────────────────────────────────────────────────
 export default function App() {
-  // ── USER IDENTITY (no login) ──────────────────────────────────────────────
-  const [uid,          setUid]          = useState(null);
-  const [displayName,  setDisplayName]  = useState('');
-  const [nameInput,      setNameInput]      = useState('');
-  const [studentIdInput, setStudentIdInput] = useState('');
-  const [nameLoading,    setNameLoading]    = useState(false);
-  const [nameError,      setNameError]      = useState('');
-  const [nameStep, setNameStep] = useState('username'); // 'username' | 'new-name'
-  const [isTeacher,    setIsTeacher]    = useState(false);
-
-  // ── ADMIN ─────────────────────────────────────────────────────────────────
-  const [isAdmin,       setIsAdmin]      = useState(false);
-  const [adminPwInput,  setAdminPwInput] = useState('');
-  const [adminPwError,  setAdminPwError] = useState('');
-  const [adminPwLoading,setAdminPwLoading] = useState(false);
-  const [showAdminLogin,setShowAdminLogin] = useState(false);
-  const [setupMode,     setSetupMode]    = useState(false);
-  const [newAdminPw,    setNewAdminPw]   = useState('');
-  const [newAdminPw2,   setNewAdminPw2]  = useState('');
+  // ── AUTH ──────────────────────────────────────────────────────────────────
+  const {
+    firebaseUser, loading: authLoading, isLoggedIn, needsOnboarding,
+    displayName, school, superAdmin, isTeacher,
+  } = useAuth();
+  const uid     = firebaseUser?.uid ?? null;
+  const isAdmin = superAdmin;
 
   // ── APP STATE ─────────────────────────────────────────────────────────────
   const [tab,              setTab]             = useState('bracket');
@@ -1161,9 +1152,9 @@ export default function App() {
     saveTimer.current = setTimeout(async () => {
       setSaving(true);
       try {
-        await saveBracket(uid, { ...bracket, _firstFourPicks: firstFourPicks }, displayName);
+        await saveBracket(uid, { ...bracket, _firstFourPicks: firstFourPicks }, displayName, school);
         const hasPicks = ['East','West','South','Midwest'].some(r => bracket[r]?.rounds?.[0]?.some(g => g.winner));
-        if (hasPicks) await updateLeaderboardEntry(uid, displayName, score, isTeacher);
+        if (hasPicks) await updateLeaderboardEntry(uid, displayName, score, isTeacher, school);
         setLastSaved(new Date());
       } catch (e) { console.warn('Save failed:', e); }
       setSaving(false);
@@ -1180,9 +1171,9 @@ export default function App() {
     clearTimeout(mammalSaveTimer.current);
     mammalSaveTimer.current = setTimeout(async () => {
       try {
-        await saveMammalBracket(uid, { ...mammalBracket, _firstFourPicks: mammalFirstFourPicks }, displayName);
+        await saveMammalBracket(uid, { ...mammalBracket, _firstFourPicks: mammalFirstFourPicks }, displayName, school);
         const hasPicks = ['East','West','South','Midwest'].some(r => mammalBracket[r]?.rounds?.[0]?.some(g => g.winner));
-        if (hasPicks) await updateMammalLeaderboardEntry(uid, displayName, mammalScore, isTeacher);
+        if (hasPicks) await updateMammalLeaderboardEntry(uid, displayName, mammalScore, isTeacher, school);
         setMammalLastSaved(new Date());
       } catch (e) { console.warn('Mammal save failed:', e); }
     }, 3000);
@@ -1293,14 +1284,9 @@ const handleOpenAdmin = async () => {
 };
 
 const handleSignOut = () => {
-  localStorage.removeItem('mm_uid');
-  localStorage.removeItem('mm_name');
-  localStorage.removeItem('mm_teacher');
-  localStorage.removeItem('mm_admin');
-  setUid(null); setDisplayName(''); setIsAdmin(false); setIsTeacher(false);
+  import('firebase/auth').then(({ signOut: fbSignOut }) => fbSignOut(auth));
   setBracket(buildInitialBracket()); setMammalBracket(buildInitialBracket());
   setFirstFourPicks({}); setMammalFirstFourPicks({});
-  setStudentIdInput(''); setNameInput(''); setNameStep('username');
   setTab('bracket');
 };
 
@@ -1912,35 +1898,27 @@ if (game.winner?.name === clicked.name) {
   if (legalPage === 'privacy') return <PrivacyPolicyPage onBack={() => setLegalPage(null)} />;
   if (legalPage === 'terms')   return <TermsOfServicePage onBack={() => setLegalPage(null)} />;
 
-  // ── ADMIN PASSWORD MODAL ──────────────────────────────────────────────────
-  if (showAdminLogin) return (
+  // ── AUTH GATE ─────────────────────────────────────────────────────────────
+  if (authLoading) return (
     <div style={{ ...S.app, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
-      <div style={{ ...S.card, maxWidth: 380, width: '100%', padding: '36px 40px', textAlign: 'center' }}>
-        <div style={{ fontSize: 32, marginBottom: 12 }}>🔐</div>
-        <h2 style={{ fontFamily: "'Playfair Display', serif", color: '#e74c3c', marginBottom: 6 }}>{setupMode ? 'Set Admin Password' : 'Admin Access'}</h2>
-        {setupMode ? (
-          <>
-            <p style={{ color: '#888', fontSize: 13, marginBottom: 20, lineHeight: 1.6 }}>No admin password exists yet. Create one now — you'll use this to access the admin panel.</p>
-            <input type="password" placeholder="New password" value={newAdminPw} onChange={e => setNewAdminPw(e.target.value)} style={{ ...S.input, marginBottom: 10 }} />
-            <input type="password" placeholder="Confirm password" value={newAdminPw2} onChange={e => setNewAdminPw2(e.target.value)} style={{ ...S.input, marginBottom: 16 }} onKeyDown={e => e.key === 'Enter' && handleAdminSetup()} />
-          </>
-        ) : (
-          <>
-            <p style={{ color: '#888', fontSize: 13, marginBottom: 20 }}>Enter the admin password to continue.</p>
-            <input type="password" placeholder="Admin password" value={adminPwInput} onChange={e => setAdminPwInput(e.target.value)} style={{ ...S.input, marginBottom: 16 }} onKeyDown={e => e.key === 'Enter' && handleAdminLogin()} autoFocus />
-          </>
-        )}
-        {adminPwError && <div style={{ color: '#f87171', fontSize: 13, marginBottom: 12 }}>{adminPwError}</div>}
-        <div style={{ display: 'flex', gap: 10 }}>
-          <button style={{ ...S.btn('rgba(255,255,255,0.07)', '#888'), flex: 1 }} onClick={() => { setShowAdminLogin(false); setAdminPwInput(''); setNewAdminPw(''); setNewAdminPw2(''); setAdminPwError(''); }}>Cancel</button>
-          <button style={{ ...S.btn('#e74c3c'), flex: 1 }} onClick={setupMode ? handleAdminSetup : handleAdminLogin} disabled={adminPwLoading}>{adminPwLoading ? '...' : setupMode ? 'Set Password' : 'Enter'}</button>
-        </div>
-      </div>
+      <span style={{ color: '#666', fontSize: 16, fontStyle: 'italic' }}>Loading…</span>
     </div>
   );
 
+  if (!isLoggedIn) return (
+    <div style={{ ...S.app, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 32, minHeight: '100vh' }}>
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ fontSize: 72, marginBottom: 12 }}>🏀</div>
+        <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 40, color: ACCENT2, letterSpacing: 2, lineHeight: 1.1 }}>BRACKET CHALLENGE</h1>
+        <p style={{ color: '#777', fontSize: 15, marginTop: 8 }}>Rochester Community Schools</p>
+      </div>
+      <GoogleSignIn />
+    </div>
+  );
 
-  // ── NAME ENTRY SCREEN ─────────────────────────────────────────────────────
+  if (needsOnboarding) return <Onboarding />;
+
+  // ── OLD NAME ENTRY (replaced) — kept as dead code gate for safety ─────────
   if (!uid) return (
     <>
       <div style={{ ...S.app, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 36, minHeight: '100vh' }}>
