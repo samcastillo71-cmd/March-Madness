@@ -1,0 +1,27 @@
+:root {
+  --paper:    #E4E0D6;
+  --paper-lt: #ECEAE3;
+  --paper-wt: #F0EDE5;
+  --ink:      #1A1714;
+  --ink-mid:  #3D3830;
+  --ink-low:  #7A7268;
+  --rule:     #C8C2B4;
+
+  --bb-banner: #0D1B33;
+  --bb-accent: #2563EB;
+  --bb-win:    #2A7A4F;
+
+  --east:    #1D6AE5;
+  --west:    #C8302A;
+  --south:   #1A7A45;
+  --midwest: #C87A00;
+
+  --mm-banner: #1E3022;
+  --mm-accent: #5A8A3C;
+  --mm-win:    #5A8A3C;
+
+  --div-predators:  #8B5E3C;
+  --div-herbivores: #6B8B3C;
+  --div-ocean:      #2A6B8B;
+  --div-nocturnal:  #5C3A8B;
+}

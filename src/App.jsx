@@ -1,10 +1,10 @@
-// src/App.jsx
 import { useState, useEffect, useCallback, useRef, useMemo, memo } from 'react';
 import { Component } from 'react';
+import { signOut } from 'firebase/auth';
 import { doc, setDoc, getDoc, deleteDoc, getDocs, collection, serverTimestamp } from 'firebase/firestore';
-import { db } from './firebase';
+import { db, auth } from './firebase';
 import {
-  saveBracket, loadBracket, findBracketByName,
+  saveBracket, loadBracket,
   saveOfficialBracket, subscribeToOfficialBracket,
   subscribeToConfig, setTournamentLocked,
   subscribeToLeaderboard, updateLeaderboardEntry,
@@ -17,6 +17,21 @@ import {
   saveMammalRoster, checkAdminPassword, adminExists, setAdminPassword,
   deleteBracketAndScore, getAllBracketUids,
 } from './firestoreService';
+import { useAuth }      from './auth/AuthContext';
+import { GoogleSignIn } from './auth/GoogleSignIn';
+import { Onboarding }   from './auth/Onboarding';
+import { Avatar }           from './components/Avatar';
+import { TeamLogo }         from './components/TeamLogo';
+import { OfflineBar }       from './components/OfflineBar';
+import { ConfirmDialog }    from './components/ConfirmDialog';
+import { EditableField }    from './components/EditableField';
+import { GameSlot }         from './components/GameSlot';
+import { ResearchCard }     from './components/ResearchCard';
+import { MammalResearchCard } from './components/MammalResearchCard';
+import { CompareModal }     from './components/CompareModal';
+import { ViewBracketModal } from './components/ViewBracketModal';
+import { Leaderboard }      from './components/Leaderboard';
+import { AdminPanel }       from './admin/AdminPanel';
 import {
   buildInitialBracket, buildInitialBracketFromTeams, calcScore,
 } from './bracketData';
@@ -48,12 +63,6 @@ const S = {
 };
 
 // ── HELPERS ───────────────────────────────────────────────────────────────────
-function generateUUID() {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
-    const r = Math.random() * 16 | 0;
-    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
-  });
-}
 
 function formatName(displayName) {
   if (!displayName) return 'Anonymous';
@@ -68,16 +77,6 @@ function nameToColor(name) {
   let hash = 0;
   for (let i = 0; i < (name || '').length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
   return colors[Math.abs(hash) % colors.length];
-}
-
-function Avatar({ name, size = 28 }) {
-  const initials = (name || '?').trim().split(/\s+/).map(w => w[0]).slice(0, 2).join('').toUpperCase();
-  const color = nameToColor(name);
-  return (
-    <div style={{ width: size, height: size, borderRadius: '50%', background: color, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: size * 0.38, fontWeight: 800, color: '#fff', flexShrink: 0, border: '2px solid rgba(255,255,255,0.15)' }}>
-      {initials}
-    </div>
-  );
 }
 
 const labelFontSize = (name) => {
@@ -96,6 +95,8 @@ function applyField(card, path, val) {
   return out;
 }
 
+// ── HELPERS (not components) ──────────────────────────────────────────────────
+
 // ── ERROR BOUNDARY ────────────────────────────────────────────────────────────
 class ErrorBoundary extends Component {
   constructor(props) { super(props); this.state = { error: null }; }
@@ -113,434 +114,6 @@ class ErrorBoundary extends Component {
     );
     return this.props.children;
   }
-}
-
-// ── OFFLINE INDICATOR ─────────────────────────────────────────────────────────
-function OfflineBar() {
-  const [offline, setOffline] = useState(!navigator.onLine);
-  useEffect(() => {
-    const on = () => setOffline(false), off = () => setOffline(true);
-    window.addEventListener('online', on); window.addEventListener('offline', off);
-    return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off); };
-  }, []);
-  if (!offline) return null;
-  return <div style={{ background: '#7f1d1d', color: '#fca5a5', padding: '6px 16px', fontSize: 12, textAlign: 'center', fontWeight: 600 }}>You are offline — picks will save when you reconnect</div>;
-}
-
-// ── TEAM LOGO ─────────────────────────────────────────────────────────────────
-const TeamLogo = memo(function TeamLogo({ espnId, name, size = 22 }) {
-  const [err, setErr] = useState(false);
-  if (!espnId || err) return (
-    <span style={{ width: size, height: size, borderRadius: '50%', background: 'linear-gradient(135deg,#14532d,#166534)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: size * 0.42, fontWeight: 800, color: '#fff', flexShrink: 0, border: '1px solid rgba(255,255,255,0.15)' }}>
-      {name?.charAt(0) || '?'}
-    </span>
-  );
-  return <img src={`https://a.espncdn.com/i/teamlogos/ncaa/500/${espnId}.png`} alt={name} width={size} height={size} style={{ borderRadius: '50%', objectFit: 'contain', flexShrink: 0, background: '#fff' }} onError={() => setErr(true)} />;
-});
-
-// ── CONFIRM DIALOG ────────────────────────────────────────────────────────────
-function ConfirmDialog({ message, onConfirm, onCancel }) {
-  return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ ...S.card, maxWidth: 360, textAlign: 'center', padding: 32 }}>
-        <div style={{ fontSize: 24, marginBottom: 12 }}>⚠️</div>
-        <div style={{ fontSize: 15, color: '#ccc', marginBottom: 24, lineHeight: 1.6 }}>{message}</div>
-        <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
-          <button style={S.btn('#e74c3c')} onClick={onConfirm}>Confirm</button>
-          <button style={S.btn('rgba(255,255,255,0.1)', '#aaa')} onClick={onCancel}>Cancel</button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── GAME SLOT ─────────────────────────────────────────────────────────────────
-const scoreInput = { width: 60, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 4, color: '#fff', padding: '2px 6px', fontSize: 11, fontFamily: 'inherit' };
-
-function findLiveScore(liveScores, teamName) {
-  if (!teamName || !liveScores) return null;
-  const norm = s => s.toLowerCase().replace(/[^a-z0-9]/g, '');
-  const target = norm(teamName);
-  const exact = Object.entries(liveScores).find(([k]) => norm(k) === target);
-  if (exact) return exact[1];
-  const sub = Object.entries(liveScores).find(([k]) => { const nk = norm(k); return nk.includes(target) || target.includes(nk); });
-  return sub ? sub[1] : null;
-}
-
-const GameSlot = memo(function GameSlot({ game, onPick, locked, isChampionship, onScoreChange, flipped, roundIdx = 0, liveScores = {}, isHorizontal = false, onCompare }) {
-  if (!game) return null;
-  const { top, bottom, winner } = game;
-  const slotBg     = isChampionship ? 'rgba(245,158,11,0.08)' : ROUND_COLORS[roundIdx] || ROUND_COLORS[0];
-  const slotBorder = isChampionship ? 'rgba(245,158,11,0.4)'  : ROUND_BORDER_COLORS[roundIdx] || ROUND_BORDER_COLORS[0];
-  const topLive    = findLiveScore(liveScores, top?.name);
-  const bottomLive = findLiveScore(liveScores, bottom?.name);
-  const hasLive    = topLive && bottomLive;
-  const isLiveGame = hasLive && topLive.state === 'in';
-  const isFinal    = hasLive && topLive.state === 'post';
-
-  const Team = ({ team, side }) => {
-    if (!team) return (
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '3px 8px', height: 36, color: '#888', fontSize: 11, fontStyle: 'italic', flexDirection: flipped ? 'row-reverse' : 'row' }}>
-        <div style={{ width: 20, height: 20, borderRadius: '50%', background: '#111', flexShrink: 0 }} />TBD
-      </div>
-    );
-    const isW  = winner?.name === team.name;
-    const isL  = winner && !isW;
-    const isFF = team.isFFPlaceholder;
-    const live = side === 'top' ? topLive : bottomLive;
-    const isLiveWinning = hasLive && live && live.score > (side === 'top' ? bottomLive?.score : topLive?.score);
-    if (isHorizontal) return (
-      <div onClick={() => !locked && !isFF && onPick?.(side)}
-        style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, padding: '10px 14px', background: isW ? 'linear-gradient(180deg,rgba(22,163,74,.3),rgba(22,163,74,.08))' : 'rgba(0,0,0,0.25)', cursor: locked || isFF ? 'default' : 'pointer', borderRadius: 6, opacity: isL ? 0.3 : 1, transition: 'background .12s', minWidth: 100, border: isW ? '1px solid rgba(22,163,74,0.4)' : '1px solid rgba(255,255,255,0.06)' }}>
-        <TeamLogo espnId={team.espnId} name={team.name} size={36} />
-        <span style={{ fontSize: 10, color: isW ? ACCENT2 : '#666', fontWeight: 700 }}>{team.seed}</span>
-        <span style={{ fontSize: 14, fontWeight: isW ? 700 : 500, color: isW ? ACCENT2 : isL ? '#3a3a3a' : '#d0d0d0', textAlign: 'center', maxWidth: 120, lineHeight: 1.2 }}>{isFF ? 'TBD' : team.name}</span>
-        {hasLive && live && <span style={{ fontSize: 18, fontWeight: 800, color: isFinal && live.winner ? ACCENT2 : isLiveGame && isLiveWinning ? '#facc15' : '#888' }}>{live.score}</span>}
-        {isW && <span style={{ color: ACCENT2, fontSize: 13 }}>✓</span>}
-      </div>
-    );
-    return (
-      <div onClick={() => !locked && !isFF && onPick?.(side)}
-        style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '3px 8px', height: 36, boxSizing: 'border-box', flexDirection: flipped ? 'row-reverse' : 'row', background: isW ? 'linear-gradient(90deg,rgba(22,163,74,.3),rgba(22,163,74,.08))' : 'rgba(0,0,0,0.25)', cursor: locked || isFF ? 'default' : 'pointer', borderRadius: 4, opacity: isL ? 0.3 : 1, transition: 'background .12s' }}>
-        <TeamLogo espnId={team.espnId} name={team.name} size={20} />
-        <span style={{ fontSize: 10, color: isW ? ACCENT2 : '#666', fontWeight: 700, minWidth: 14, textDecoration: isL ? 'line-through' : 'none' }}>{team.seed}</span>
-        <span style={{ fontSize: team.name?.length > 18 ? 11 : team.name?.length > 13 ? 13 : 14, fontWeight: isW ? 700 : 500, color: isW ? ACCENT2 : isL ? '#3a3a3a' : '#d0d0d0', textDecoration: isL ? 'line-through' : 'none', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: hasLive ? 80 : 140, flex: 1 }}>
-          {isFF ? 'First Four Winner' : team.name}
-        </span>
-        {hasLive && live && <span style={{ fontSize: 13, fontWeight: 800, color: isFinal && live.winner ? ACCENT2 : isLiveGame && isLiveWinning ? '#facc15' : '#888', minWidth: 24, textAlign: 'right', flexShrink: 0 }}>{live.score}</span>}
-        {isW && !hasLive && <span style={{ marginLeft: flipped ? 0 : 'auto', marginRight: flipped ? 'auto' : 0, color: ACCENT2, fontSize: 11 }}>✓</span>}
-      </div>
-    );
-  };
-
-  if (isHorizontal) return (
-    <div style={{ border: `2px solid ${slotBorder}`, borderRadius: 10, overflow: 'hidden', background: slotBg }}>
-      <div style={{ display: 'flex', alignItems: 'center' }}>
-        <Team team={top} side="top" />
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '0 10px', gap: 4 }}>
-          {isLiveGame && <><span style={{ width: 6, height: 6, borderRadius: '50%', background: '#ef4444', display: 'inline-block' }} /><span style={{ fontSize: 10, color: '#f87171', fontWeight: 700 }}>LIVE</span></>}
-          {isFinal && <span style={{ fontSize: 10, color: '#777', fontWeight: 700 }}>FINAL</span>}
-          <span style={{ fontSize: 18, fontWeight: 900, color: '#888' }}>VS</span>
-          {isChampionship && (
-            <div style={{ display: 'flex', gap: 4, marginTop: 4 }}>
-              <input placeholder="–" value={game.scoreTop || ''} onChange={e => onScoreChange?.('scoreTop', e.target.value)} style={{ ...scoreInput, width: 44, textAlign: 'center' }} />
-              <span style={{ color: '#777', fontSize: 13, alignSelf: 'center' }}>-</span>
-              <input placeholder="–" value={game.scoreBottom || ''} onChange={e => onScoreChange?.('scoreBottom', e.target.value)} style={{ ...scoreInput, width: 44, textAlign: 'center' }} />
-            </div>
-          )}
-        </div>
-        <Team team={bottom} side="bottom" />
-      </div>
-      {onCompare && top && bottom && !top.isFFPlaceholder && !bottom.isFFPlaceholder && (
-        <div onClick={() => onCompare(top, bottom)} style={{ textAlign: 'center', padding: '3px 8px', background: 'rgba(255,255,255,0.03)', borderTop: '1px solid rgba(255,255,255,0.06)', cursor: 'pointer', fontSize: 10, color: '#666', letterSpacing: 0.5, userSelect: 'none' }}>
-          Compare
-        </div>
-      )}
-    </div>
-  );
-
-  return (
-    <div style={{ border: `1px solid ${slotBorder}`, borderRadius: 6, overflow: 'hidden', background: slotBg, minWidth: 178 }}>
-      <Team team={top} side="top" />
-      <div style={{ height: 1, background: 'rgba(255,255,255,0.15)' }} />
-      <Team team={bottom} side="bottom" />
-      {isLiveGame && <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, padding: '2px 8px', background: 'rgba(239,68,68,0.12)', borderTop: '1px solid rgba(239,68,68,0.2)' }}><span style={{ width: 6, height: 6, borderRadius: '50%', background: '#ef4444', display: 'inline-block', animation: 'livePulse 1.2s ease-in-out infinite' }} /><span style={{ fontSize: 10, color: '#f87171', fontWeight: 700 }}>LIVE</span></div>}
-      {isFinal && <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2px 8px', background: 'rgba(255,255,255,0.04)', borderTop: '1px solid rgba(255,255,255,0.06)' }}><span style={{ fontSize: 10, color: '#777', fontWeight: 700 }}>FINAL</span></div>}
-      {isChampionship && (
-        <div style={{ display: 'flex', gap: 4, padding: '4px 8px', borderTop: '1px solid rgba(245,158,11,0.2)' }}>
-          <input placeholder="Score 1" value={game.scoreTop || ''} onChange={e => onScoreChange?.('scoreTop', e.target.value)} style={scoreInput} />
-          <span style={{ color: '#777', fontSize: 11, alignSelf: 'center' }}>-</span>
-          <input placeholder="Score 2" value={game.scoreBottom || ''} onChange={e => onScoreChange?.('scoreBottom', e.target.value)} style={scoreInput} />
-        </div>
-      )}
-      {onCompare && top && bottom && !top.isFFPlaceholder && !bottom.isFFPlaceholder && (
-        <div onClick={() => onCompare(top, bottom)} style={{ textAlign: 'center', padding: '3px 8px', background: 'rgba(255,255,255,0.03)', borderTop: '1px solid rgba(255,255,255,0.06)', cursor: 'pointer', fontSize: 10, color: '#666', letterSpacing: 0.5, userSelect: 'none' }}>
-          Compare
-        </div>
-      )}
-    </div>
-  );
-});
-
-// ── EDITABLE FIELD ────────────────────────────────────────────────────────────
-function EditableField({ value, onSave, color = '#ccc', large = false, multiline = false, label = '' }) {
-  const [editing, setEditing] = useState(false);
-  const [draft,   setDraft]   = useState(value);
-  const [saving,  setSavingF] = useState(false);
-  const commit = async () => { setSavingF(true); await onSave(draft); setSavingF(false); setEditing(false); };
-  if (!editing) return (
-    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6, cursor: 'pointer' }} onClick={() => { setDraft(value); setEditing(true); }}>
-      <span style={{ color, fontSize: large ? 38 : 13, fontWeight: large ? 700 : 400, lineHeight: 1.5, flex: 1 }}>{value || '-'}</span>
-      <span style={{ fontSize: 10, color: '#888', marginTop: large ? 6 : 2, flexShrink: 0 }}>edit</span>
-    </div>
-  );
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      {multiline
-        ? <textarea value={draft} onChange={e => setDraft(e.target.value)} autoFocus rows={3} style={{ ...S.input, resize: 'vertical', fontSize: 13, padding: '8px 12px' }} />
-        : <input value={draft} onChange={e => setDraft(e.target.value)} autoFocus style={{ ...S.input, fontSize: large ? 18 : 13, padding: '6px 12px' }} onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') setEditing(false); }} />}
-      <div style={{ display: 'flex', gap: 6 }}>
-        <button style={{ ...S.btn('#22c55e', '#fff'), padding: '5px 14px', fontSize: 12 }} onClick={commit} disabled={saving}>{saving ? '...' : 'Save'}</button>
-        <button style={{ ...S.btn('rgba(255,255,255,0.07)', '#888'), padding: '5px 14px', fontSize: 12 }} onClick={() => setEditing(false)}>Cancel</button>
-      </div>
-    </div>
-  );
-}
-
-// ── RESEARCH CARD ─────────────────────────────────────────────────────────────
-function ResearchCard({ teamName, card, isAdmin, onFieldSave }) {
-  const [bannerErr, setBannerErr] = useState(false);
-  if (!card) return <div style={{ ...S.card, display: 'flex', alignItems: 'center', justifyContent: 'center', height: 200, color: '#888' }}>No data yet</div>;
-  const espnId = card.espnId || '';
-  const bannerUrl = espnId ? `https://a.espncdn.com/combiner/i?img=/i/teamlogos/ncaa/500/${espnId}.png&w=900&h=225&scale=crop&location=origin&transparent=false&background=0x1a3a2a` : '';
-  const field = (path, value, opts = {}) => isAdmin
-    ? <EditableField value={value} onSave={v => onFieldSave(teamName, path, v)} label={path} {...opts} />
-    : <span style={{ color: opts.color || '#ccc', fontSize: opts.large ? 38 : 13 }}>{value || '-'}</span>;
-  return (
-    <div style={{ marginBottom: 28 }}>
-      <div style={{ position: 'relative', height: 140, borderRadius: '12px 12px 0 0', overflow: 'hidden', background: 'linear-gradient(135deg,#0d2818,#1a3a2a)' }}>
-        {bannerUrl && !bannerErr && <img src={bannerUrl} alt={teamName} onError={() => setBannerErr(true)} style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.4 }} />}
-        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg,rgba(0,0,0,0.7) 0%,rgba(0,0,0,0.2) 100%)' }} />
-        <div style={{ position: 'absolute', bottom: 16, left: 20 }}>
-          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 2 }}>{card.conference || ''}</div>
-          <h2 style={{ fontFamily: "'Playfair Display', serif", color: '#fff', margin: 0, fontSize: 24, textShadow: '0 2px 8px rgba(0,0,0,0.8)' }}>{teamName}</h2>
-        </div>
-        {card.record && <div style={{ position: 'absolute', top: 16, right: 16, background: 'rgba(0,0,0,0.6)', borderRadius: 8, padding: '6px 12px', backdropFilter: 'blur(8px)' }}><div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', letterSpacing: 1 }}>RECORD</div><div style={{ fontSize: 18, fontWeight: 700, color: ACCENT2 }}>{card.record}</div></div>}
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 16 }}>
-        <div style={S.card}>
-          <h3 style={{ color: ACCENT2, marginBottom: 14, fontFamily: "'Playfair Display', serif" }}>Team Stats</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-            {[['Rank','rank'],['Coach','coach'],['Conference','conference'],['KenPom','kenpom'],['Offense','offense'],['Defense','defense'],['Pace','pace']].map(([label, key]) => (
-              <div key={key} style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 6, padding: '8px 12px' }}>
-                <div style={S.tag('#555')}>{label}</div>
-                {field(key, card[key], { label })}
-              </div>
-            ))}
-          </div>
-        </div>
-        <div style={S.card}>
-          <h3 style={{ color: ACCENT2, marginBottom: 12 }}>Key Players</h3>
-          {(card.keyPlayers || []).map((p, i) => (
-            <div key={i} style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 6, padding: '10px 12px', marginBottom: 8 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                {isAdmin ? <EditableField value={p.name} label="name" onSave={v => onFieldSave(teamName, `keyPlayers.${i}.name`, v)} /> : <span style={{ fontWeight: 700 }}>{p.name}</span>}
-                {isAdmin ? <EditableField value={p.pos} label="pos" onSave={v => onFieldSave(teamName, `keyPlayers.${i}.pos`, v)} /> : <span style={{ color: '#999', fontSize: 12 }}>{p.pos}</span>}
-              </div>
-              {isAdmin ? <EditableField value={p.stats} label="stats" onSave={v => onFieldSave(teamName, `keyPlayers.${i}.stats`, v)} /> : <div style={{ fontSize: 13, color: '#999', margin: '3px 0' }}>{p.stats}</div>}
-              {isAdmin ? <EditableField value={p.note} label="note" onSave={v => onFieldSave(teamName, `keyPlayers.${i}.note`, v)} color={ACCENT2} /> : <div style={{ fontSize: 12, color: ACCENT2, fontStyle: 'italic' }}>{p.note}</div>}
-            </div>
-          ))}
-          <div style={{ padding: '10px 12px', background: 'rgba(231,76,60,0.07)', borderRadius: 6, border: '1px solid rgba(231,76,60,0.2)', marginTop: 8 }}>
-            <div style={S.tag('#e74c3c')}>Injury Report</div>
-            {field('injuries', card.injuries, { multiline: true, label: 'injuries' })}
-          </div>
-        </div>
-        <div style={S.card}>
-          <h3 style={{ color: ACCENT2, marginBottom: 12 }}>Scouting Report</h3>
-          {[['Strengths','#22c55e','strengths'],['Weaknesses','#e74c3c','weaknesses'],['Analyst Note',ACCENT2,'analystNote']].map(([label, color, key]) => (
-            <div key={key} style={{ marginBottom: 14 }}>
-              <div style={S.tag(color)}>{label}</div>
-              {field(key, card[key], { color: '#bbb', multiline: true, label })}
-            </div>
-          ))}
-        </div>
-        <div style={S.card}>
-          <h3 style={{ color: ACCENT2, marginBottom: 10 }}>Championship Odds</h3>
-          {field('odds', card.odds, { color: '#22c55e', large: true, label: 'odds' })}
-          <div style={{ fontSize: 13, color: '#777', marginBottom: 16, marginTop: 6 }}>Consensus sportsbook odds to win it all</div>
-          <div style={{ padding: 12, background: 'rgba(22,163,74,0.07)', borderRadius: 8, border: '1px solid rgba(22,163,74,0.18)', fontSize: 13, color: '#aaa', lineHeight: 1.5 }}>Bracket tip: Advancing this team deep rewards strong point upside relative to their championship probability.</div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── MAMMAL RESEARCH CARD ──────────────────────────────────────────────────────
-const REGION_BANNER_COLORS = { East: ['#1e3a5f','#2563eb'], West: ['#5f1e1e','#dc2626'], South: ['#1e4d2b','#16a34a'], Midwest: ['#4d3a1e','#d97706'] };
-
-function MammalResearchCard({ animalName, card, isAdmin, onFieldSave, onGenerate, generating }) {
-  const [imgErrors, setImgErrors] = useState({});
-  const [lightbox, setLightbox]   = useState(null);
-  const region = (card?.region && REGION_BANNER_COLORS[card.region]) ? card.region : 'East';
-  const [bgDark, bgLight] = REGION_BANNER_COLORS[region];
-  const galleryImages = card?.galleryImages || [];
-  const phyloPicUrl   = card?.phyloPicUrl   || null;
-  const wikiImageUrl  = card?.wikiImageUrl  || null;
-  const empty = !card || Object.keys(card).length === 0;
-  const handleImgError = (key) => setImgErrors(prev => ({ ...prev, [key]: true }));
-  return (
-    <div style={{ marginBottom: 20 }}>
-      <div style={{ position: 'relative', height: 160, borderRadius: '12px 12px 0 0', overflow: 'hidden', background: `linear-gradient(135deg,${bgDark} 0%,${bgLight} 100%)` }}>
-        {phyloPicUrl && !imgErrors['phylopic'] && <img src={phyloPicUrl} alt={`${animalName} silhouette`} onError={() => handleImgError('phylopic')} style={{ position: 'absolute', right: 40, top: '50%', transform: 'translateY(-50%)', height: 120, opacity: 0.35, filter: 'brightness(0)', objectFit: 'contain' }} />}
-        {wikiImageUrl && !imgErrors['wiki-header'] && <img src={wikiImageUrl} alt={animalName} onError={() => handleImgError('wiki-header')} style={{ position: 'absolute', left: 0, top: 0, width: '45%', height: '100%', objectFit: 'cover', opacity: 0.25 }} />}
-        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg,rgba(0,0,0,0.5) 0%,transparent 60%)' }} />
-        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '16px 20px', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
-          <div>
-            <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.6)', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 4 }}>{region} Region · Seed #{card?.seed || ''}</div>
-            <h2 style={{ fontFamily: "'Playfair Display', serif", color: '#fff', margin: 0, fontSize: 26, textShadow: '0 2px 8px rgba(0,0,0,0.8)', lineHeight: 1.1 }}>{animalName}</h2>
-            {card?.latinName && <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.65)', fontStyle: 'italic', marginTop: 3 }}>{card.latinName}</div>}
-          </div>
-          {isAdmin && <button onClick={() => onGenerate(animalName)} disabled={generating} style={{ ...S.btn('#6366f1', '#fff'), padding: '7px 16px', fontSize: 12, flexShrink: 0 }}>{generating ? 'Generating...' : 'Regenerate'}</button>}
-        </div>
-      </div>
-      {empty ? (
-        <div style={{ ...S.card, borderRadius: '0 0 12px 12px', borderTop: 'none', color: '#666', fontSize: 14, fontStyle: 'italic', textAlign: 'center', padding: 32 }}>{isAdmin ? 'No data yet — click "Regenerate" to auto-populate.' : 'Organism facts coming soon!'}</div>
-      ) : (
-        <div style={{ ...S.card, borderRadius: '0 0 12px 12px', borderTop: 'none', borderColor: `${bgLight}44` }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-            {[['Habitat','habitat'],['Diet & Hunting','diet'],['Superpower','superpower'],['Battle Strength','battleStrength']].map(([label, fld]) => (
-              <div key={fld} style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 8, padding: 14, border: '1px solid rgba(255,255,255,0.07)' }}>
-                <div style={{ fontSize: 11, color: bgLight, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 6, fontWeight: 700 }}>{label}</div>
-                {isAdmin && onFieldSave ? <EditableField value={card[fld]} label={fld} onSave={v => onFieldSave(animalName, fld, v)} color="#ccc" multiline /> : <div style={{ fontSize: 14, color: '#ccc', lineHeight: 1.6 }}>{card[fld] || '-'}</div>}
-              </div>
-            ))}
-            {galleryImages.length > 0 && (
-              <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 8, padding: 14, border: '1px solid rgba(255,255,255,0.07)', gridColumn: '1 / -1' }}>
-                <div style={{ fontSize: 11, color: bgLight, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 10, fontWeight: 700 }}>Photo Gallery</div>
-                <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 8 }}>
-                  {galleryImages.map((img, i) => !imgErrors[`gallery-${i}`] && (
-                    <div key={i} style={{ flexShrink: 0, textAlign: 'center' }}>
-                      <img src={img.url} alt={`${animalName}`} onError={() => handleImgError(`gallery-${i}`)} onClick={() => setLightbox({ url: img.url, source: img.source, name: animalName })} style={{ height: 160, width: 200, objectFit: 'cover', borderRadius: 8, display: 'block', cursor: 'zoom-in' }} />
-                      <div style={{ fontSize: 10, color: '#666', marginTop: 4 }}>{img.source}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-            {lightbox && (
-              <div onClick={() => setLightbox(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'zoom-out', padding: 20 }}>
-                <div onClick={e => e.stopPropagation()} style={{ position: 'relative', maxWidth: '90vw', maxHeight: '90vh' }}>
-                  <img src={lightbox.url} alt={lightbox.name} style={{ maxWidth: '90vw', maxHeight: '85vh', objectFit: 'contain', borderRadius: 8, display: 'block' }} />
-                  <button onClick={() => setLightbox(null)} style={{ position: 'absolute', top: -12, right: -12, background: 'rgba(0,0,0,0.7)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '50%', width: 28, height: 28, color: '#fff', fontSize: 16, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
-                </div>
-              </div>
-            )}
-            <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 8, padding: 14, border: '1px solid rgba(255,255,255,0.07)', gridColumn: '1 / -1' }}>
-              <div style={{ fontSize: 11, color: bgLight, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 10, fontWeight: 700 }}>Fun Facts</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {(card.funFacts || []).map((fact, i) => (
-                  <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-                    <span style={{ color: bgLight, fontWeight: 700, flexShrink: 0 }}>{i+1}.</span>
-                    <span style={{ fontSize: 14, color: '#ccc', lineHeight: 1.6 }}>{fact}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div style={{ display: 'flex', gap: 12, gridColumn: '1 / -1', flexWrap: 'wrap' }}>
-              {[['Size', card.size], ['Lifespan', card.lifespan], ['Speed', card.speed]].map(([label, val]) => val && (
-                <div key={label} style={{ background: `${bgLight}15`, borderRadius: 8, padding: '10px 16px', border: `1px solid ${bgLight}33`, flex: 1, minWidth: 100 }}>
-                  <div style={{ fontSize: 11, color: bgLight, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4, fontWeight: 700 }}>{label}</div>
-                  <div style={{ fontSize: 14, color: '#ccc' }}>{val}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ── COMPARE MODAL ─────────────────────────────────────────────────────────────
-function CompareModal({ teamA, teamB, cardA, cardB, isMammal, onClose }) {
-  const bbStats = [
-    ['Rank', 'rank'], ['Conference', 'conference'], ['Record', 'record'],
-    ['KenPom', 'kenpom'], ['Offense', 'offense'], ['Defense', 'defense'],
-    ['Pace', 'pace'], ['Odds', 'odds'], ['Strengths', 'strengths'], ['Weaknesses', 'weaknesses'],
-  ];
-  const mammalStats = [
-    ['Habitat', 'habitat'], ['Diet', 'diet'], ['Superpower', 'superpower'],
-    ['Battle Strength', 'battleStrength'], ['Size', 'size'], ['Speed', 'speed'], ['Lifespan', 'lifespan'],
-  ];
-  const stats = isMammal ? mammalStats : bbStats;
-  const accent = isMammal ? '#86efac' : '#4ade80';
-  return (
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.88)', zIndex: 2000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: 20, overflowY: 'auto' }}>
-      <div onClick={e => e.stopPropagation()} style={{ background: 'rgba(22,163,74,0.10)', border: '1px solid rgba(22,163,74,0.30)', borderRadius: 12, padding: 20, maxWidth: 700, width: '100%', marginTop: 20 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-          <h2 style={{ fontFamily: "'Playfair Display', serif", color: accent, margin: 0, fontSize: 20 }}>Head-to-Head</h2>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#888', fontSize: 22, cursor: 'pointer' }}>×</button>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'flex-end', marginBottom: 20, gap: 8 }}>
-          <div style={{ flex: 1, textAlign: 'right', paddingRight: 12 }}>
-            {!isMammal && <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 6 }}><TeamLogo espnId={teamA.espnId} name={teamA.name} size={44} /></div>}
-            {isMammal && cardA?.wikiImageUrl && <img src={cardA.wikiImageUrl} alt={teamA.name} style={{ width: 60, height: 60, objectFit: 'cover', borderRadius: 8, display: 'block', marginLeft: 'auto', marginBottom: 6 }} />}
-            <div style={{ fontSize: 11, color: accent }}>#{teamA.seed}</div>
-            <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 18, fontWeight: 700, color: '#fff' }}>{teamA.name}</div>
-          </div>
-          <div style={{ fontSize: 13, color: '#444', fontWeight: 700, flexShrink: 0, paddingBottom: 4 }}>VS</div>
-          <div style={{ flex: 1, textAlign: 'left', paddingLeft: 12 }}>
-            {!isMammal && <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: 6 }}><TeamLogo espnId={teamB.espnId} name={teamB.name} size={44} /></div>}
-            {isMammal && cardB?.wikiImageUrl && <img src={cardB.wikiImageUrl} alt={teamB.name} style={{ width: 60, height: 60, objectFit: 'cover', borderRadius: 8, display: 'block', marginBottom: 6 }} />}
-            <div style={{ fontSize: 11, color: accent }}>#{teamB.seed}</div>
-            <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 18, fontWeight: 700, color: '#fff' }}>{teamB.name}</div>
-          </div>
-        </div>
-        {stats.map(([label, key]) => (
-          <div key={key} style={{ display: 'flex', alignItems: 'flex-start', borderTop: '1px solid rgba(255,255,255,0.06)', padding: '10px 0', gap: 8 }}>
-            <div style={{ flex: 1, textAlign: 'right', fontSize: 13, color: '#ccc', lineHeight: 1.5 }}>
-              {cardA ? (cardA[key] || <span style={{ color: '#333' }}>—</span>) : <span style={{ color: '#555', fontStyle: 'italic', fontSize: 12 }}>No data</span>}
-            </div>
-            <div style={{ width: 120, textAlign: 'center', fontSize: 10, color: '#555', textTransform: 'uppercase', letterSpacing: 1, fontWeight: 700, paddingTop: 2, flexShrink: 0 }}>{label}</div>
-            <div style={{ flex: 1, textAlign: 'left', fontSize: 13, color: '#ccc', lineHeight: 1.5 }}>
-              {cardB ? (cardB[key] || <span style={{ color: '#333' }}>—</span>) : <span style={{ color: '#555', fontStyle: 'italic', fontSize: 12 }}>No data</span>}
-            </div>
-          </div>
-        ))}
-        <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 16, marginTop: 8, textAlign: 'right' }}>
-          <button style={{ background: 'rgba(255,255,255,0.07)', border: 'none', color: '#888', padding: '7px 20px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit', fontSize: 14 }} onClick={onClose}>Close</button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── VIEW BRACKET MODAL ────────────────────────────────────────────────────────
-function ViewBracketModal({ data, onClose }) {
-  const { displayName, bracket, isMammal } = data;
-  const regions = ['East', 'West', 'South', 'Midwest'];
-  const rounds = ['R64','R32','S16','E8'];
-  return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.88)', zIndex: 1000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: 20, overflowY: 'auto' }}>
-      <div style={{ ...S.card, maxWidth: 700, width: '100%', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-          <h2 style={{ fontFamily: "'Playfair Display', serif", color: isMammal ? '#86efac' : ACCENT2, margin: 0 }}>{displayName}'s Bracket</h2>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#888', fontSize: 20, cursor: 'pointer' }}>×</button>
-        </div>
-        <div style={{ overflowY: 'auto', flex: 1 }}>
-          {regions.map(region => (
-            <div key={region} style={{ marginBottom: 24 }}>
-              <div style={{ fontSize: 11, color: isMammal ? '#86efac' : ACCENT2, letterSpacing: 2, textTransform: 'uppercase', fontWeight: 700, marginBottom: 10 }}>{region}</div>
-              {(bracket[region]?.rounds || []).slice(0, 4).map((roundGames, rIdx) => (
-                <div key={rIdx} style={{ marginBottom: 8 }}>
-                  <div style={{ fontSize: 10, color: '#555', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4 }}>{rounds[rIdx]}</div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                    {roundGames.map((game, gIdx) => game.winner && (
-                      <div key={gIdx} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px', background: 'rgba(255,255,255,0.04)', borderRadius: 6, border: '1px solid rgba(255,255,255,0.08)', fontSize: 12 }}>
-                        {!isMammal && <TeamLogo espnId={game.winner?.espnId} name={game.winner?.name} size={16} />}
-                        <span style={{ color: isMammal ? '#86efac' : ACCENT2, fontWeight: 600 }}>#{game.winner.seed}</span>
-                        <span style={{ color: '#ccc' }}>{game.winner.name}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          ))}
-          {bracket.championship?.winner && (
-            <div style={{ padding: 16, background: 'rgba(245,158,11,0.08)', borderRadius: 10, border: '1px solid rgba(245,158,11,0.3)', textAlign: 'center' }}>
-              <div style={{ fontSize: 11, color: GOLD2, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 8 }}>Champion</div>
-              <div style={{ fontSize: 20, fontWeight: 700, color: GOLD2, fontFamily: "'Playfair Display', serif" }}>{bracket.championship.winner.name}</div>
-            </div>
-          )}
-        </div>
-        <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 16, marginTop: 16, textAlign: 'right' }}>
-          <button style={{ ...S.btn('rgba(255,255,255,0.07)', '#888'), padding: '7px 20px' }} onClick={onClose}>Close</button>
-        </div>
-      </div>
-    </div>
-  );
 }
 
 // ── BRACKET PICK HELPERS ──────────────────────────────────────────────────────
@@ -579,209 +152,6 @@ function applyFirstFourPicks(bracket, picks) {
   return next;
 }
 
-// ── ADMIN TEAM ENTRY PANEL ────────────────────────────────────────────────────
-function makePlaceholderRoster() {
-  return {
-    year: new Date().getFullYear(),
-    East:    Array(16).fill(null).map((_, i) => ({ seed: i+1, name: `Seed ${i+1}`, espnId: '', firstFour: false })),
-    West:    Array(16).fill(null).map((_, i) => ({ seed: i+1, name: `Seed ${i+1}`, espnId: '', firstFour: false })),
-    South:   Array(16).fill(null).map((_, i) => ({ seed: i+1, name: `Seed ${i+1}`, espnId: '', firstFour: false })),
-    Midwest: Array(16).fill(null).map((_, i) => ({ seed: i+1, name: `Seed ${i+1}`, espnId: '', firstFour: false })),
-  };
-}
-
-function TeamEntryPanel({ onTeamsSaved, onRequestGenerateResearch, regionNames, onRegionNamesChange, sourcesData, onSaveSources }) {
-  const [roster,       setRoster]       = useState(makePlaceholderRoster());
-  const [activeRegion, setActiveRegion] = useState('East');
-  const [saving,       setSaving]       = useState(false);
-  const [saved,        setSaved]        = useState(false);
-  const [applying,     setApplying]     = useState(false);
-  const [applied,      setApplied]      = useState(false);
-  const [loading,      setLoading]      = useState(true);
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const snap = await getDoc(doc(db, 'admin', 'teamRoster'));
-        if (snap.exists()) {
-          const d = snap.data();
-          if (d._regionNames) onRegionNamesChange(d._regionNames);
-          delete d.updatedAt; delete d._regionNames;
-          const hasNames = ['East','West','South','Midwest'].some(r => (d[r] || []).some(t => t.name?.trim() && !t.name.startsWith('Seed')));
-          setRoster(hasNames ? d : makePlaceholderRoster());
-        }
-      } catch {}
-      setLoading(false);
-    })();
-  }, []);
-
-  const updateTeam = (region, idx, field, value) => {
-    setRoster(prev => { const n = JSON.parse(JSON.stringify(prev)); n[region][idx][field] = value; return n; });
-    setSaved(false); setApplied(false);
-  };
-
-  if (loading) return <div style={{ color: '#999', padding: 20 }}>Loading roster...</div>;
-  return (
-    <div style={{ ...S.card, marginBottom: 16 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
-        <div>
-          <h3 style={{ color: ACCENT2, marginBottom: 4 }}>Set Up This Year's Teams</h3>
-          <p style={{ color: '#999', fontSize: 13 }}>Enter all 64 teams after Selection Sunday.</p>
-          <div style={{ marginTop: 10, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-            <span style={{ fontSize: 12, color: ACCENT2, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', flexShrink: 0 }}>Region Names:</span>
-            {['East','West','South','Midwest'].map(r => (
-              <div key={r} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <span style={{ fontSize: 11, color: RC[r], fontWeight: 700 }}>{r}:</span>
-                <input value={regionNames[r]} onChange={e => onRegionNamesChange({ ...regionNames, [r]: e.target.value })} placeholder={r} style={{ ...S.input, width: 120, padding: '4px 8px', fontSize: 12, borderColor: (regionNames[r] || '').length > 15 ? '#f59e0b' : undefined }} />
-                {(regionNames[r] || '').length > 15 && <span style={{ fontSize: 10, color: '#f59e0b' }} title="Long names may wrap in the bracket view.">⚠️</span>}
-              </div>
-            ))}
-          </div>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ fontSize: 12, color: '#888' }}>Year:</span>
-            <input type="number" value={roster.year} onChange={e => { setRoster(p => ({ ...p, year: parseInt(e.target.value) })); setSaved(false); }} style={{ ...S.input, width: 82, padding: '6px 10px', fontSize: 13 }} />
-          </div>
-          <button style={{ ...S.btn(saved ? '#22c55e' : ACCENT, '#fff'), padding: '8px 20px', fontSize: 13 }} onClick={async () => { setSaving(true); try { await setDoc(doc(db, 'admin', 'teamRoster'), { ...roster, _regionNames: regionNames, updatedAt: serverTimestamp() }); setSaved(true); } catch(e) { alert('Save failed: ' + e.message); } setSaving(false); }} disabled={saving}>{saving ? 'Saving...' : saved ? 'Roster Saved' : 'Save Roster'}</button>
-          {saved && <button style={{ ...S.btn(applied ? '#22c55e' : '#f59e0b', '#000'), padding: '8px 20px', fontSize: 13 }} onClick={async () => { setApplying(true); try { const nb = buildInitialBracketFromTeams(roster); await saveOfficialBracket(nb); setApplied(true); onTeamsSaved(nb, roster); } catch(e) { alert('Apply failed: ' + e.message); } setApplying(false); }} disabled={applying}>{applying ? 'Applying...' : applied ? 'Applied!' : 'Apply to Bracket'}</button>}
-          {applied && (
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-              <span style={{ fontSize: 11, color: '#999', alignSelf: 'center' }}>Generate Research:</span>
-              {['East','West','South','Midwest'].map(r => (
-                <button key={r} style={{ ...S.btn('rgba(99,102,241,0.3)', '#a5b4fc'), padding: '6px 14px', fontSize: 12, border: '1px solid rgba(99,102,241,0.5)' }} onClick={() => onRequestGenerateResearch(roster, r)}>{regionNames[r] || r}</button>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-      {onSaveSources && (
-        <div style={{ ...S.card, marginBottom: 16, borderColor: 'rgba(99,102,241,0.25)' }}>
-          <h3 style={{ color: '#a5b4fc', marginBottom: 4, fontSize: 15 }}>Research Sources</h3>
-          <p style={{ color: '#777', fontSize: 12, marginBottom: 10 }}>URLs the AI will read before generating research.</p>
-          {sourcesData.map((s, i) => (
-            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, padding: '6px 10px', background: 'rgba(255,255,255,0.03)', borderRadius: 6 }}>
-              <span style={{ flex: 1, fontSize: 12, color: '#aaa', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.name} — {s.url}</span>
-              <button onClick={() => onSaveSources(sourcesData.filter((_, idx) => idx !== i))} style={{ background: 'none', border: 'none', color: '#666', cursor: 'pointer', fontSize: 16 }}>×</button>
-            </div>
-          ))}
-          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-            <input id="src-name" placeholder="Source name" style={{ ...S.input, flex: 1, padding: '6px 10px', fontSize: 12 }} />
-            <input id="src-url" placeholder="URL" style={{ ...S.input, flex: 2, padding: '6px 10px', fontSize: 12 }} />
-            <button style={{ ...S.btn('#6366f1', '#fff'), padding: '6px 14px', fontSize: 12 }} onClick={() => {
-              const name = document.getElementById('src-name').value.trim();
-              const url  = document.getElementById('src-url').value.trim();
-              if (!url) return;
-              onSaveSources([...sourcesData, { url, name: name || url, primary: true }]);
-              document.getElementById('src-name').value = '';
-              document.getElementById('src-url').value = '';
-            }}>+ Add</button>
-          </div>
-        </div>
-      )}
-      <div style={{ display: 'flex', gap: 4, marginBottom: 16 }}>
-        {['East','West','South','Midwest'].map(r => (
-          <button key={r} style={{ ...S.navBtn(activeRegion === r), borderBottom: activeRegion === r ? `2px solid ${RC[r]}` : '2px solid transparent', borderRadius: '6px 6px 0 0', padding: '8px 18px' }} onClick={() => setActiveRegion(r)}>
-            <span style={{ color: RC[r], marginRight: 6 }}>●</span>{regionNames[r] || r}
-          </button>
-        ))}
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-        {(roster[activeRegion] || []).map((team, idx) => (
-          <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.03)', borderRadius: 8, padding: '8px 12px', border: '1px solid rgba(255,255,255,0.07)' }}>
-            <input type="number" min="1" max="16" value={team.seed} onChange={e => updateTeam(activeRegion, idx, 'seed', parseInt(e.target.value) || e.target.value)} style={{ ...S.input, width: 48, padding: '6px 6px', fontSize: 13, textAlign: 'center' }} />
-            <input placeholder="Team name" value={team.name} onChange={e => updateTeam(activeRegion, idx, 'name', e.target.value)} style={{ ...S.input, flex: 2, padding: '6px 10px', fontSize: 13 }} />
-            <input placeholder="ESPN ID" value={team.espnId} onChange={e => updateTeam(activeRegion, idx, 'espnId', e.target.value)} style={{ ...S.input, width: 80, padding: '6px 10px', fontSize: 13 }} />
-            <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', flexShrink: 0 }}>
-              <input type="checkbox" checked={team.firstFour} onChange={e => updateTeam(activeRegion, idx, 'firstFour', e.target.checked)} />
-              <span style={{ fontSize: 11, color: team.firstFour ? '#818cf8' : '#888', whiteSpace: 'nowrap', fontWeight: team.firstFour ? 700 : 400 }}>FF</span>
-            </label>
-          </div>
-        ))}
-      </div>
-      <div style={{ marginTop: 10, padding: '8px 14px', background: 'rgba(96,165,250,0.07)', borderRadius: 8, border: '1px solid rgba(96,165,250,0.2)', fontSize: 12, color: '#93c5fd' }}>
-        ESPN ID tip: espn.com/mens-college-basketball/team/_/id/<strong>150</strong>/duke
-      </div>
-    </div>
-  );
-}
-
-// ── MAMMAL ENTRY PANEL ────────────────────────────────────────────────────────
-function MammalEntryPanel({ onAnimalsSaved, onRequestGenerateMammalResearch, onRefetchImages, regionNames, onRegionNamesChange, sourcesData, onSaveSources }) {
-  const [roster, setRoster] = useState({ East: Array(16).fill(null).map((_,i) => ({ seed:i+1, name:'', firstFour:false })), West: Array(16).fill(null).map((_,i) => ({ seed:i+1, name:'', firstFour:false })), South: Array(16).fill(null).map((_,i) => ({ seed:i+1, name:'', firstFour:false })), Midwest: Array(16).fill(null).map((_,i) => ({ seed:i+1, name:'', firstFour:false })) });
-  const [activeRegion, setActiveRegion] = useState('East');
-  const [saving, setSaving] = useState(false); const [saved, setSaved] = useState(false);
-  const [applying, setApplying] = useState(false); const [applied, setApplied] = useState(false);
-  const [loading, setLoading] = useState(true);
-  useEffect(() => {
-    (async () => {
-      try {
-        const snap = await getDoc(doc(db, 'admin', 'mammalRoster'));
-        if (snap.exists()) { const d = snap.data(); if (d._regionNames) onRegionNamesChange(d._regionNames); delete d.updatedAt; delete d._regionNames; setRoster(d); }
-      } catch {}
-      setLoading(false);
-    })();
-  }, []);
-  const updateAnimal = (region, idx, field, value) => { setRoster(prev => { const n = JSON.parse(JSON.stringify(prev)); n[region][idx][field] = value; return n; }); setSaved(false); setApplied(false); };
-  if (loading) return <div style={{ color: '#999', padding: 20 }}>Loading...</div>;
-  return (
-    <div style={{ ...S.card, marginBottom: 16, borderColor: 'rgba(134,239,172,0.25)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
-        <div>
-          <h3 style={{ color: '#86efac', marginBottom: 4 }}>Set Up Mammal Madness Animals</h3>
-          <div style={{ marginTop: 10, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-            <span style={{ fontSize: 12, color: '#86efac', fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', flexShrink: 0 }}>Region Names:</span>
-            {['East','West','South','Midwest'].map(r => (
-              <div key={r} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <span style={{ fontSize: 11, color: RC[r], fontWeight: 700 }}>{r}:</span>
-                <input value={regionNames[r]} onChange={e => onRegionNamesChange({ ...regionNames, [r]: e.target.value })} placeholder={r} style={{ ...S.input, width: 120, padding: '4px 8px', fontSize: 12, borderColor: (regionNames[r] || '').length > 15 ? '#f59e0b' : undefined }} />
-                {(regionNames[r] || '').length > 15 && <span style={{ fontSize: 10, color: '#f59e0b' }} title="Long names may wrap in the bracket view.">⚠️</span>}
-              </div>
-            ))}
-          </div>
-        </div>
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          <button style={{ ...S.btn(saved ? '#22c55e' : ACCENT, '#fff'), padding: '8px 20px', fontSize: 13 }} onClick={async () => { setSaving(true); try { await saveMammalRoster({ ...roster, _regionNames: regionNames }); setSaved(true); } catch(e) { alert('Save failed: ' + e.message); } setSaving(false); }} disabled={saving}>{saving ? 'Saving...' : saved ? 'Saved' : 'Save Roster'}</button>
-          <button style={{ ...S.btn(applied ? '#22c55e' : '#f59e0b', '#000'), padding: '8px 20px', fontSize: 13 }} onClick={async () => { setApplying(true); try { const nb = buildInitialBracketFromTeams(roster); await saveMammalOfficialBracket(nb); setApplied(true); onAnimalsSaved(nb, roster); } catch(e) { alert('Apply failed: ' + e.message); } setApplying(false); }} disabled={applying}>{applying ? 'Applying...' : applied ? 'Applied!' : 'Apply to Bracket'}</button>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-              <span style={{ fontSize: 11, color: '#999', alignSelf: 'center', minWidth: 100 }}>Generate Facts:</span>
-              {['East','West','South','Midwest'].map(r => (
-                <button key={r} style={{ ...S.btn('rgba(99,102,241,0.3)', '#a5b4fc'), padding: '6px 14px', fontSize: 12, border: '1px solid rgba(99,102,241,0.5)' }} onClick={() => onRequestGenerateMammalResearch(roster, r)}>{regionNames[r] || r}</button>
-              ))}
-            </div>
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-              <span style={{ fontSize: 11, color: '#999', alignSelf: 'center', minWidth: 100 }}>Re-fetch Images:</span>
-              {['East','West','South','Midwest'].map(r => (
-                <button key={r} style={{ ...S.btn('rgba(20,184,166,0.2)', '#5eead4'), padding: '6px 14px', fontSize: 12, border: '1px solid rgba(20,184,166,0.4)' }} onClick={() => onRefetchImages && onRefetchImages(r)}>{regionNames[r] || r}</button>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-      <div style={{ display: 'flex', gap: 4, marginBottom: 16 }}>
-        {['East','West','South','Midwest'].map(r => (
-          <button key={r} style={{ ...S.navBtn(activeRegion === r), borderBottom: activeRegion === r ? `2px solid ${RC[r]}` : '2px solid transparent', borderRadius: '6px 6px 0 0', padding: '8px 18px' }} onClick={() => setActiveRegion(r)}>
-            <span style={{ color: RC[r], marginRight: 6 }}>●</span>{regionNames[r] || r}
-          </button>
-        ))}
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-        {(roster[activeRegion] || []).map((animal, idx) => (
-          <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.03)', borderRadius: 8, padding: '8px 12px', border: '1px solid rgba(255,255,255,0.07)' }}>
-            <input type="number" min="1" max="16" value={animal.seed} onChange={e => updateAnimal(activeRegion, idx, 'seed', parseInt(e.target.value) || e.target.value)} style={{ ...S.input, width: 48, padding: '6px 6px', fontSize: 13, textAlign: 'center' }} />
-            <input placeholder="Animal name" value={animal.name} onChange={e => updateAnimal(activeRegion, idx, 'name', e.target.value)} style={{ ...S.input, flex: 1, padding: '6px 10px', fontSize: 13 }} />
-            <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', flexShrink: 0 }}>
-              <input type="checkbox" checked={animal.firstFour} onChange={e => updateAnimal(activeRegion, idx, 'firstFour', e.target.checked)} />
-              <span style={{ fontSize: 11, color: animal.firstFour ? '#818cf8' : '#888', fontWeight: animal.firstFour ? 700 : 400 }}>FF</span>
-            </label>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 // ── PRIVACY POLICY ────────────────────────────────────────────────────────────
 function PrivacyPolicyPage({ onBack }) {
   return (
@@ -790,18 +160,18 @@ function PrivacyPolicyPage({ onBack }) {
         <button onClick={onBack} style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '7px 16px', color: '#aaa', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', marginBottom: 32 }}>← Back</button>
         <h1 style={{ fontFamily: "'Playfair Display', serif", color: ACCENT2, marginBottom: 4, fontSize: 32 }}>Privacy Policy</h1>
         <div style={{ marginBottom: 32, padding: '14px 16px', background: 'rgba(255,255,255,0.03)', borderRadius: 8, border: '1px solid rgba(255,255,255,0.08)', fontSize: 13, color: '#888' }}>
-          <div><strong style={{ color: '#aaa' }}>Application:</strong> Hart Middle School March Madness Bracket Challenge</div>
+          <div><strong style={{ color: '#aaa' }}>Application:</strong> Rochester Community Schools Bracket Challenge</div>
           <div><strong style={{ color: '#aaa' }}>Operated by:</strong> Science Teacher, Hart Middle School, Rochester Community Schools</div>
-          <div><strong style={{ color: '#aaa' }}>Last Updated:</strong> March 2026</div>
+          <div><strong style={{ color: '#aaa' }}>Last Updated:</strong> June 2026</div>
         </div>
         {[
-          ['1. Introduction', 'This Privacy Policy describes how the Hart Middle School March Madness Bracket Challenge ("the Application") collects, uses, and protects information about its users. This Application is an educational tool developed and operated by a Science Teacher at Hart Middle School, Rochester Community Schools. It is not a commercial product and is not affiliated with any outside organization.'],
-          ['2. Authentication', 'This Application does not require any account creation, login, or authentication. Users access the app by entering a display name of their choice. No passwords, email addresses, or credentials of any kind are collected or stored. The Application does not integrate with Google Sign-In or any other third-party authentication service.'],
+          ['1. Introduction', 'This Privacy Policy describes how the Rochester Community Schools Bracket Challenge ("the Application") collects, uses, and protects information about its users. This Application is an educational tool developed and operated by a Science Teacher at Hart Middle School, Rochester Community Schools. It is not a commercial product and is not affiliated with any outside organization.'],
+          ['2. Authentication', 'This Application uses Google Sign-In, restricted to Rochester Community Schools accounts (@rcs-k12.us for students; @rochester.k12.mi.us for teachers and staff). No passwords are stored by the Application. Sign-in is handled entirely by Google\'s authentication infrastructure. Non-RCS accounts cannot access the Application.'],
           ['3. Information Collected', null],
-          ['4. Use of Information', 'Information collected is used solely to save the user\'s bracket picks between sessions, display the user\'s name on the leaderboard, and calculate and display the user\'s score. The Application does not use collected information for advertising, profiling, or any purpose unrelated to the bracket competition.'],
+          ['4. Use of Information', 'Information collected is used solely to save the user\'s bracket picks between sessions, display the user\'s name on the leaderboard, calculate and display the user\'s score, and scope leaderboard views by school. The Application does not use collected information for advertising, profiling, or any purpose unrelated to the bracket competition.'],
           ['5. Data Storage and Security', 'All user data is stored in Google Firebase, a cloud infrastructure service provided by Google LLC, subject to Google\'s enterprise security standards. No external parties have access to user data stored within the Application. The application operator does not share data with any third party, vendor, or external service. All data is encrypted in transit using TLS.'],
           ['6. Data Retention', 'User data is retained only for the duration of the tournament period. At the conclusion of each tournament season, all data is reviewed and cleared by the school administrator. Administrators can delete any user\'s data at any time upon request.'],
-          ['7. Children\'s Privacy', 'This Application is designed for use under direct teacher supervision within a school setting. The Application collects no personal information beyond a self-chosen display name. No information is sold, shared, or disclosed to third parties. No behavioral advertising or tracking is conducted. School administrators retain the ability to review and delete all data upon request.'],
+          ['7. Children\'s Privacy', 'This Application is designed for use under direct teacher supervision within a school setting. Student Google accounts are school-managed under Rochester Community Schools\' Google Workspace for Education agreement, providing institutional COPPA coverage for students under 13. No information is sold, shared, or disclosed to third parties. No behavioral advertising or tracking is conducted. School administrators retain the ability to review and delete all data upon request.'],
           ['8. AI-Generated Content', 'This Application uses artificial intelligence (Claude, provided by Anthropic, PBC) to generate educational content. Student data is never used as input to the AI content generation system.'],
           ['9. Contact Information', 'Rochester Community Schools'],
         ].map(([title, body]) => (
@@ -811,11 +181,13 @@ function PrivacyPolicyPage({ onBack }) {
               <div>
                 <p style={{ color: '#ccc', fontSize: 13, lineHeight: 1.8, marginBottom: 8 }}>The Application collects only the following:</p>
                 <ul style={{ color: '#ccc', fontSize: 13, lineHeight: 2, paddingLeft: 20 }}>
-                  <li><strong style={{ color: '#fff' }}>Display Name</strong> — a name chosen by the user at the time they first visit the app. This can be any name the user chooses; the Application does not verify identity.</li>
+                  <li><strong style={{ color: '#fff' }}>RCS Google Account Email</strong> — used to identify the user and determine their role (student or teacher) and school affiliation. Never shared or used outside the Application.</li>
+                  <li><strong style={{ color: '#fff' }}>Display Name</strong> — the user's name as it appears on the leaderboard. Editable after sign-in. Defaults to the name on the Google account.</li>
+                  <li><strong style={{ color: '#fff' }}>School Affiliation</strong> — the RCS middle school the user selects at first login (Hart, Van Hoosen, West, or Reuther). Used to scope leaderboard views.</li>
                   <li><strong style={{ color: '#fff' }}>Bracket Picks</strong> — the tournament predictions entered by the user.</li>
                   <li><strong style={{ color: '#fff' }}>Score</strong> — a numerical score calculated automatically based on the user's picks and tournament results.</li>
                 </ul>
-                <p style={{ color: '#ccc', fontSize: 13, lineHeight: 1.8, marginTop: 8 }}>The Application does <strong style={{ color: '#fff' }}>not</strong> collect email addresses, passwords, device identifiers, location data, browsing history, or any information from sources outside the Application.</p>
+                <p style={{ color: '#ccc', fontSize: 13, lineHeight: 1.8, marginTop: 8 }}>The Application does <strong style={{ color: '#fff' }}>not</strong> collect passwords, device identifiers, location data, browsing history, or any information from sources outside the Application.</p>
               </div>
             )}
             {body && <p style={{ color: '#ccc', fontSize: 13, lineHeight: 1.8 }}>{body}</p>}
@@ -834,14 +206,14 @@ function TermsOfServicePage({ onBack }) {
         <button onClick={onBack} style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '7px 16px', color: '#aaa', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', marginBottom: 32 }}>← Back</button>
         <h1 style={{ fontFamily: "'Playfair Display', serif", color: ACCENT2, marginBottom: 4, fontSize: 32 }}>Terms of Service</h1>
         <div style={{ marginBottom: 32, padding: '14px 16px', background: 'rgba(255,255,255,0.03)', borderRadius: 8, border: '1px solid rgba(255,255,255,0.08)', fontSize: 13, color: '#888' }}>
-          <div><strong style={{ color: '#aaa' }}>Application:</strong> Hart Middle School March Madness Bracket Challenge</div>
+          <div><strong style={{ color: '#aaa' }}>Application:</strong> Rochester Community Schools Bracket Challenge</div>
           <div><strong style={{ color: '#aaa' }}>Operated by:</strong> Science Teacher, Hart Middle School, Rochester Community Schools</div>
-          <div><strong style={{ color: '#aaa' }}>Last Updated:</strong> March 2026</div>
+          <div><strong style={{ color: '#aaa' }}>Last Updated:</strong> June 2026</div>
         </div>
         {[
-          ['1. Agreement to Terms', 'By accessing or using the Hart Middle School March Madness Bracket Challenge ("the Application"), you agree to be bound by these Terms. If you do not agree, you may not use the Application. These Terms apply to all users including students, teachers, and school staff of Rochester Community Schools.'],
+          ['1. Agreement to Terms', 'By accessing or using the Rochester Community Schools Bracket Challenge ("the Application"), you agree to be bound by these Terms. If you do not agree, you may not use the Application. These Terms apply to all users including students, teachers, and school staff of Rochester Community Schools.'],
           ['2. Description', 'The Application is an educational web application facilitating school-based bracket prediction competitions tied to the NCAA Men\'s Basketball Tournament and the March Mammal Madness competition organized by Arizona State University. It is not a commercial product and is provided solely for educational purposes.'],
-          ['3. Access', 'Access to the Application is open to currently enrolled students, teachers, and staff at Hart Middle School, as well as such other individuals as may be expressly authorized by the school administrator. The Application does not require a login or account. Users identify themselves by entering a display name.'],
+          ['3. Access', 'Access is restricted to current students, teachers, and staff of Rochester Community Schools with an active RCS Google account (@rcs-k12.us or @rochester.k12.mi.us). Sign-in is required. Non-RCS accounts cannot access the Application.'],
           ['4. Acceptable Use', 'Users may complete bracket predictions, review educational content, and view the leaderboard. Users may not attempt to manipulate scores or results, use the Application for purposes other than the bracket competition, or engage in any conduct that violates Rochester Community Schools\' Acceptable Use Policy.'],
           ['5. Leaderboard and Scoring', 'Scores are calculated automatically based on results entered by the school administrator. The leaderboard, including participant names and scores, is visible to all users of the Application. By participating, users consent to their display name and score being visible to other users.'],
           ['6. Disclaimer of Warranties', 'THE APPLICATION IS PROVIDED ON AN "AS IS" AND "AS AVAILABLE" BASIS WITHOUT WARRANTIES OF ANY KIND. THE APPLICATION OPERATOR DOES NOT WARRANT THAT THE APPLICATION WILL BE UNINTERRUPTED OR ERROR-FREE.'],
@@ -890,20 +262,44 @@ Return ONLY valid JSON:
   return callAI(prompt, sources);
 }
 
+// ── DEADLINE COUNTDOWN ────────────────────────────────────────────────────────
+function DeadlineCountdown({ deadline }) {
+  const [label, setLabel] = useState('');
+  useEffect(() => {
+    if (!deadline) return;
+    const target = new Date(deadline).getTime();
+    function tick() {
+      const diff = target - Date.now();
+      if (diff <= 0) { setLabel('Closed'); return; }
+      const d = Math.floor(diff / 86400000);
+      const h = Math.floor((diff % 86400000) / 3600000);
+      const m = Math.floor((diff % 3600000)  / 60000);
+      setLabel(d > 0 ? `${d}d ${h}h` : h > 0 ? `${h}h ${m}m` : `${m}m`);
+    }
+    tick();
+    const id = setInterval(tick, 60000);
+    return () => clearInterval(id);
+  }, [deadline]);
+  if (!label || label === 'Closed') return null;
+  return (
+    <span style={{ fontFamily: 'DM Mono, monospace', fontSize: 10,
+      color: 'rgba(255,255,255,0.5)', letterSpacing: 1 }}>
+      Closes in {label}
+    </span>
+  );
+}
+
 // ── MAIN APP ──────────────────────────────────────────────────────────────────
 export default function App() {
-  // ── USER IDENTITY (no login) ──────────────────────────────────────────────
-  const [uid,          setUid]          = useState(null);
-  const [displayName,  setDisplayName]  = useState('');
-  const [nameInput,      setNameInput]      = useState('');
-  const [studentIdInput, setStudentIdInput] = useState('');
-  const [nameLoading,    setNameLoading]    = useState(false);
-  const [nameError,      setNameError]      = useState('');
-  const [nameStep, setNameStep] = useState('username'); // 'username' | 'new-name'
-  const [isTeacher,    setIsTeacher]    = useState(false);
+  // ── AUTH (Google Sign-In) ─────────────────────────────────────────────────
+  const { loading: authLoading, isLoggedIn, needsOnboarding,
+          firebaseUser, displayName, school, role, superAdmin } = useAuth();
+
+  const uid       = firebaseUser?.uid ?? null;
+  const isAdmin   = superAdmin;
+  const isTeacher = role === 'teacher' || superAdmin;
 
   // ── ADMIN ─────────────────────────────────────────────────────────────────
-  const [isAdmin,       setIsAdmin]      = useState(false);
   const [adminPwInput,  setAdminPwInput] = useState('');
   const [adminPwError,  setAdminPwError] = useState('');
   const [adminPwLoading,setAdminPwLoading] = useState(false);
@@ -925,7 +321,6 @@ export default function App() {
   const [bbActiveRegion,      setBbActiveRegion]      = useState('East');
   const [compareModal,        setCompareModal]        = useState(null);
   const [comparePicking,      setComparePicking]      = useState(false);
-  const [adminSubTab,         setAdminSubTab]         = useState('dashboard');
   const [generating,       setGenerating]      = useState(false);
   const [genProgress,      setGenProgress]     = useState({ done: 0, total: 0, current: '' });
   const [genError,         setGenError]        = useState('');
@@ -948,6 +343,8 @@ export default function App() {
   const [mammalBracket,         setMammalBracket]         = useState(() => buildInitialBracket());
   const [mammalOfficialBracket, setMammalOfficialBracket] = useState(null);
   const [mammalLocked,          setMammalLocked]          = useState(false);
+  const [mammalConfig,          setMammalConfig]          = useState(null);
+  const [bbConfig,              setBbConfig]              = useState(null);
   const [mammalLeaderboard,     setMammalLeaderboard]     = useState([]);
   const [mammalResearchData,    setMammalResearchData]    = useState({});
   const [mammalSelectedAnimal,  setMammalSelectedAnimal]  = useState(null);
@@ -1050,19 +447,26 @@ export default function App() {
     })();
   }, []);
 
-  // ── RESTORE SESSION FROM LOCALSTORAGE ─────────────────────────────────────
-  useEffect(() => {
-    const savedUid       = localStorage.getItem('mm_uid');
-    const savedName      = localStorage.getItem('mm_name');
-    const savedIsTeacher = localStorage.getItem('mm_teacher') === 'true';
-    const savedIsAdmin   = localStorage.getItem('mm_admin')   === 'true';
-    if (savedUid && savedName) {
-      setUid(savedUid);
-      setDisplayName(savedName);
-      setIsTeacher(savedIsTeacher);
-      setIsAdmin(savedIsAdmin);
-    }
-  }, []);
+  // ── AUTH GATES ────────────────────────────────────────────────────────────
+  if (authLoading) return (
+    <div style={{ minHeight: '100vh', background: '#0a1a0e',
+      display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <span style={{ fontFamily: "'Playfair Display', serif", fontSize: 16,
+        color: '#4ade80', fontStyle: 'italic' }}>Loading…</span>
+    </div>
+  );
+
+  if (!isLoggedIn) return (
+    <div style={{ minHeight: '100vh', background: '#0a1a0e',
+      display: 'flex', flexDirection: 'column', alignItems: 'center',
+      justifyContent: 'center', gap: 20 }}>
+      <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 26,
+        fontWeight: 900, color: '#4ade80' }}>Bracket <em>Challenge</em></h1>
+      <GoogleSignIn />
+    </div>
+  );
+
+  if (needsOnboarding) return <Onboarding />;
 
   // ── LOAD BRACKET ONCE UID IS SET ──────────────────────────────────────────
   useEffect(() => {
@@ -1100,6 +504,7 @@ export default function App() {
       setFfPlaceholders(prev => Object.keys(prev).length > 0 ? prev : extractFFPlaceholders(b));
     });
     const u2 = subscribeToConfig(cfg => {
+      setBbConfig(cfg);
       setLocked(cfg.locked ?? false);
       if (cfg.year) { setTournamentYear(cfg.year); setYearDraft(String(cfg.year)); }
       if (cfg.bbRegionNames) setBbRegionNames(cfg.bbRegionNames);
@@ -1114,7 +519,7 @@ export default function App() {
       if (isAdmin) setMammalBracket(b);
       setMammalFfPlaceholders(prev => Object.keys(prev).length > 0 ? prev : extractFFPlaceholders(b));
     });
-    const u6 = subscribeToMammalConfig(cfg => setMammalLocked(cfg.locked ?? false));
+    const u6 = subscribeToMammalConfig(cfg => { setMammalConfig(cfg); setMammalLocked(cfg.locked ?? false); });
     const u7 = subscribeToMammalLeaderboard(setMammalLeaderboard);
     const u8 = subscribeToMammalResearchData(data => {
       setMammalResearchData(data);
@@ -1161,9 +566,9 @@ export default function App() {
     saveTimer.current = setTimeout(async () => {
       setSaving(true);
       try {
-        await saveBracket(uid, { ...bracket, _firstFourPicks: firstFourPicks }, displayName);
+        await saveBracket(uid, { ...bracket, _firstFourPicks: firstFourPicks }, displayName, school);
         const hasPicks = ['East','West','South','Midwest'].some(r => bracket[r]?.rounds?.[0]?.some(g => g.winner));
-        if (hasPicks) await updateLeaderboardEntry(uid, displayName, score, isTeacher);
+        if (hasPicks) await updateLeaderboardEntry(uid, displayName, score, isTeacher, school);
         setLastSaved(new Date());
       } catch (e) { console.warn('Save failed:', e); }
       setSaving(false);
@@ -1180,75 +585,14 @@ export default function App() {
     clearTimeout(mammalSaveTimer.current);
     mammalSaveTimer.current = setTimeout(async () => {
       try {
-        await saveMammalBracket(uid, { ...mammalBracket, _firstFourPicks: mammalFirstFourPicks }, displayName);
+        await saveMammalBracket(uid, { ...mammalBracket, _firstFourPicks: mammalFirstFourPicks }, displayName, school);
         const hasPicks = ['East','West','South','Midwest'].some(r => mammalBracket[r]?.rounds?.[0]?.some(g => g.winner));
-        if (hasPicks) await updateMammalLeaderboardEntry(uid, displayName, mammalScore, isTeacher);
+        if (hasPicks) await updateMammalLeaderboardEntry(uid, displayName, mammalScore, isTeacher, school);
         setMammalLastSaved(new Date());
       } catch (e) { console.warn('Mammal save failed:', e); }
     }, 3000);
     return () => clearTimeout(mammalSaveTimer.current);
   }, [mammalBracket, mammalFirstFourPicks, uid, displayName, mammalLocked, isAdmin, mammalScore, isTeacher]);
-
-  // ── NAME ENTRY HANDLERS ──────────────────────────────────────────────────────
-// Step 1: student enters username — check if they exist already
-const handleUsernameSubmit = async () => {
-  const id = studentIdInput.trim();
-  if (!id) { setNameError('Please enter your username.'); return; }
-  if (id.length < 3) { setNameError('Username must be at least 3 characters.'); return; }
-  setNameLoading(true); setNameError('');
-  try {
-    const bracketSnap = await getDoc(doc(db, 'brackets', id));
-    if (bracketSnap.exists()) {
-      // Returning user — load their saved name and bracket, skip name step
-      const savedName = bracketSnap.data().displayName || id;
-      const existing = bracketSnap.data();
-      if (existing._firstFourPicks) {
-        const { _firstFourPicks, displayName: _dn, ...b } = existing;
-        setFirstFourPicks(_firstFourPicks);
-        setBracket(applyFirstFourPicks(b, _firstFourPicks));
-      } else {
-        const { displayName: _dn, ...b } = existing;
-        setBracket(b);
-      }
-      localStorage.setItem('mm_uid', id);
-      localStorage.setItem('mm_name', savedName);
-      localStorage.setItem('mm_teacher', 'false');
-      localStorage.setItem('mm_admin', 'false');
-      setUid(id);
-      setDisplayName(savedName);
-    } else {
-      // New user — need a display name
-      setNameStep('new-name');
-    }
-  } catch (e) {
-    setNameError('Something went wrong. Please try again.');
-    console.warn('Username submit error:', e);
-  }
-  setNameLoading(false);
-};
-
-// Step 2 (new users only): student enters their display name
-const handleNewNameSubmit = async () => {
-  const name = nameInput.trim();
-  const id   = studentIdInput.trim();
-  if (!name) { setNameError('Please enter your first and last name.'); return; }
-  if (name.length < 2) { setNameError('Name must be at least 2 characters.'); return; }
-  setNameLoading(true); setNameError('');
-  try {
-    localStorage.setItem('mm_uid', id);
-    localStorage.setItem('mm_name', name);
-    localStorage.setItem('mm_teacher', 'false');
-    localStorage.setItem('mm_admin', 'false');
-    setUid(id);
-    setDisplayName(name);
-  } catch (e) {
-    setNameError('Something went wrong. Please try again.');
-    console.warn('New name submit error:', e);
-  }
-  setNameLoading(false);
-};
-
-const handleNameSubmit = handleUsernameSubmit;
 
 // ── ADMIN LOGIN ───────────────────────────────────────────────────────────────
 const handleAdminLogin = async () => {
@@ -1257,8 +601,6 @@ const handleAdminLogin = async () => {
   try {
     const ok = await checkAdminPassword(adminPwInput.trim());
     if (ok) {
-      setIsAdmin(true);
-      localStorage.setItem('mm_admin', 'true');
       setShowAdminLogin(false);
       setAdminPwInput('');
       setTab('admin');
@@ -1275,8 +617,6 @@ const handleAdminSetup = async () => {
   setAdminPwLoading(true); setAdminPwError('');
   try {
     await setAdminPassword(newAdminPw.trim());
-    setIsAdmin(true);
-    localStorage.setItem('mm_admin', 'true');
     setSetupMode(false);
     setShowAdminLogin(false);
     setTab('admin');
@@ -1293,54 +633,11 @@ const handleOpenAdmin = async () => {
 };
 
 const handleSignOut = () => {
-  localStorage.removeItem('mm_uid');
-  localStorage.removeItem('mm_name');
-  localStorage.removeItem('mm_teacher');
-  localStorage.removeItem('mm_admin');
-  setUid(null); setDisplayName(''); setIsAdmin(false); setIsTeacher(false);
+  signOut(auth).catch(console.warn);
   setBracket(buildInitialBracket()); setMammalBracket(buildInitialBracket());
   setFirstFourPicks({}); setMammalFirstFourPicks({});
-  setStudentIdInput(''); setNameInput(''); setNameStep('username');
   setTab('bracket');
 };
-
-  // Step 2: student enters school ID, used as unique identifier
-  const handleIdSubmit = async () => {
-    const id   = studentIdInput.trim();
-    const name = nameInput.trim();
-    if (!id) { setNameError('Please enter your school ID.'); return; }
-    if (id.length < 3) { setNameError('ID must be at least 3 characters.'); return; }
-    setNameLoading(true); setNameError('');
-    try {
-      const existing = await loadBracket(id);
-      if (existing) {
-        const bracketSnap = await getDoc(doc(db, 'brackets', id));
-        const savedName = bracketSnap.exists() ? bracketSnap.data().displayName : name;
-        if (existing._firstFourPicks) {
-          const { _firstFourPicks, ...b } = existing;
-          setFirstFourPicks(_firstFourPicks);
-          setBracket(applyFirstFourPicks(b, _firstFourPicks));
-        } else setBracket(existing);
-        localStorage.setItem('mm_uid', id);
-        localStorage.setItem('mm_name', savedName);
-        localStorage.setItem('mm_teacher', 'false');
-        localStorage.setItem('mm_admin', 'false');
-        setUid(id);
-        setDisplayName(savedName);
-      } else {
-        localStorage.setItem('mm_uid', id);
-        localStorage.setItem('mm_name', name);
-        localStorage.setItem('mm_teacher', 'false');
-        localStorage.setItem('mm_admin', 'false');
-        setUid(id);
-        setDisplayName(name);
-      }
-    } catch (e) {
-      setNameError('Something went wrong. Please try again.');
-      console.warn('ID submit error:', e);
-    }
-    setNameLoading(false);
-  };
 
   // ── PICK HANDLERS ─────────────────────────────────────────────────────────
   const clearTeamDownstream = useCallback((next, region, teamName, fromRound) => {
@@ -1667,7 +964,13 @@ if (game.winner?.name === clicked.name) {
     const onPick        = isMammal ? handleMammalPick : handlePick;
     const onFFPick      = isMammal ? handleMammalFFPick : handleFFPick;
     const onChampPick   = isMammal ? handleMammalChampPick : handleChampPick;
-    const isLocked      = isMammal ? mammalLocked : locked;
+    const activeConfig   = isMammal ? mammalConfig : bbConfig;
+    const deadlinePassed = activeConfig?.deadline
+      ? Date.now() > new Date(activeConfig.deadline).getTime()
+      : false;
+    const isLocked = (isMammal ? mammalLocked : locked)
+      || deadlinePassed
+      || (activeConfig?.school_locks?.[school] ?? false);
     const champColor    = isMammal ? 'rgba(134,239,172,0.5)' : 'rgba(245,158,11,0.65)';
     const champBg       = isMammal ? 'linear-gradient(135deg,rgba(134,239,172,0.15),rgba(22,163,74,0.10))' : 'linear-gradient(135deg,rgba(245,158,11,0.18),rgba(124,58,237,0.14))';
     const champEmoji    = isMammal ? '🦁' : '🏆';
@@ -1940,79 +1243,6 @@ if (game.winner?.name === clicked.name) {
   );
 
 
-  // ── NAME ENTRY SCREEN ─────────────────────────────────────────────────────
-  if (!uid) return (
-    <>
-      <div style={{ ...S.app, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 36, minHeight: '100vh' }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: 88, marginBottom: 12 }}>🏀</div>
-          <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 48, color: ACCENT2, letterSpacing: 2, lineHeight: 1.1 }}>MARCH MADNESS<br />{tournamentYear}</h1>
-          <p style={{ color: '#777', fontSize: 16, marginTop: 10 }}>School-Wide Bracket Challenge</p>
-        </div>
-        <div style={{ ...S.card, textAlign: 'center', maxWidth: 400, padding: '36px 40px', width: '100%' }}>
-
-          {/* Step 1: Enter username (all users) */}
-          {nameStep === 'username' && (
-            <>
-              <p style={{ color: '#aaa', fontSize: 15, fontWeight: 700, marginBottom: 6 }}>Enter your username</p>
-              <p style={{ color: '#666', fontSize: 13, marginBottom: 8, lineHeight: 1.6 }}>
-                Returning? Enter your username to pick up where you left off.
-              </p>
-              <p style={{ color: '#555', fontSize: 12, marginBottom: 20 }}>
-                New here? Pick any username you'll remember — example: <span style={{ color: ACCENT2, fontFamily: 'monospace', fontSize: 13 }}>HoopsFan22</span>
-              </p>
-              <input
-                placeholder="Your username"
-                value={studentIdInput}
-                onChange={e => { setStudentIdInput(e.target.value); setNameError(''); }}
-                onKeyDown={e => e.key === 'Enter' && handleUsernameSubmit()}
-                style={{ ...S.input, marginBottom: 16, fontSize: 16, textAlign: 'center', letterSpacing: 1 }}
-                autoFocus
-              />
-              {nameError && <div style={{ color: '#f87171', fontSize: 13, marginBottom: 12 }}>{nameError}</div>}
-              <button style={{ ...S.btn(), width: '100%', fontSize: 16, padding: '12px 22px' }} onClick={handleUsernameSubmit} disabled={nameLoading}>
-                {nameLoading ? 'Checking...' : 'Continue'}
-              </button>
-            </>
-          )}
-
-          {/* Step 2: New users only — enter display name */}
-          {nameStep === 'new-name' && (
-            <>
-              <div style={{ marginBottom: 20, padding: '10px 14px', background: 'rgba(22,163,74,0.08)', borderRadius: 8, border: '1px solid rgba(22,163,74,0.2)', fontSize: 13, color: ACCENT2 }}>
-                Username <span style={{ fontWeight: 700, fontFamily: 'monospace' }}>{studentIdInput}</span> is available!
-              </div>
-              <p style={{ color: '#aaa', fontSize: 15, fontWeight: 700, marginBottom: 6 }}>What's your name?</p>
-              <p style={{ color: '#666', fontSize: 13, marginBottom: 20, lineHeight: 1.6 }}>
-                Enter your first and last name. This is how you'll appear on the leaderboard. You won't need to enter this again.
-              </p>
-              <input
-                placeholder="First and last name"
-                value={nameInput}
-                onChange={e => { setNameInput(e.target.value); setNameError(''); }}
-                onKeyDown={e => e.key === 'Enter' && handleNewNameSubmit()}
-                style={{ ...S.input, marginBottom: 16, fontSize: 16, textAlign: 'center' }}
-                autoFocus
-              />
-              {nameError && <div style={{ color: '#f87171', fontSize: 13, marginBottom: 12 }}>{nameError}</div>}
-              <button style={{ ...S.btn(), width: '100%', fontSize: 16, padding: '12px 22px' }} onClick={handleNewNameSubmit} disabled={nameLoading}>
-                {nameLoading ? 'Setting up...' : "Let's Go!"}
-              </button>
-              <button onClick={() => { setNameStep('username'); setNameError(''); }} style={{ background: 'none', border: 'none', color: '#555', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', marginTop: 12 }}>
-                Back
-              </button>
-            </>
-          )}
-
-        </div>
-      </div>
-      <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, padding: '12px 20px', display: 'flex', justifyContent: 'center', gap: 20, borderTop: '1px solid rgba(255,255,255,0.06)', background: 'rgba(10,26,14,0.95)' }}>
-        <button onClick={() => setLegalPage('privacy')} style={{ background: 'none', border: 'none', color: '#555', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>Privacy Policy</button>
-        <button onClick={() => setLegalPage('terms')} style={{ background: 'none', border: 'none', color: '#555', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>Terms of Service</button>
-      </div>
-    </>
-  );
-
   // ── MAIN TABS ─────────────────────────────────────────────────────────────
   const tabs = [
     { id: 'bracket',     label: 'Bracket'     },
@@ -2047,6 +1277,7 @@ if (game.winner?.name === clicked.name) {
 
         <header style={S.header}>
           <div style={S.logo}>🏀 MARCH MADNESS {tournamentYear}</div>
+          <DeadlineCountdown deadline={isMammal ? mammalConfig?.deadline : bbConfig?.deadline} />
           <nav style={{ display: 'flex', gap: 4 }}>
             {tabs.map(t => <button key={t.id} style={S.navBtn(tab === t.id)} onClick={() => setTab(t.id)}>{t.label}</button>)}
             <button style={S.navBtn(tab === 'admin' && isAdmin)} onClick={handleOpenAdmin}>⚙️ Admin</button>
@@ -2291,179 +1522,45 @@ if (game.winner?.name === clicked.name) {
           )}
 
           {/* ══ ADMIN TAB ══ */}
-          {tab === 'admin' && isAdmin && (
-            <div style={{ padding: 24, maxWidth: 960, margin: '0 auto' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
-                <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#e74c3c', boxShadow: '0 0 6px #e74c3c' }} />
-                <h2 style={{ fontFamily: "'Playfair Display', serif", color: '#e74c3c', margin: 0 }}>Admin Panel</h2>
-              </div>
-              <div style={{ display: 'flex', gap: 4, marginBottom: 24, borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-                {[['dashboard','Dashboard'],['teams','🏀 Basketball'],['mammals','🦁 Mammal Madness'],['users','👥 Users'],['help','Help']].map(([id, label]) => (
-                  <button key={id} style={{ ...S.navBtn(adminSubTab === id), borderBottom: adminSubTab === id ? '2px solid #e74c3c' : '2px solid transparent', borderRadius: '6px 6px 0 0', padding: '8px 18px' }} onClick={() => setAdminSubTab(id)}>{label}</button>
-                ))}
-              </div>
-
-              {adminSubTab === 'dashboard' && (
-                <>
-                  <div style={{ ...S.card, borderColor: 'rgba(22,163,74,0.3)', marginBottom: 16 }}>
-                    <h3 style={{ color: ACCENT2, marginBottom: 8, fontSize: 15 }}>Tournament Year</h3>
-                    <p style={{ color: '#999', fontSize: 13, marginBottom: 12 }}>Updates the year shown on the entry screen and header for all users.</p>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <input type="number" value={yearDraft} onChange={e => setYearDraft(e.target.value)} style={{ ...S.input, width: 110, padding: '8px 12px', fontSize: 16 }} />
-                      <button style={{ ...S.btn(ACCENT, '#fff'), padding: '8px 20px' }} onClick={handleSaveYear} disabled={yearSaving}>{yearSaving ? 'Saving...' : 'Update Year'}</button>
-                      <span style={{ fontSize: 12, color: '#777' }}>Currently: <strong style={{ color: ACCENT2 }}>{tournamentYear}</strong></span>
-                    </div>
-                  </div>
-                  <div style={{ ...S.card, borderColor: 'rgba(22,163,74,0.3)', marginBottom: 16 }}>
-                    <h3 style={{ color: ACCENT2, marginBottom: 8, fontSize: 15 }}>Admin Password</h3>
-                    <p style={{ color: '#999', fontSize: 13, marginBottom: 12 }}>Change the password used to access this admin panel.</p>
-                    <div style={{ display: 'flex', gap: 10 }}>
-                      <input type="password" placeholder="New password" id="new-admin-pw" style={{ ...S.input, flex: 1, padding: '8px 12px' }} />
-                      <button style={{ ...S.btn(ACCENT, '#fff'), padding: '8px 20px', flexShrink: 0 }} onClick={async () => {
-                        const val = document.getElementById('new-admin-pw').value.trim();
-                        if (!val) return;
-                        await setAdminPassword(val);
-                        document.getElementById('new-admin-pw').value = '';
-                        alert('Password updated.');
-                      }}>Update</button>
-                    </div>
-                  </div>
-                  <div style={{ ...S.card, borderColor: 'rgba(231,76,60,0.2)', marginBottom: 16 }}>
-                    <p style={{ color: '#999', fontSize: 14, lineHeight: 1.7, margin: 0 }}>
-                      Use the <strong style={{ color: ACCENT2 }}>Bracket tab</strong> to enter official game results — your picks become the answer key and update all scores live.<br /><br />
-                      Use <strong style={{ color: ACCENT2 }}>Admin → 🏀 Basketball</strong> every March after Selection Sunday to enter teams.
-                    </p>
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 14 }}>
-                    {[['Total Entries', leaderboard.length], ['Avg Score', leaderboard.length ? Math.round(leaderboard.reduce((a,e) => a+(e.score||0),0)/leaderboard.length)+' pts' : '-'], ['Status', locked ? 'Locked' : 'Open']].map(([l,v]) => (
-                      <div key={l} style={{ ...S.card, textAlign: 'center' }}>
-                        <div style={{ fontSize: 26, fontWeight: 700, color: ACCENT2, fontFamily: "'Playfair Display', serif" }}>{v}</div>
-                        <div style={{ fontSize: 11, color: '#777', marginTop: 4 }}>{l}</div>
-                      </div>
-                    ))}
-                  </div>
-                </>
-              )}
-
-              {adminSubTab === 'teams' && (
-                <>
-                  <TeamEntryPanel onTeamsSaved={(nb) => { setBracket(nb); setOfficialBracket(nb); }} onRequestGenerateResearch={handleGenerateResearch} regionNames={bbRegionNames} onRegionNamesChange={handleSaveBbRegionNames} sourcesData={bbSources} onSaveSources={handleSaveBbSources} />
-                  <div style={{ marginTop: 40, borderTop: '1px solid rgba(239,68,68,0.2)', paddingTop: 24 }}>
-                    <div style={{ fontSize: 11, color: '#e74c3c', letterSpacing: 2, textTransform: 'uppercase', fontWeight: 700, marginBottom: 16 }}>⚠️ Danger Zone</div>
-                    <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                      {[
-                        ['Clear Basketball Roster', 'Deletes the team roster and official bracket.', async () => { await Promise.all([deleteDoc(doc(db, 'admin', 'teamRoster')).catch(()=>{}), deleteDoc(doc(db, 'admin', 'officialBracket')).catch(()=>{})]); setOfficialBracket(null); setBracket(buildInitialBracket()); }],
-                        ['Clear Basketball Research', 'Deletes all scouting reports.', async () => { await deleteDoc(doc(db, 'admin', 'researchData')).catch(()=>{}); setResearchData({}); setSelectedTeam(null); }],
-                        ['Clear All User Brackets', 'Resets the leaderboard.', async () => { const [bs, ls] = await Promise.all([getDocs(collection(db, 'brackets')), getDocs(collection(db, 'leaderboard'))]); await Promise.all([...bs.docs.map(d => deleteDoc(d.ref)), ...ls.docs.map(d => deleteDoc(d.ref))]); setLeaderboard([]); }],
-                      ].map(([title, desc, action]) => (
-                        <div key={title} style={{ ...S.card, borderColor: 'rgba(239,68,68,0.25)', flex: 1, minWidth: 200 }}>
-                          <h4 style={{ color: '#f87171', marginBottom: 6 }}>{title}</h4>
-                          <p style={{ color: '#777', fontSize: 12, marginBottom: 12 }}>{desc}</p>
-                          <button style={{ ...S.btn('#7f1d1d', '#fca5a5'), padding: '7px 16px', fontSize: 12, border: '1px solid rgba(239,68,68,0.4)' }} onClick={() => setConfirmDialog({ message: `${title}? This cannot be undone.`, onConfirm: async () => { setConfirmDialog(null); await action(); } })}>{title}</button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </>
-              )}
-
-              {adminSubTab === 'mammals' && (
-                <>
-                  <div style={{ ...S.card, borderColor: 'rgba(134,239,172,0.2)', marginBottom: 16 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <div><h3 style={{ color: '#86efac', marginBottom: 4 }}>Mammal Bracket Lock</h3><p style={{ color: '#999', fontSize: 13, margin: 0 }}>Status: <span style={{ color: mammalLocked ? '#e74c3c' : '#22c55e', fontWeight: 700 }}>{mammalLocked ? 'Locked' : 'Open'}</span></p></div>
-                      <button style={{ ...S.btn(mammalLocked ? '#22c55e' : '#e74c3c', '#fff'), fontSize: 13, padding: '8px 20px' }}
-                        onClick={() => setConfirmDialog({ message: `${mammalLocked ? 'Unlock' : 'Lock'} all Mammal Madness brackets?`, onConfirm: async () => { setConfirmDialog(null); const nl = !mammalLocked; setMammalLocked(nl); await setMammalTournamentLocked(nl); } })}>
-                        {mammalLocked ? 'Unlock' : 'Lock All'}
-                      </button>
-                    </div>
-                  </div>
-                  <MammalEntryPanel onAnimalsSaved={(nb) => { setMammalBracket(nb); setMammalOfficialBracket(nb); }} onRequestGenerateMammalResearch={handleGenerateMammalResearch} onRefetchImages={handleRefetchMammalImages} regionNames={mammalRegionNames} onRegionNamesChange={setMammalRegionNames} sourcesData={mammalSources} onSaveSources={handleSaveMammalSources} />
-                  <div style={{ marginTop: 40, borderTop: '1px solid rgba(239,68,68,0.2)', paddingTop: 24 }}>
-                    <div style={{ fontSize: 11, color: '#e74c3c', letterSpacing: 2, textTransform: 'uppercase', fontWeight: 700, marginBottom: 16 }}>⚠️ Danger Zone</div>
-                    <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                      {[
-                        ['Clear Mammal Roster', 'Deletes the animal roster and bracket.', async () => { await Promise.all([deleteDoc(doc(db, 'admin', 'mammalRoster')).catch(()=>{}), deleteDoc(doc(db, 'admin', 'officialBracket_mammals')).catch(()=>{})]); setMammalOfficialBracket(null); setMammalBracket(buildInitialBracket()); }],
-                        ['Clear Mammal Research', 'Deletes all organism profiles.', async () => { await deleteDoc(doc(db, 'admin', 'researchData_mammals')).catch(()=>{}); setMammalResearchData({}); setMammalSelectedAnimal(null); }],
-                        ['Clear All Mammal Brackets', 'Resets the mammal leaderboard.', async () => { const [bs, ls] = await Promise.all([getDocs(collection(db, 'brackets_mammals')), getDocs(collection(db, 'leaderboard_mammals'))]); await Promise.all([...bs.docs.map(d => deleteDoc(d.ref)), ...ls.docs.map(d => deleteDoc(d.ref))]); setMammalLeaderboard([]); }],
-                      ].map(([title, desc, action]) => (
-                        <div key={title} style={{ ...S.card, borderColor: 'rgba(239,68,68,0.25)', flex: 1, minWidth: 200 }}>
-                          <h4 style={{ color: '#f87171', marginBottom: 6 }}>{title}</h4>
-                          <p style={{ color: '#777', fontSize: 12, marginBottom: 12 }}>{desc}</p>
-                          <button style={{ ...S.btn('#7f1d1d', '#fca5a5'), padding: '7px 16px', fontSize: 12, border: '1px solid rgba(239,68,68,0.4)' }} onClick={() => setConfirmDialog({ message: `${title}? This cannot be undone.`, onConfirm: async () => { setConfirmDialog(null); await action(); } })}>{title}</button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </>
-              )}
-
-              {adminSubTab === 'users' && (
-                <div>
-                  <h3 style={{ color: ACCENT2, marginBottom: 4 }}>User Entries</h3>
-                  <p style={{ color: '#777', fontSize: 13, marginBottom: 20 }}>All users who have submitted a bracket. Removing a user deletes their bracket and score.</p>
-                  {leaderboard.length === 0 ? <div style={{ ...S.card, textAlign: 'center', padding: 40, color: '#666' }}>No users yet</div> : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                      {leaderboard.map(e => (
-                        <div key={e.uid} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: 'rgba(255,255,255,0.03)', borderRadius: 8, border: '1px solid rgba(255,255,255,0.07)' }}>
-                          <Avatar name={e.displayName} size={32} />
-                          <div style={{ flex: 1 }}>
-                            <div style={{ fontSize: 14, color: '#ccc', fontWeight: 500 }}>{e.displayName || 'Anonymous'}</div>
-                            <div style={{ fontSize: 11, color: '#555' }}>Score: {e.score} pts {e.isTeacher ? '· Teacher' : ''}</div>
-                          </div>
-                          <button onClick={() => setConfirmDialog({ message: `Remove ${e.displayName}? This deletes their bracket and score.`, onConfirm: async () => { setConfirmDialog(null); await deleteBracketAndScore(e.uid, false); await deleteBracketAndScore(e.uid, true); } })} style={{ ...S.btn('rgba(239,68,68,0.15)', '#f87171'), padding: '5px 14px', fontSize: 12, border: '1px solid rgba(239,68,68,0.3)', flexShrink: 0 }}>Remove</button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  <div style={{ marginTop: 16 }}>
-                    <h4 style={{ color: '#777', marginBottom: 10, fontSize: 13 }}>Mark a user as Teacher (appears with Teacher badge on leaderboard)</h4>
-                    <div style={{ display: 'flex', gap: 8 }}>
-                      <input id="teacher-name" placeholder="Exact display name" style={{ ...S.input, flex: 1, padding: '8px 12px', fontSize: 13 }} />
-                      <button style={{ ...S.btn('#f59e0b', '#000'), padding: '8px 16px', fontSize: 13, flexShrink: 0 }} onClick={async () => {
-                        const name = document.getElementById('teacher-name').value.trim();
-                        if (!name) return;
-                        const match = leaderboard.find(e => e.displayName?.toLowerCase() === name.toLowerCase());
-                        if (!match) { alert('User not found on leaderboard.'); return; }
-                        await setDoc(doc(db, 'leaderboard', match.uid), { isTeacher: true }, { merge: true });
-                        document.getElementById('teacher-name').value = '';
-                        alert(`${match.displayName} marked as Teacher.`);
-                      }}>Mark as Teacher</button>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {adminSubTab === 'help' && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                  <div style={S.card}>
-                    <h3 style={{ color: ACCENT2, marginBottom: 14 }}>How Admin Access Works</h3>
-                    <p style={{ color: '#888', fontSize: 14, lineHeight: 1.75 }}>
-                      There is no longer a Google login requirement. Anyone can visit the app and enter their name to participate.<br /><br />
-                      Admin access is protected by the password you set in Dashboard → Admin Password. To give someone else admin access, share the password with them — they can click "Admin" in the nav and enter it.<br /><br />
-                      Admin status is stored in the browser. If you clear your browser storage, you'll need to re-enter the password.
-                    </p>
-                  </div>
-                  <div style={{ ...S.card, borderColor: 'rgba(245,158,11,0.25)' }}>
-                    <h3 style={{ color: GOLD2, marginBottom: 14 }}>Marking Teachers</h3>
-                    <p style={{ color: '#888', fontSize: 14, lineHeight: 1.75 }}>
-                      Go to Admin → Users tab. Find the teacher's name on the leaderboard, then use the "Mark as Teacher" field at the bottom. They'll get a Teacher badge on the leaderboard.
-                    </p>
-                  </div>
-                  <div style={{ ...S.card, borderColor: 'rgba(22,163,74,0.2)' }}>
-                    <h3 style={{ color: ACCENT2, marginBottom: 14 }}>New Season Checklist</h3>
-                    <p style={{ color: '#888', fontSize: 14, lineHeight: 1.75 }}>
-                      1. Update the tournament year in Dashboard.<br />
-                      2. Clear Basketball Roster & Research in Admin → 🏀 Basketball → Danger Zone.<br />
-                      3. Clear Mammal Roster & Research in Admin → 🦁 Mammal Madness → Danger Zone.<br />
-                      4. Clear all user brackets in both Danger Zones.<br />
-                      5. Enter new teams and animals, apply to brackets, generate research.<br />
-                      6. Unlock brackets when ready.
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
+          {tab === 'admin' && (isAdmin || isTeacher) && (
+            <AdminPanel
+              config={bbConfig}
+              mammalConfig={mammalConfig}
+              activeTournament={activeTournament}
+              leaderboard={leaderboard}
+              mammalLeaderboard={mammalLeaderboard}
+              tournamentYear={tournamentYear}
+              yearDraft={yearDraft}
+              setYearDraft={setYearDraft}
+              yearSaving={yearSaving}
+              handleSaveYear={handleSaveYear}
+              locked={locked}
+              setLocked={setLocked}
+              mammalLocked={mammalLocked}
+              setMammalLocked={setMammalLocked}
+              bbRegionNames={bbRegionNames}
+              handleSaveBbRegionNames={handleSaveBbRegionNames}
+              mammalRegionNames={mammalRegionNames}
+              setMammalRegionNames={setMammalRegionNames}
+              bbSources={bbSources}
+              handleSaveBbSources={handleSaveBbSources}
+              mammalSources={mammalSources}
+              handleSaveMammalSources={handleSaveMammalSources}
+              handleGenerateResearch={handleGenerateResearch}
+              handleGenerateMammalResearch={handleGenerateMammalResearch}
+              handleRefetchMammalImages={handleRefetchMammalImages}
+              setBracket={setBracket}
+              setOfficialBracket={setOfficialBracket}
+              setMammalBracket={setMammalBracket}
+              setMammalOfficialBracket={setMammalOfficialBracket}
+              setResearchData={setResearchData}
+              setSelectedTeam={setSelectedTeam}
+              setMammalResearchData={setMammalResearchData}
+              setMammalSelectedAnimal={setMammalSelectedAnimal}
+              setLeaderboard={setLeaderboard}
+              setMammalLeaderboard={setMammalLeaderboard}
+              setConfirmDialog={setConfirmDialog}
+            />
           )}
 
         </main>
