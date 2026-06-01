@@ -260,6 +260,33 @@ Return ONLY valid JSON:
   return callAI(prompt, sources);
 }
 
+// ── DEADLINE COUNTDOWN ────────────────────────────────────────────────────────
+function DeadlineCountdown({ deadline }) {
+  const [label, setLabel] = useState('');
+  useEffect(() => {
+    if (!deadline) return;
+    const target = new Date(deadline).getTime();
+    function tick() {
+      const diff = target - Date.now();
+      if (diff <= 0) { setLabel('Closed'); return; }
+      const d = Math.floor(diff / 86400000);
+      const h = Math.floor((diff % 86400000) / 3600000);
+      const m = Math.floor((diff % 3600000)  / 60000);
+      setLabel(d > 0 ? `${d}d ${h}h` : h > 0 ? `${h}h ${m}m` : `${m}m`);
+    }
+    tick();
+    const id = setInterval(tick, 60000);
+    return () => clearInterval(id);
+  }, [deadline]);
+  if (!label || label === 'Closed') return null;
+  return (
+    <span style={{ fontFamily: 'DM Mono, monospace', fontSize: 10,
+      color: 'rgba(255,255,255,0.5)', letterSpacing: 1 }}>
+      Closes in {label}
+    </span>
+  );
+}
+
 // ── MAIN APP ──────────────────────────────────────────────────────────────────
 export default function App() {
   // ── AUTH (Google Sign-In) ─────────────────────────────────────────────────
@@ -935,7 +962,13 @@ if (game.winner?.name === clicked.name) {
     const onPick        = isMammal ? handleMammalPick : handlePick;
     const onFFPick      = isMammal ? handleMammalFFPick : handleFFPick;
     const onChampPick   = isMammal ? handleMammalChampPick : handleChampPick;
-    const isLocked      = isMammal ? mammalLocked : locked;
+    const activeConfig   = isMammal ? mammalConfig : bbConfig;
+    const deadlinePassed = activeConfig?.deadline
+      ? Date.now() > new Date(activeConfig.deadline).getTime()
+      : false;
+    const isLocked = (isMammal ? mammalLocked : locked)
+      || deadlinePassed
+      || (activeConfig?.school_locks?.[school] ?? false);
     const champColor    = isMammal ? 'rgba(134,239,172,0.5)' : 'rgba(245,158,11,0.65)';
     const champBg       = isMammal ? 'linear-gradient(135deg,rgba(134,239,172,0.15),rgba(22,163,74,0.10))' : 'linear-gradient(135deg,rgba(245,158,11,0.18),rgba(124,58,237,0.14))';
     const champEmoji    = isMammal ? '🦁' : '🏆';
@@ -1242,6 +1275,7 @@ if (game.winner?.name === clicked.name) {
 
         <header style={S.header}>
           <div style={S.logo}>🏀 MARCH MADNESS {tournamentYear}</div>
+          <DeadlineCountdown deadline={isMammal ? mammalConfig?.deadline : bbConfig?.deadline} />
           <nav style={{ display: 'flex', gap: 4 }}>
             {tabs.map(t => <button key={t.id} style={S.navBtn(tab === t.id)} onClick={() => setTab(t.id)}>{t.label}</button>)}
             <button style={S.navBtn(tab === 'admin' && isAdmin)} onClick={handleOpenAdmin}>⚙️ Admin</button>

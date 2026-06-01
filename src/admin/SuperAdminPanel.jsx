@@ -1,7 +1,7 @@
 import { useState }    from 'react';
 import { doc, setDoc, deleteDoc, getDocs, collection } from 'firebase/firestore';
 import { db }           from '../firebase';
-import { setAdminPassword, deleteBracketAndScore } from '../firestoreService';
+import { setAdminPassword, deleteBracketAndScore, setDeadline } from '../firestoreService';
 import { setTournamentLocked, setMammalTournamentLocked } from '../firestoreService';
 import { buildInitialBracket } from '../bracketData';
 import { Avatar }       from '../components/Avatar';
@@ -82,6 +82,26 @@ export function SuperAdminPanel({
                 onClick={() => setConfirmDialog({ message: `${mammalLocked ? 'Unlock' : 'Lock'} all Mammal Madness brackets?`, onConfirm: async () => { setConfirmDialog(null); const nl = !mammalLocked; setMammalLocked(nl); await setMammalTournamentLocked(nl); } })}>
                 {mammalLocked ? 'Unlock' : 'Lock All'}
               </button>
+            </div>
+          </div>
+
+          <div style={{ ...S.card, borderColor: 'rgba(22,163,74,0.3)', marginBottom: 16 }}>
+            <h3 style={{ color: ACCENT2, marginBottom: 8, fontSize: 15 }}>Bracket Deadline</h3>
+            <p style={{ color: '#999', fontSize: 13, marginBottom: 12 }}>After this time, brackets auto-lock for all students regardless of the manual lock setting. Leave blank for no deadline.</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+              <input
+                type="datetime-local"
+                defaultValue={config?.deadline ? config.deadline.slice(0, 16) : ''}
+                onChange={e => setDeadline(e.target.value ? new Date(e.target.value).toISOString() : '')}
+                style={{ ...S.input, width: 'auto', padding: '8px 12px', fontSize: 13 }}
+              />
+              {config?.deadline && (
+                <button style={{ ...S.btn('rgba(239,68,68,0.2)', '#f87171'), fontSize: 12, padding: '8px 14px' }}
+                  onClick={() => setDeadline('')}>
+                  Clear
+                </button>
+              )}
+              {config?.deadline && <span style={{ fontSize: 12, color: '#555' }}>Currently: <strong style={{ color: ACCENT2 }}>{new Date(config.deadline).toLocaleString()}</strong></span>}
             </div>
           </div>
 
