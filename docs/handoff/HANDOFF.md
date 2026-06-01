@@ -4,6 +4,162 @@ This is a living document. Each session appends a new entry. Start from the **bo
 
 ---
 
+## Handoff: 2026-06-01
+
+### Current Task State
+
+**Phase 0 complete and deployed to production. Phase 1 complete and committed to `feature/overhaul` branch. Phase 1 verified working in dev (Google Sign-in screen confirmed in browser). NOT yet pushed to GitHub or deployed.**
+
+Branch: `feature/overhaul` (1 commit ahead of `origin/main`)
+Last commit: `258ad0e feat: Phase 1 — Google Auth, user CRUD, school field, auth gate`
+
+Phase 0 (all shipped to `main` + Vercel production):
+- ✅ `.env` removed from git history, force pushed
+- ✅ `vercel.json` casing fixed, `CURRENT_YEAR` removed
+- ✅ Claude model simplified to `claude-haiku-4-5-20251001` in `api/generate.js`
+- ✅ Firebase ID token auth added to `api/generate.js` (RCS accounts only, sources capped at 5)
+- ✅ Firestore security rules deployed (no self-superAdmin, owner-only bracket writes)
+- ✅ Old plaintext admin password doc (`admin/auth`) should be manually deleted in Firestore console
+
+Phase 1 (committed to `feature/overhaul`, NOT pushed):
+- ✅ `firebase.js` exports `auth` + `googleProvider`
+- ✅ `firestoreService.js`: users CRUD, `school`/`uid` fields on all writes, `findBracketByName` removed, school lock + deadline functions added
+- ✅ `src/auth/AuthContext.jsx` — Firebase Auth, RCS domain check, live user doc subscription
+- ✅ `src/auth/GoogleSignIn.jsx` — Google sign-in button with domain error
+- ✅ `src/auth/Onboarding.jsx` — school selector (Hart, Van Hoosen, West, Reuther)
+- ✅ `App.jsx` — auth gate replaces username flow; old `if (!uid)` block left as unreachable dead code
+- ✅ `main.jsx` — wrapped in `AuthProvider`
+- ✅ Dev server verified: Google Sign-in screen showing correctly at localhost:5177
+
+---
+
+### Key Decisions
+
+- **Google Auth over username system**: Firebase Auth + Google Sign-In restricted to `@rcs-k12.us` (students) and `@rochester.k12.mi.us` (teachers/staff). Domain check is post-auth in AuthContext AND enforced server-side via Firestore rules on `request.auth.token.email`.
+- **`needsOnboarding` fix**: Correct formula is `isLoggedIn && !loading && !userDoc?.school` — original plan had a bug (`userDoc !== null` inverted for new users).
+- **`superAdmin` is a manual Firestore flag**: Set directly in Firestore Console on `users/{uid}` → `superAdmin: true`. No UI to grant it.
+- **`uid` stored in leaderboard docs**: `updateLeaderboardEntry` now writes `uid` as a field (not just document ID) so `Leaderboard.jsx` can read `entry.uid` for "my entry" highlight.
+- **`role` field protected**: `createOrUpdateUser` merge path does NOT overwrite `role` — only the initial create sets it. Firestore rules also block client-side role self-escalation.
+- **`firebase/auth` dynamic import in App.jsx**: `handleSignOut` uses `import('firebase/auth').then(...)` — harmless since `auth` module is already statically imported elsewhere.
+- **UI overhaul (previous session) was lost**: A previous session did visual work that was never committed. Phase 2 of the plan covers a full visual redesign (Playfair Display, paper background, Tailwind v4) — this replaces that lost work.
+- **Plan was revised this session**: `docs/superpowers/plans/2026-05-31-overhaul.md` was updated with all council + security review findings (Task 0.4 added, Task 0.5 added, needsOnboarding fixed, GameSlot constants specified, BracketConnector scroll fix, etc.)
+
+---
+
+### Modified Files (this session)
+
+**Phase 0 (on `main`, pushed and deployed):**
+- `api/generate.js` — auth header check, model simplified, sources capped
+- `src/App.jsx` — removed `CURRENT_YEAR` import/usage
+- `src/bracketData.js` — removed `CURRENT_YEAR` export
+- `vercel.json` — kept (lowercase); `Vercel.json` deleted
+- `firestore.rules` — created and deployed via Firebase Console (not in git)
+- `docs/superpowers/plans/2026-05-31-overhaul.md` — major revision with all security/council fixes
+
+**Phase 1 (on `feature/overhaul`, NOT pushed):**
+- `src/firebase.js` — added `auth`, `googleProvider` exports
+- `src/firestoreService.js` — users CRUD, school/uid fields, school locks, deadline, removed `findBracketByName` + admin password functions
+- `src/auth/AuthContext.jsx` — new file
+- `src/auth/GoogleSignIn.jsx` — new file
+- `src/auth/Onboarding.jsx` — new file
+- `src/main.jsx` — wrapped in `AuthProvider`
+- `src/App.jsx` — auth gate, removed username/admin-password state + screens, school passed to all saves
+
+---
+
+### Blockers / Open Questions
+
+- **`feature/overhaul` not pushed to GitHub yet** — push before starting Phase 2
+- **`admin/auth` Firestore doc** (old plaintext password) — should be deleted manually in Firebase Console if not done yet: Firestore → `admin` collection → `auth` document → Delete
+- **Firebase Auth domains** — `march-madness-tournament.firebaseapp.com` must be in Firebase Console → Authentication → Settings → Authorized domains. Add the Vercel production domain too.
+- **`api/generate.js` token passing from client** — the server now requires a Bearer token, but App.jsx still calls `/api/generate` without one (client-side token passing is in Task 1.5 but wasn't completed — the `fetch` calls in App.jsx still need `Authorization: Bearer ${await firebaseUser.getIdToken()}` headers added). AI generation will return 401 until this is wired.
+- **Old `if (!uid)` dead code in App.jsx** — still present as an unreachable fallback. Should be removed in Phase 2 cleanup.
+
+---
+
+### Next Steps
+
+1. **Push `feature/overhaul` to GitHub**: `git push -u origin feature/overhaul`
+2. **Fix `api/generate.js` client token**: Find all `fetch('/api/generate', ...)` calls in App.jsx and add `Authorization: Bearer ${await firebaseUser.getIdToken()}` header — `firebaseUser` comes from `useAuth()`
+3. **Add Vercel production domain to Firebase Auth authorized domains**: Firebase Console → Authentication → Settings → Authorized domains → add `march-madness-ruby.vercel.app`
+4. **Start Phase 2**: Tailwind v4 install + design tokens (Task 2.1), then BracketConnector (Task 2.2), GameSlot extraction (Task 2.3), BracketRegion (Task 2.4)
+5. **Phase 3**: AdminPanel, SuperAdminPanel, TeacherPanel, NewSeasonFlow
+6. **Phase 4**: Deadline countdown, Privacy Policy, final deploy
+
+---
+
+### Critical Context
+
+- **`feature/overhaul` branch**: All Phases 1–4 go here. Deploy together at the end. Do NOT merge to `main` until all 4 phases are complete.
+- **App.jsx still has old admin password code references** (`checkAdminPassword`, `adminExists`, `setAdminPassword` imported from firestoreService) — these were NOT removed from firestoreService.js yet (they're dead but still exported). Remove in Phase 2 cleanup.
+- **`handleOpenAdmin` in App.jsx** still calls `adminExists()` and `setShowAdminLogin(true)` — these reference removed state. This will cause a runtime error if the admin button is clicked. The admin tab will be replaced in Phase 3 anyway, but be aware it's broken in the interim.
+- **Dev server env**: `.env.local` was pulled via `vercel env pull .env.local` — this file exists locally and is gitignored. The dev server needs it to run.
+- **The 400-line App.jsx goal** in Task 4.3 is not achievable as written — plan notes it will be ~700-900 lines after all Phase 2 extractions. That's acceptable.
+- **`superAdmin` must be set manually**: After first sign-in with the operator's Google account (`sam.castillo71@gmail.com`), go to Firestore → `users/{uid}` → add field `superAdmin: true`. The UID appears in the Firebase Auth console after first sign-in.
+- **Firestore rules are live on production** but NOT committed to the repo. The `firestore.rules` file mentioned in Task 0.4 should be created in the repo and committed.
+
+---
+
+### Model Summary
+
+- **Goal**: Overhaul RCS Bracket Challenge — Google Auth, multi-school (Hart/Van Hoosen/West/Reuther), visual redesign, role-based admin
+- **Phase 0**: Complete, deployed to production (`main` branch, Vercel)
+- **Phase 1**: Complete, working in dev, committed to `feature/overhaul` — NOT pushed to GitHub
+- **Phases 2–4**: Not started
+- **Auth**: Google Sign-in working in browser; RCS domain check in AuthContext + Firestore rules; Onboarding school selector wired
+- **Blocker**: Client-side token not passed to `/api/generate` — AI generation returns 401
+- **Blocker**: Firebase Auth authorized domains need the Vercel prod URL added
+- **Key file**: `docs/superpowers/plans/2026-05-31-overhaul.md` — revised with all security fixes, ~1900 lines, full code for all remaining phases
+- **Dev server**: requires `.env.local` (gitignored, pull with `vercel env pull .env.local`)
+- **superAdmin setup**: must be set manually in Firestore after operator's first Google sign-in
+- **Visual overhaul**: Phase 2 will implement the full Playfair Display + paper background + Tailwind v4 redesign — previous session's lost UI work is replaced by this
+
+---
+
+### Handoff Context (paste into next session)
+
+```
+I'm working on the RCS Bracket Challenge app — a school bracket-picking web app for
+4 Rochester Community Schools middle schools (Hart, Van Hoosen, West, Reuther).
+
+Repo: samcastillo71-cmd/March-Madness (public)
+Local clone: D:\Projects\March-Madness
+Branch: feature/overhaul (NOT pushed to GitHub yet — push first)
+Tech stack: React 18, Vite 5, Firebase 10 (Firestore + Auth), Vercel
+
+CURRENT STATUS:
+- Phase 0 (security hotfix): COMPLETE, deployed to production
+- Phase 1 (Google Auth): COMPLETE, committed to feature/overhaul, NOT pushed
+- Phases 2-4: NOT started
+
+IMMEDIATE FIXES NEEDED BEFORE PHASE 2:
+1. Push branch: git push -u origin feature/overhaul
+2. Add /api/generate auth header: find all fetch('/api/generate') calls in App.jsx
+   and add: Authorization: `Bearer ${await firebaseUser.getIdToken()}`
+   firebaseUser comes from useAuth()
+3. Firebase Console → Authentication → Settings → Authorized domains →
+   add march-madness-ruby.vercel.app
+
+THEN START PHASE 2:
+- Task 2.1: Tailwind v4 install + design tokens (rm tailwind.config.js first)
+- Task 2.2: BracketConnector (DOM-measured, ResizeObserver, offsetLeft not getBoundingClientRect)
+- Task 2.3: GameSlot extraction (resolve ACCENT2/ROUND_COLORS/GOLD2 constants first)
+- Task 2.4: BracketRegion (GAME_GAP=48px for Compare button)
+- Task 2.5-2.6: remaining component extraction, App.jsx thinning
+
+PLAN: docs/superpowers/plans/2026-05-31-overhaul.md (revised with all fixes)
+SPEC: docs/superpowers/specs/2026-05-30-overhaul-design.md
+
+KEY GOTCHAS:
+- superAdmin must be set manually in Firestore after operator's first sign-in
+- handleOpenAdmin in App.jsx is broken (references removed state) — replace in Phase 3
+- admin/auth Firestore doc (old plaintext password) should be deleted manually
+- firestore.rules not committed to repo — create the file and commit it
+- Dev server needs .env.local (run: vercel env pull .env.local)
+```
+
+---
+
 ## Handoff: 2026-05-31
 
 ### Current Task State
