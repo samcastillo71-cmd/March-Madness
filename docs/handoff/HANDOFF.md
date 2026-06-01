@@ -4,6 +4,169 @@ This is a living document. Each session appends a new entry. Start from the **bo
 
 ---
 
+## Handoff: 2026-06-01 (session 2)
+
+### Current Task State
+
+**Phase 2 Tasks 2.1–2.4 complete. Tasks 2.5 and 2.6 are next.**
+
+Branch: `feature/overhaul` — pushed to GitHub, 6 commits ahead of `main`.
+Last commit: `c25c236 feat: BracketRegion — 17px game gap, DOM connector lines, no compare button in gap`
+
+Pre-Phase 2 blockers resolved this session:
+- ✅ Firebase API key rotated in GCP Console → updated in Vercel (Production + Development)
+- ✅ `/api/generate` auth header wired — all 4 call sites in App.jsx now pass `Bearer ${token}`
+- ✅ `feature/overhaul` pushed to GitHub
+- ✅ Firebase Auth authorized domains updated by user (march-madness-ruby.vercel.app added)
+
+Phase 2 progress:
+- ✅ Task 2.1: Tailwind v4.3.0 installed, `vite.config.js` updated, `src/styles/tokens.css` + `src/styles/base.css` created, `main.jsx` imports `base.css`
+- ✅ Task 2.2: `src/components/BracketConnector.jsx` — DOM-measured SVG lines, ResizeObserver
+- ✅ Task 2.3: `src/components/TeamLogo.jsx` + `src/components/GameSlot.jsx` extracted from App.jsx; new paper/editorial design applied; hover-reveal compare button between competitors
+- ✅ Task 2.4: `src/components/BracketRegion.jsx` — 17px game gap, connector lines, no compare button in gap
+- ⬜ Task 2.5: Extract remaining components (Avatar, OfflineBar, ConfirmDialog, EditableField, ViewBracketModal, FinalFour, FirstFour, ResearchCard, MammalResearchCard)
+- ⬜ Task 2.6: Write `Leaderboard.jsx` with school toggle, thin App.jsx
+
+---
+
+### Key Decisions
+
+- **Compare button moved inside GameSlot** — sits between the two competitor rows (not between game pairs in BracketRegion). Appears on gameslot hover via slide-up + scale + fade animation (150ms ease-out). Only renders when both competitors are present. User-requested change from the original plan.
+- **GAME_GAP = 17px** — user-requested. Original plan had 48px to accommodate the compare button in BracketRegion; since compare moved into GameSlot, the gap is just visual separation between games.
+- **Compare button animation**: opacity 0→1 + translateY(4px)→0 + scale(0.85)→1 on gameslot hover; button itself inverts (black bg, white text) on button hover. `pointerEvents: none` when hidden.
+- **BracketConnector color**: uses `var(--rule)` (not `var(--ink)`) — softer look so connector lines don't compete with card borders.
+- **New design applied during extraction** (one-pass approach) — GameSlot, TeamLogo use the paper/editorial design system directly. Old dark-green inline styles removed. No separate restyle step needed.
+- **Vercel Preview env key not updated** — CLI had a bug with `--yes` on Preview environment. Production and Development have the new rotated Firebase API key. Preview env still has old key (not critical since no Preview deploys are active).
+- **`firestore.rules` still not in git** — was deployed via Firebase Console in a prior session but never committed to the repo. Should be created and committed.
+
+---
+
+### Modified Files (this session)
+
+- `src/App.jsx` — removed `TeamLogo`, `GameSlot`, `findLiveScore`, `scoreInput` definitions; added imports for `TeamLogo` + `GameSlot` from components/; added `getIdToken()` token passing to all 4 `/api/generate` fetch call sites
+- `src/main.jsx` — added `import './styles/base.css'`
+- `vite.config.js` — added `@tailwindcss/vite` plugin import + plugin registration
+- `package.json` + `package-lock.json` — Tailwind v4.3.0 + `@tailwindcss/vite` installed as devDependencies
+- NEW: `src/styles/tokens.css` — all CSS custom properties (paper, ink, bb/mm colors, region/division colors)
+- NEW: `src/styles/base.css` — `@import "tailwindcss"`, Google Fonts, paper body background + noise texture, reduced-motion + print media queries
+- NEW: `src/components/BracketConnector.jsx` — SVG overlay, offsetLeft/offsetTop measurement, ResizeObserver
+- NEW: `src/components/TeamLogo.jsx` — ESPN CDN img with ink-colored letter fallback
+- NEW: `src/components/GameSlot.jsx` — full paper/editorial redesign, hover-reveal compare button, isMammal prop, new win/loss styling
+- NEW: `src/components/BracketRegion.jsx` — banner + rounds + connector overlays, 17px gap
+
+---
+
+### Blockers / Open Questions
+
+- **`firestore.rules` not in git** — deployed to Firebase but not committed. Should add `firestore.rules` to repo and commit.
+- **`handleOpenAdmin` still broken in App.jsx** — references removed state from the old username flow. Will be replaced entirely in Phase 3 (AdminPanel). Don't touch it before then.
+- **Old admin password imports still in App.jsx** — `checkAdminPassword`, `adminExists`, `setAdminPassword` are imported from firestoreService but never called. Remove during Phase 2.5/2.6 cleanup or Phase 3.
+- **`admin/auth` Firestore doc** (old plaintext password) — still needs to be manually deleted in Firebase Console if not done.
+- **Vercel Preview env** — `VITE_FIREBASE_API_KEY` not updated there (CLI bug). Low priority.
+
+---
+
+### Next Steps
+
+1. **Task 2.5** — Extract remaining components from App.jsx:
+   - `Avatar` — colored initials circle
+   - `OfflineBar` — offline indicator bar
+   - `ConfirmDialog` — confirm/cancel modal (uses `S.card`, `S.btn` — replace with CSS vars)
+   - `EditableField` — click-to-edit inline field
+   - `ViewBracketModal` — read-only bracket view from leaderboard
+   - `FinalFour` — Final Four + championship slot
+   - `FirstFour` — play-in game picker
+   - `ResearchCard` — basketball scouting card (pass `isAdmin` as prop)
+   - `MammalResearchCard` — animal fact card + gallery (pass `isAdmin` as prop)
+   - After each: remove from App.jsx, add import, verify build
+
+2. **Task 2.6** — Write `src/components/Leaderboard.jsx` with school toggle (per-school default, "All Schools" toggle). Thin App.jsx by removing extracted code. Target: remove all `S.*` style object references.
+
+3. **Phase 3** — AdminPanel, SuperAdminPanel, TeacherPanel, NewSeasonFlow (see plan Task 3.1)
+
+4. **Phase 4** — Deadline countdown, Privacy Policy update, final deploy to production
+
+---
+
+### Critical Context
+
+- **Plan file has GAME_GAP = 48px** — this was changed to 17px by user decision this session. Do NOT revert to 48px. The compare button lives inside GameSlot now, not between game pairs.
+- **Compare button is in GameSlot, not BracketRegion** — the plan's BracketRegion code has the compare button in the gap between games. That was changed. BracketRegion just uses `gap: GAME_GAP` (17px) between game cards.
+- **`S.*` objects in App.jsx are old dark-green theme** — still present but being phased out as components are extracted. Don't migrate them to the new design; just delete them as components move out.
+- **App.jsx imports `memo` from React** — still needed until all memo'd components are extracted. Remove from import once GameSlot, TeamLogo, etc. are all gone.
+- **`ROUND_COLORS` and `ROUND_BORDER_COLORS` constants** — still in App.jsx but no longer used by GameSlot (which has its own design). Remove during Task 2.5/2.6 cleanup.
+- **`ACCENT2`, `GOLD`, `GOLD2` constants** — still referenced by ResearchCard, ViewBracketModal, and a few other components. When those are extracted (Task 2.5), replace with `'var(--bb-win)'`, `'#D4AF37'`, `'#B8962E'` respectively.
+- **`superAdmin` must be set manually**: After first sign-in with `sam.castillo71@gmail.com`, go to Firestore → `users/{uid}` → add `superAdmin: true`.
+- **Dev server**: needs `.env.local` — run `vercel env pull .env.local` from project root if missing.
+- **Build is clean**: `npm run build` passes with only a CSS optimization warning (harmless) and a chunk-size warning (pre-existing, due to App.jsx still being large).
+
+---
+
+### Model Summary
+
+- **Goal**: Overhaul RCS Bracket Challenge — Google Auth, multi-school, visual redesign, role-based admin
+- **Phase 0**: Complete, deployed to production
+- **Phase 1**: Complete, on `feature/overhaul`, pushed to GitHub
+- **Phase 2**: Tasks 2.1–2.4 done; Tasks 2.5–2.6 are next
+- **Firebase key**: Rotated this session; Vercel Production + Development updated; Preview env not updated (low priority)
+- **Compare button**: Lives inside GameSlot between competitors, hover-reveal animation; GAME_GAP = 17px
+- **Design system**: Tailwind v4, paper `#E4E0D6`, ink `#1A1714`, Playfair/Lato/DM Mono fonts — applied to GameSlot/TeamLogo/BracketRegion already
+- **App.jsx**: Still has old `S.*` style objects, old constants, old component imports — being cleaned up as Task 2.5 proceeds
+- **`firestore.rules`**: Deployed but not in git — add + commit
+- **superAdmin**: Must be set manually in Firestore after operator's first Google sign-in
+- **Dev**: `vercel env pull .env.local` needed for local dev server
+
+---
+
+### Handoff Context (paste into next session)
+
+```
+I'm working on the RCS Bracket Challenge app — a school bracket-picking web app for
+4 Rochester Community Schools middle schools (Hart, Van Hoosen, West, Reuther).
+
+Repo: samcastillo71-cmd/March-Madness (public)
+Local clone: D:\Projects\March-Madness
+Branch: feature/overhaul (pushed to GitHub, 6 commits ahead of main)
+Tech stack: React 18, Vite 5, Firebase 10 (Firestore + Auth), Tailwind v4, Vercel
+
+CURRENT STATUS:
+- Phase 0 (security hotfix): COMPLETE, deployed to production
+- Phase 1 (Google Auth): COMPLETE, on feature/overhaul, pushed
+- Phase 2 Tasks 2.1–2.4: COMPLETE
+- Phase 2 Tasks 2.5–2.6: NOT STARTED — start here
+- Phases 3–4: NOT started
+
+PHASE 2 COMPLETED (do not redo):
+- Tailwind v4 installed, src/styles/tokens.css + base.css created, main.jsx imports base.css
+- BracketConnector.jsx — DOM-measured SVG lines, ResizeObserver
+- TeamLogo.jsx + GameSlot.jsx — extracted, new paper/editorial design, hover-reveal compare button
+- BracketRegion.jsx — 17px game gap (not 48px — compare button moved into GameSlot)
+
+TASK 2.5 — extract these components from App.jsx into src/components/:
+  Avatar, OfflineBar, ConfirmDialog, EditableField, ViewBracketModal,
+  FinalFour, FirstFour, ResearchCard, MammalResearchCard
+  - Replace ACCENT2 refs → 'var(--bb-win)', GOLD → '#D4AF37', GOLD2 → '#B8962E'
+  - Replace S.card/S.btn refs → inline CSS vars matching new design system
+  - Pass isAdmin as prop to ResearchCard and MammalResearchCard
+  - After each extraction: remove from App.jsx, add import, verify build
+
+TASK 2.6 — write src/components/Leaderboard.jsx (school toggle per plan), thin App.jsx:
+  - Remove S.* style objects, old constants (ROUND_COLORS, ACCENT2, GOLD, GOLD2)
+  - Remove unused imports (memo once all memo'd components are extracted)
+
+PLAN: docs/superpowers/plans/2026-05-31-overhaul.md
+SPEC: docs/superpowers/specs/2026-05-30-overhaul-design.md
+
+KEY GOTCHAS:
+- GAME_GAP is 17px (not 48px as in plan) — compare button lives in GameSlot, not BracketRegion
+- handleOpenAdmin in App.jsx is broken — leave it, Phase 3 replaces it entirely
+- firestore.rules not in git — deploy was done manually; add file + commit
+- superAdmin must be set manually in Firestore after operator's first Google sign-in
+- Dev server needs .env.local: run vercel env pull .env.local
+```
+
+---
+
 ## Handoff: 2026-06-01
 
 ### Current Task State
