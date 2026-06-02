@@ -2,12 +2,12 @@
 
 ---
 
-## Handoff: 2026-06-02 — PHASE 2 IMPLEMENTED AND DEPLOYED
+## Handoff: 2026-06-02 — PHASE 2 COMPLETE, FULLY DEPLOYED AND COMMITTED
 
 ### Current State
-**Phase 2 is complete, committed, and deployed to `march-madness-ruby.vercel.app`.**
+**Phase 2 is complete, fully committed, and deployed to `march-madness-ruby.vercel.app`.**
 
-All 12 implementation tasks shipped in this session (13 commits).
+All 12 implementation tasks shipped (14 commits total). All files are clean — no unstaged changes. The `admin/superAdmins` Firestore doc has been created manually with both Sam's emails (`sam.castillo71@gmail.com` and `scastillo@rcs-k12.us`).
 
 ### What Was Implemented
 
@@ -32,13 +32,14 @@ All 12 implementation tasks shipped in this session (13 commits).
 | Admin People sub-tab: manage superAdmins + teachers | ✅ |
 | Admin Mammal sub-tab: YouTube video ID fields | ✅ |
 
-### ONE MANUAL STEP REQUIRED (Sam must do this)
+### Manual Setup — DONE ✅
 
-Create `admin/superAdmins` doc in Firebase console:
-1. Go to console.firebase.google.com → Firestore → `admin` collection
-2. Add document `superAdmins` with field `emails` (array): `["sam.castillo71@gmail.com"]`
+`admin/superAdmins` Firestore doc created with:
+```
+emails: ["sam.castillo71@gmail.com", "scastillo@rcs-k12.us"]
+```
 
-Without this, Sam's admin tab won't appear after sign-in.
+Both emails get the Admin tab on sign-in.
 
 ### Security Notes (action recommended before next school year)
 
