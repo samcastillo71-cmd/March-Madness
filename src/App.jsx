@@ -206,7 +206,11 @@ const GameSlot = memo(function GameSlot({ game, onPick, locked, isChampionship, 
   const slotBg     = isChampionship ? 'rgba(196,149,42,0.08)' : ROUND_COLORS[roundIdx] || ROUND_COLORS[0];
   const slotBorder = isChampionship ? 'rgba(196,149,42,0.4)'  : ROUND_BORDER_COLORS[roundIdx] || ROUND_BORDER_COLORS[0];
   const compareColors = (() => {
-    if (!isMammal) return BB_COMPARE;
+    if (!isMammal) {
+      const tc = top?.color    ? `#${top.color}`    : BB_COMPARE.top;
+      const bc = bottom?.color ? `#${bottom.color}` : BB_COMPARE.bottom;
+      return { top: tc, bottom: bc };
+    }
     const tc = getHabitatColor(top?.name, mammalResearchData);
     const bc = getHabitatColor(bottom?.name, mammalResearchData);
     return { top: tc.top, bottom: bc.bottom };
@@ -645,14 +649,45 @@ function makePlaceholderRoster() {
   };
 }
 
+const CSV_TEMPLATE_HEADER = 'Region,Seed,Team Name,ESPN ID,First Four\n';
+const CSV_TEMPLATE_ROWS   = ['East','West','South','Midwest'].flatMap(r =>
+  Array.from({ length: 16 }, (_, i) => `${r},${i + 1},Team Name Here,ESPN_ID_Here,no`)
+).join('\n');
+
+function parseRosterCSV(text) {
+  const lines  = text.trim().split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('Region'));
+  const roster = { East: [], West: [], South: [], Midwest: [] };
+  const errors = [];
+  lines.forEach((line, i) => {
+    const parts = line.split(',').map(p => p.trim());
+    if (parts.length < 4) { errors.push(`Row ${i + 2}: needs at least 4 columns (Region, Seed, Name, ESPN ID)`); return; }
+    const [region, seedStr, name, espnId, ff = 'no'] = parts;
+    if (!['East','West','South','Midwest'].includes(region)) { errors.push(`Row ${i + 2}: unknown region "${region}" — must be East, West, South, or Midwest`); return; }
+    const seed = parseInt(seedStr);
+    if (!seed || seed < 1 || seed > 16) { errors.push(`Row ${i + 2}: invalid seed "${seedStr}"`); return; }
+    roster[region].push({
+      seed, name, espnId,
+      firstFour: ['yes','y','true','1'].includes(ff.toLowerCase()),
+      color: null, alternateColor: null,
+    });
+  });
+  for (const r of ['East','West','South','Midwest']) roster[r].sort((a, b) => a.seed - b.seed);
+  return { roster, errors };
+}
+
 function TeamEntryPanel({ onTeamsSaved, onRequestGenerateResearch, regionNames, onRegionNamesChange, sourcesData, onSaveSources }) {
-  const [roster,       setRoster]       = useState(makePlaceholderRoster());
-  const [activeRegion, setActiveRegion] = useState('East');
-  const [saving,       setSaving]       = useState(false);
-  const [saved,        setSaved]        = useState(false);
-  const [applying,     setApplying]     = useState(false);
-  const [applied,      setApplied]      = useState(false);
-  const [loading,      setLoading]      = useState(true);
+  const [roster,        setRoster]       = useState(makePlaceholderRoster());
+  const [activeRegion,  setActiveRegion] = useState('East');
+  const [saving,        setSaving]       = useState(false);
+  const [saved,         setSaved]        = useState(false);
+  const [applying,      setApplying]     = useState(false);
+  const [applied,       setApplied]      = useState(false);
+  const [loading,       setLoading]      = useState(true);
+  const [importing,     setImporting]    = useState(false);
+  const [importMsg,     setImportMsg]    = useState(null); // { type: 'ok'|'err', text }
+  const [showCsv,       setShowCsv]      = useState(false);
+  const [csvText,       setCsvText]      = useState('');
+  const [csvErrors,     setCsvErrors]    = useState([]);
 
   useEffect(() => {
     (async () => {
@@ -675,31 +710,63 @@ function TeamEntryPanel({ onTeamsSaved, onRequestGenerateResearch, regionNames, 
     setSaved(false); setApplied(false);
   };
 
+  const handleESPNImport = async () => {
+    setImporting(true);
+    setImportMsg(null);
+    try {
+      const res  = await fetch('/api/import-bracket');
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error);
+      setRoster(prev => ({
+        ...prev,
+        East:    data.roster.East    || prev.East,
+        West:    data.roster.West    || prev.West,
+        South:   data.roster.South   || prev.South,
+        Midwest: data.roster.Midwest || prev.Midwest,
+      }));
+      setSaved(false); setApplied(false);
+      setImportMsg({ type: 'ok', text: `Imported ${data.teamCount || 64} teams from ESPN. Colors also loaded for the compare button. Review the fields below, then save.` });
+    } catch (err) {
+      setImportMsg({ type: 'err', text: err.message });
+    }
+    setImporting(false);
+  };
+
+  const handleCSVImport = () => {
+    const { roster: parsed, errors } = parseRosterCSV(csvText);
+    if (errors.length) { setCsvErrors(errors); return; }
+    const totalTeams = Object.values(parsed).reduce((s, r) => s + r.length, 0);
+    if (totalTeams < 4) { setCsvErrors(['No valid rows found. Make sure you pasted the data rows (not just the header).']); return; }
+    setCsvErrors([]);
+    setRoster(prev => ({ ...prev, ...parsed }));
+    setSaved(false); setApplied(false);
+    setShowCsv(false);
+    setCsvText('');
+    setImportMsg({ type: 'ok', text: `Imported ${totalTeams} teams from spreadsheet. Review below, then save.` });
+  };
+
+  const downloadTemplate = () => {
+    const blob = new Blob([CSV_TEMPLATE_HEADER + CSV_TEMPLATE_ROWS], { type: 'text/csv' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a'); a.href = url; a.download = 'bracket-template.csv'; a.click();
+    URL.revokeObjectURL(url);
+  };
+
   if (loading) return <div style={{ color: '#999', padding: 20 }}>Loading roster...</div>;
   return (
     <div style={{ ...S.card, marginBottom: 16 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 10 }}>
         <div>
           <h3 style={{ color: MINT_FG, marginBottom: 4 }}>Set Up This Year's Teams</h3>
           <p style={{ color: '#999', fontSize: 13 }}>Enter all 64 teams after Selection Sunday.</p>
-          <div style={{ marginTop: 10, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-            <span style={{ fontSize: 12, color: MINT_FG, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', flexShrink: 0 }}>Region Names:</span>
-            {['East','West','South','Midwest'].map(r => (
-              <div key={r} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <span style={{ fontSize: 11, color: RC[r], fontWeight: 700 }}>{r}:</span>
-                <input value={regionNames[r]} onChange={e => onRegionNamesChange({ ...regionNames, [r]: e.target.value })} placeholder={r} style={{ ...S.input, width: 120, padding: '4px 8px', fontSize: 12, borderColor: (regionNames[r] || '').length > 15 ? '#f59e0b' : undefined }} />
-                {(regionNames[r] || '').length > 15 && <span style={{ fontSize: 10, color: '#f59e0b' }} title="Long names may wrap in the bracket view.">⚠️</span>}
-              </div>
-            ))}
-          </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <span style={{ fontSize: 12, color: '#888' }}>Year:</span>
             <input type="number" value={roster.year} onChange={e => { setRoster(p => ({ ...p, year: parseInt(e.target.value) })); setSaved(false); }} style={{ ...S.input, width: 82, padding: '6px 10px', fontSize: 13 }} />
           </div>
-          <button style={{ ...S.btn(saved ? MINT_FG : NAVY, '#fff'), padding: '8px 20px', fontSize: 13 }} onClick={async () => { setSaving(true); try { await setDoc(doc(db, 'admin', 'teamRoster'), { ...roster, _regionNames: regionNames, updatedAt: serverTimestamp() }); setSaved(true); } catch(e) { alert('Save failed: ' + e.message); } setSaving(false); }} disabled={saving}>{saving ? 'Saving...' : saved ? 'Roster Saved' : 'Save Roster'}</button>
-          {saved && <button style={{ ...S.btn(applied ? '#22c55e' : '#f59e0b', '#000'), padding: '8px 20px', fontSize: 13 }} onClick={async () => { setApplying(true); try { const nb = buildInitialBracketFromTeams(roster); await saveOfficialBracket(nb); setApplied(true); onTeamsSaved(nb, roster); } catch(e) { alert('Apply failed: ' + e.message); } setApplying(false); }} disabled={applying}>{applying ? 'Applying...' : applied ? 'Applied!' : 'Apply to Bracket'}</button>}
+          <button style={{ ...S.btn(saved ? MINT_FG : NAVY, '#fff'), padding: '8px 20px', fontSize: 13 }} onClick={async () => { setSaving(true); try { await setDoc(doc(db, 'admin', 'teamRoster'), { ...roster, _regionNames: regionNames, updatedAt: serverTimestamp() }); setSaved(true); } catch(e) { alert('Save failed: ' + e.message); } setSaving(false); }} disabled={saving}>{saving ? 'Saving...' : saved ? 'Roster Saved ✓' : 'Save Roster'}</button>
+          {saved && <button style={{ ...S.btn(applied ? '#22c55e' : '#f59e0b', '#000'), padding: '8px 20px', fontSize: 13 }} onClick={async () => { setApplying(true); try { const nb = buildInitialBracketFromTeams(roster); await saveOfficialBracket(nb); setApplied(true); onTeamsSaved(nb, roster); } catch(e) { alert('Apply failed: ' + e.message); } setApplying(false); }} disabled={applying}>{applying ? 'Applying...' : applied ? 'Applied! ✓' : 'Apply to Bracket'}</button>}
           {applied && (
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
               <span style={{ fontSize: 11, color: '#999', alignSelf: 'center' }}>Generate Research:</span>
@@ -710,6 +777,85 @@ function TeamEntryPanel({ onTeamsSaved, onRequestGenerateResearch, regionNames, 
           )}
         </div>
       </div>
+
+      {/* ── IMPORT OPTIONS ── */}
+      <div style={{ ...S.card, marginBottom: 16, background: 'rgba(9,24,40,0.04)', borderColor: 'rgba(9,24,40,0.12)' }}>
+        <div style={{ fontSize: 12, color: MINT_FG, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 10 }}>Import Teams</div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: importMsg ? 10 : 0 }}>
+          <button
+            style={{ ...S.btn(NAVY, '#fff'), padding: '8px 18px', fontSize: 13, opacity: importing ? 0.7 : 1 }}
+            onClick={handleESPNImport}
+            disabled={importing}
+            title="Fetches the bracket from ESPN automatically. Only works after Selection Sunday in March."
+          >
+            {importing ? 'Importing from ESPN…' : 'Auto-Import from ESPN'}
+          </button>
+          <button
+            style={{ ...S.btn(showCsv ? '#4f46e5' : '#6366f1', '#fff'), padding: '8px 18px', fontSize: 13 }}
+            onClick={() => { setShowCsv(v => !v); setCsvErrors([]); }}
+          >
+            {showCsv ? 'Hide CSV Import' : 'Import from Spreadsheet'}
+          </button>
+        </div>
+
+        {importMsg && (
+          <div style={{ marginTop: 8, padding: '8px 12px', borderRadius: 8, fontSize: 12,
+            background: importMsg.type === 'ok' ? 'rgba(30,107,71,0.1)' : 'rgba(239,68,68,0.1)',
+            border: `1px solid ${importMsg.type === 'ok' ? 'rgba(30,107,71,0.3)' : 'rgba(239,68,68,0.3)'}`,
+            color: importMsg.type === 'ok' ? MINT_FG : '#ef4444',
+          }}>
+            {importMsg.text}
+          </div>
+        )}
+
+        {showCsv && (
+          <div style={{ marginTop: 12 }}>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8, flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 12, color: '#7A7068' }}>
+                1. Download the template, fill it in Excel or Google Sheets, then paste it back here.
+              </span>
+              <button style={{ ...S.btn('#374151', '#fff'), padding: '6px 14px', fontSize: 12, flexShrink: 0 }} onClick={downloadTemplate}>
+                Download Template CSV
+              </button>
+            </div>
+            <div style={{ fontSize: 11, color: '#888', marginBottom: 6, fontFamily: 'monospace', background: 'rgba(0,0,0,0.04)', padding: '6px 10px', borderRadius: 6 }}>
+              Format: Region, Seed, Team Name, ESPN ID, First Four (yes/no)
+            </div>
+            <textarea
+              value={csvText}
+              onChange={e => { setCsvText(e.target.value); setCsvErrors([]); }}
+              placeholder={'Region,Seed,Team Name,ESPN ID,First Four\nEast,1,Duke,150,no\nEast,2,Alabama,333,no\n...'}
+              style={{ ...S.input, width: '100%', boxSizing: 'border-box', height: 180, fontFamily: 'monospace', fontSize: 12, resize: 'vertical', padding: '10px 12px' }}
+            />
+            {csvErrors.length > 0 && (
+              <div style={{ marginTop: 6, padding: '8px 12px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 6 }}>
+                {csvErrors.map((e, i) => <div key={i} style={{ fontSize: 12, color: '#ef4444' }}>{e}</div>)}
+              </div>
+            )}
+            <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+              <button style={{ ...S.btn(MINT_FG, '#fff'), padding: '8px 18px', fontSize: 13 }} onClick={handleCSVImport} disabled={!csvText.trim()}>
+                Parse & Fill Teams
+              </button>
+              <span style={{ fontSize: 11, color: '#888', alignSelf: 'center' }}>
+                ESPN ID tip: espn.com/mens-college-basketball/team/_/id/<strong>150</strong>/duke
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── REGION NAMES ── */}
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 12 }}>
+        <span style={{ fontSize: 12, color: MINT_FG, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', flexShrink: 0 }}>Region Names:</span>
+        {['East','West','South','Midwest'].map(r => (
+          <div key={r} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <span style={{ fontSize: 11, color: RC[r], fontWeight: 700 }}>{r}:</span>
+            <input value={regionNames[r]} onChange={e => onRegionNamesChange({ ...regionNames, [r]: e.target.value })} placeholder={r} style={{ ...S.input, width: 120, padding: '4px 8px', fontSize: 12, borderColor: (regionNames[r] || '').length > 15 ? '#f59e0b' : undefined }} />
+            {(regionNames[r] || '').length > 15 && <span style={{ fontSize: 10, color: '#f59e0b' }} title="Long names may wrap in the bracket view.">⚠️</span>}
+          </div>
+        ))}
+      </div>
+
       {onSaveSources && (
         <div style={{ ...S.card, marginBottom: 16, borderColor: 'rgba(99,102,241,0.25)' }}>
           <h3 style={{ color: '#a5b4fc', marginBottom: 4, fontSize: 15 }}>Research Sources</h3>
@@ -734,7 +880,9 @@ function TeamEntryPanel({ onTeamsSaved, onRequestGenerateResearch, regionNames, 
           </div>
         </div>
       )}
-      <div style={{ display: 'flex', gap: 4, marginBottom: 16 }}>
+
+      {/* ── MANUAL TEAM GRID ── */}
+      <div style={{ display: 'flex', gap: 4, marginBottom: 12 }}>
         {['East','West','South','Midwest'].map(r => (
           <button key={r} style={{ ...S.navBtn(activeRegion === r), borderBottom: activeRegion === r ? `2px solid ${RC[r]}` : '2px solid transparent', borderRadius: '6px 6px 0 0', padding: '8px 18px' }} onClick={() => setActiveRegion(r)}>
             <span style={{ color: RC[r], marginRight: 6 }}>●</span>{regionNames[r] || r}
@@ -743,19 +891,17 @@ function TeamEntryPanel({ onTeamsSaved, onRequestGenerateResearch, regionNames, 
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
         {(roster[activeRegion] || []).map((team, idx) => (
-          <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.03)', borderRadius: 8, padding: '8px 12px', border: '1px solid rgba(255,255,255,0.07)' }}>
-            <input type="number" min="1" max="16" value={team.seed} onChange={e => updateTeam(activeRegion, idx, 'seed', parseInt(e.target.value) || e.target.value)} style={{ ...S.input, width: 48, padding: '6px 6px', fontSize: 13, textAlign: 'center' }} />
-            <input placeholder="Team name" value={team.name} onChange={e => updateTeam(activeRegion, idx, 'name', e.target.value)} style={{ ...S.input, flex: 2, padding: '6px 10px', fontSize: 13 }} />
-            <input placeholder="ESPN ID" value={team.espnId} onChange={e => updateTeam(activeRegion, idx, 'espnId', e.target.value)} style={{ ...S.input, width: 80, padding: '6px 10px', fontSize: 13 }} />
+          <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,0.03)', borderRadius: 8, padding: '8px 10px', border: '1px solid rgba(255,255,255,0.07)' }}>
+            {team.color && <div style={{ width: 10, height: 10, borderRadius: '50%', background: `#${team.color}`, flexShrink: 0, border: '1px solid rgba(0,0,0,0.15)' }} title={`Team color: #${team.color}`} />}
+            <input type="number" min="1" max="16" value={team.seed} onChange={e => updateTeam(activeRegion, idx, 'seed', parseInt(e.target.value) || e.target.value)} style={{ ...S.input, width: 44, padding: '5px 5px', fontSize: 13, textAlign: 'center' }} />
+            <input placeholder="Team name" value={team.name} onChange={e => updateTeam(activeRegion, idx, 'name', e.target.value)} style={{ ...S.input, flex: 2, padding: '5px 8px', fontSize: 13 }} />
+            <input placeholder="ESPN ID" value={team.espnId} onChange={e => updateTeam(activeRegion, idx, 'espnId', e.target.value)} style={{ ...S.input, width: 76, padding: '5px 8px', fontSize: 13 }} />
             <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', flexShrink: 0 }}>
               <input type="checkbox" checked={team.firstFour} onChange={e => updateTeam(activeRegion, idx, 'firstFour', e.target.checked)} />
               <span style={{ fontSize: 11, color: team.firstFour ? '#818cf8' : '#888', whiteSpace: 'nowrap', fontWeight: team.firstFour ? 700 : 400 }}>FF</span>
             </label>
           </div>
         ))}
-      </div>
-      <div style={{ marginTop: 10, padding: '8px 14px', background: 'rgba(96,165,250,0.07)', borderRadius: 8, border: '1px solid rgba(96,165,250,0.2)', fontSize: 12, color: '#93c5fd' }}>
-        ESPN ID tip: espn.com/mens-college-basketball/team/_/id/<strong>150</strong>/duke
       </div>
     </div>
   );
