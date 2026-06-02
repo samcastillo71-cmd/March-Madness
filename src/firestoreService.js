@@ -1,11 +1,10 @@
 // src/firestoreService.js
-// No Google authentication — identity is name-based with localStorage UUID.
-// Admin access is password-based, stored in Firestore.
+// Google Sign-In (Firebase Auth). Admin and Teacher roles are email-based (Firestore).
 
 import {
   doc, getDoc, setDoc, deleteDoc, getDocs,
   collection, query, orderBy, limit,
-  serverTimestamp, onSnapshot,
+  serverTimestamp, onSnapshot, writeBatch,
 } from 'firebase/firestore';
 import { db } from './firebase';
 
@@ -48,7 +47,8 @@ export async function saveOfficialBracket(bracketData) {
 
 export function subscribeToOfficialBracket(callback) {
   return onSnapshot(doc(db, 'admin', 'officialBracket'), snap => {
-    if (snap.exists()) callback(JSON.parse(snap.data().bracket));
+    if (!snap.exists()) return;
+    try { callback(JSON.parse(snap.data().bracket)); } catch (e) { console.warn('subscribeToOfficialBracket parse error:', e); }
   });
 }
 
@@ -67,11 +67,21 @@ export async function setTournamentLocked(locked) {
 
 // ── LEADERBOARD ───────────────────────────────────────────────────────────────
 
-export async function updateLeaderboardEntry(uid, displayName, score, isTeacher = false) {
+export async function getUserProfile(uid) {
+  const snap = await getDoc(doc(db, 'users', uid));
+  return snap.exists() ? snap.data() : null;
+}
+
+export async function saveUserProfile(uid, data) {
+  await setDoc(doc(db, 'users', uid), { ...data, updatedAt: serverTimestamp() }, { merge: true });
+}
+
+export async function updateLeaderboardEntry(uid, displayName, score, isTeacher = false, school = '') {
   await setDoc(doc(db, 'leaderboard', uid), {
     displayName: displayName || 'Anonymous',
     score,
     isTeacher:   !!isTeacher,
+    school:      school || '',
     updatedAt:   serverTimestamp(),
   }, { merge: true });
 }
@@ -172,7 +182,8 @@ export async function saveMammalOfficialBracket(bracketData) {
 
 export function subscribeToMammalOfficialBracket(callback) {
   return onSnapshot(doc(db, 'admin', 'officialBracket_mammals'), snap => {
-    if (snap.exists()) callback(JSON.parse(snap.data().bracket));
+    if (!snap.exists()) return;
+    try { callback(JSON.parse(snap.data().bracket)); } catch (e) { console.warn('subscribeToMammalOfficialBracket parse error:', e); }
   });
 }
 
@@ -187,11 +198,12 @@ export async function setMammalTournamentLocked(locked) {
   await setDoc(doc(db, 'tournament', 'config_mammals'), { locked, updatedAt: serverTimestamp() }, { merge: true });
 }
 
-export async function updateMammalLeaderboardEntry(uid, displayName, score, isTeacher = false) {
+export async function updateMammalLeaderboardEntry(uid, displayName, score, isTeacher = false, school = '') {
   await setDoc(doc(db, 'leaderboard_mammals', uid), {
     displayName: displayName || 'Anonymous',
     score,
     isTeacher:   !!isTeacher,
+    school:      school || '',
     updatedAt:   serverTimestamp(),
   }, { merge: true });
 }
@@ -237,4 +249,92 @@ export async function deleteBracketAndScore(uid, isMammal = false) {
     deleteDoc(doc(db, isMammal ? 'brackets_mammals' : 'brackets', uid)).catch(() => {}),
     deleteDoc(doc(db, isMammal ? 'leaderboard_mammals' : 'leaderboard', uid)).catch(() => {}),
   ]);
+}
+
+// ── NEW YEAR RESET ────────────────────────────────────────────────────────────
+// Batch-deletes all user documents from both tournaments.
+// Does NOT touch admin/, tournament/ config, or research data.
+export async function deleteAllBrackets() {
+  const COLLECTIONS = ['brackets', 'brackets_mammals', 'leaderboard', 'leaderboard_mammals'];
+  for (const col of COLLECTIONS) {
+    const snap = await getDocs(collection(db, col));
+    if (snap.empty) continue;
+    const batch = writeBatch(db);
+    snap.docs.forEach(d => batch.delete(d.ref));
+    await batch.commit();
+  }
+}
+
+// ── ROLE SYSTEM ───────────────────────────────────────────────────────────────
+// Returns { isAdmin, isTeacher, teacherSchool } for the given email.
+export async function getUserRole(email) {
+  if (!email) return { isAdmin: false, isTeacher: false, teacherSchool: null };
+  try {
+    const [adminSnap, teachersSnap] = await Promise.all([
+      getDoc(doc(db, 'admin', 'superAdmins')),
+      getDoc(doc(db, 'admin', 'teachers')),
+    ]);
+    const admins = adminSnap.exists() ? (adminSnap.data().emails || []) : [];
+    if (admins.includes(email)) {
+      return { isAdmin: true, isTeacher: false, teacherSchool: null };
+    }
+    const teachers = teachersSnap.exists() ? teachersSnap.data() : {};
+    if (teachers[email]) {
+      return { isAdmin: false, isTeacher: true, teacherSchool: teachers[email].school || null };
+    }
+    return { isAdmin: false, isTeacher: false, teacherSchool: null };
+  } catch {
+    return { isAdmin: false, isTeacher: false, teacherSchool: null };
+  }
+}
+
+// ── SUPERADMINS MANAGEMENT ───────────────────────────────────────────────────
+export async function getSuperAdmins() {
+  const snap = await getDoc(doc(db, 'admin', 'superAdmins'));
+  return snap.exists() ? (snap.data().emails || []) : [];
+}
+
+export async function saveSuperAdmins(emails) {
+  await setDoc(doc(db, 'admin', 'superAdmins'), { emails, updatedAt: serverTimestamp() });
+}
+
+// ── TEACHERS MANAGEMENT ───────────────────────────────────────────────────────
+export async function getTeachers() {
+  const snap = await getDoc(doc(db, 'admin', 'teachers'));
+  return snap.exists() ? snap.data() : {};
+}
+
+export async function saveTeachers(teachersObj) {
+  await setDoc(doc(db, 'admin', 'teachers'), { ...teachersObj, updatedAt: serverTimestamp() });
+}
+
+// ── MAMMAL BATTLE VIDEOS ──────────────────────────────────────────────────────
+export async function getMammalBattleVideos() {
+  const snap = await getDoc(doc(db, 'admin', 'mammalBattleVideos'));
+  return snap.exists() ? snap.data() : {};
+}
+
+export async function saveMammalBattleVideos(videosObj) {
+  await setDoc(doc(db, 'admin', 'mammalBattleVideos'), { ...videosObj, updatedAt: serverTimestamp() });
+}
+
+export function subscribeToMammalBattleVideos(callback) {
+  return onSnapshot(doc(db, 'admin', 'mammalBattleVideos'), snap => {
+    if (snap.exists()) {
+      const { updatedAt, ...videos } = snap.data();
+      callback(videos);
+    } else {
+      callback({});
+    }
+  });
+}
+
+// ── USERS (school edit by teacher/admin) ─────────────────────────────────────
+export async function getAllUsers() {
+  const snap = await getDocs(collection(db, 'users'));
+  return snap.docs.map(d => ({ uid: d.id, ...d.data() }));
+}
+
+export async function updateUserSchool(uid, school) {
+  await setDoc(doc(db, 'users', uid), { school, updatedAt: serverTimestamp() }, { merge: true });
 }
