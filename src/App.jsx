@@ -4,7 +4,7 @@ import { Component } from 'react';
 import { doc, setDoc, getDoc, deleteDoc, getDocs, collection, serverTimestamp } from 'firebase/firestore';
 import { signInWithPopup, onAuthStateChanged, signOut } from 'firebase/auth';
 import { db, auth, googleProvider } from './firebase';
-import { LogIn, Lock, Check, Settings, AlertTriangle, Trophy } from 'lucide-react';
+import { LogIn, Lock, Check, Settings, AlertTriangle, Trophy, School, Search } from 'lucide-react';
 import {
   saveBracket, loadBracket,
   saveOfficialBracket, subscribeToOfficialBracket,
@@ -951,6 +951,7 @@ export default function App() {
   const [profileLoaded,setProfileLoaded] = useState(false);
   const [schoolFilter, setSchoolFilter] = useState('all');
   const [mammalBattleVideos, setMammalBattleVideos] = useState({});
+  const [selectedSchoolCard, setSelectedSchoolCard] = useState(null);
 
   // ── ADMIN ─────────────────────────────────────────────────────────────────
   const [isAdmin,      setIsAdmin]      = useState(false);
@@ -1864,20 +1865,43 @@ if (game.winner?.name === clicked.name) {
         <h1 style={{ fontFamily: "'Libre Bodoni', serif", fontSize: 36, fontWeight: 700, color: NAVY, marginBottom: 8 }}>
           Welcome, {displayName.split(' ')[0]}!
         </h1>
-        <p style={{ color: '#7A7068', fontSize: 16 }}>One quick thing before we start.</p>
+        <p style={{ color: '#7A7068', fontSize: 16 }}>Which school do you go to?</p>
       </div>
-      <div style={{ ...S.card, maxWidth: 400, width: '100%', padding: '36px 40px', textAlign: 'center' }}>
-        <p style={{ color: '#1A1208', fontSize: 16, fontWeight: 600, marginBottom: 8 }}>Which middle school do you go to?</p>
-        <p style={{ color: '#7A7068', fontSize: 13, marginBottom: 24 }}>Your school will show on the leaderboard.</p>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {SCHOOLS.map(s => (
-            <button key={s} onClick={() => handleSelectSchool(s)}
-              style={{ ...S.btn(NAVY), fontSize: 15, padding: '14px', width: '100%' }}>
-              {s} Middle School
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, maxWidth: 440, width: '100%' }}>
+        {SCHOOLS.map(s => {
+          const isSel = selectedSchoolCard === s;
+          return (
+            <button
+              key={s}
+              className="school-card"
+              onClick={() => {
+                if (selectedSchoolCard) return;
+                setSelectedSchoolCard(s);
+                setTimeout(() => handleSelectSchool(s), 450);
+              }}
+              style={{
+                ...S.card,
+                border: isSel ? `2px solid ${MINT_FG}` : '2px solid rgba(9,24,40,0.20)',
+                background: isSel ? MINT_BG : '#F4EFE6',
+                cursor: 'pointer',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10,
+                padding: '24px 16px',
+                fontFamily: "'Libre Bodoni', serif", fontSize: 18, fontWeight: 700,
+                color: isSel ? MINT_FG : NAVY,
+                animation: isSel ? 'schoolCardBounce 250ms cubic-bezier(0.34,1.56,0.64,1)' : 'none',
+              }}>
+              <School size={32} color={isSel ? MINT_FG : NAVY} />
+              {s}
+              <span className={`school-card-check${isSel ? ' visible' : ''}`}>
+                <Check size={18} color={MINT_FG} />
+              </span>
             </button>
-          ))}
-        </div>
+          );
+        })}
       </div>
+      <p style={{ color: '#7A7068', fontSize: 13, textAlign: 'center', maxWidth: 320 }}>
+        Your school will show on the leaderboard. Ask your teacher if you need to change it.
+      </p>
     </div>
   );
 
