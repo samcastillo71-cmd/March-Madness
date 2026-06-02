@@ -963,6 +963,14 @@ export default function App() {
   const [teacherRosterLoading, setTeacherRosterLoading] = useState(false);
   const [teacherActiveView, setTeacherActiveView] = useState('leaderboard');
   const [teacherTournament, setTeacherTournament] = useState('basketball');
+  const [adminPeopleAdmins, setAdminPeopleAdmins] = useState([]);
+  const [adminPeopleTeachers, setAdminPeopleTeachers] = useState({});
+  const [adminPeopleLoading, setAdminPeopleLoading] = useState(false);
+  const [adminNewAdminEmail, setAdminNewAdminEmail] = useState('');
+  const [adminNewTeacherEmail, setAdminNewTeacherEmail] = useState('');
+  const [adminNewTeacherSchool, setAdminNewTeacherSchool] = useState('Hart');
+  const [adminMammalVideos, setAdminMammalVideos] = useState({});
+  const [adminMammalVideosSaving, setAdminMammalVideosSaving] = useState(false);
 
   // ── ADMIN ─────────────────────────────────────────────────────────────────
   const [isAdmin,      setIsAdmin]      = useState(false);
@@ -1217,6 +1225,18 @@ export default function App() {
       setTeacherRosterLoading(false);
     }).catch(() => setTeacherRosterLoading(false));
   }, [tab, uid, teacherSchool, school]);
+
+  // ── ADMIN PEOPLE + VIDEOS LOADER ─────────────────────────────────────────
+  useEffect(() => {
+    if (tab !== 'admin' || !isAdmin) return;
+    setAdminPeopleLoading(true);
+    Promise.all([getSuperAdmins(), getTeachers(), getMammalBattleVideos()]).then(([admins, teachers, videos]) => {
+      setAdminPeopleAdmins(admins);
+      setAdminPeopleTeachers(teachers);
+      setAdminMammalVideos(videos);
+      setAdminPeopleLoading(false);
+    }).catch(() => setAdminPeopleLoading(false));
+  }, [tab, isAdmin]);
 
   // ── LIVE SCORES ───────────────────────────────────────────────────────────
   useEffect(() => {
@@ -2534,7 +2554,7 @@ if (game.winner?.name === clicked.name) {
                 <h2 style={{ fontFamily: "'Libre Bodoni', serif", color: '#c0392b', margin: 0 }}>Admin Panel</h2>
               </div>
               <div style={{ display: 'flex', gap: 4, marginBottom: 24, borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-                {[['dashboard','Dashboard'],['teams','Basketball'],['mammals','Mammal Madness'],['users','Users'],['help','Help']].map(([id, label]) => (
+                {[['dashboard','Dashboard'],['teams','Basketball'],['mammals','Mammal Madness'],['users','Users'],['people','People'],['help','Help']].map(([id, label]) => (
                   <button key={id} style={{ ...S.navBtn(adminSubTab === id), borderBottom: adminSubTab === id ? '2px solid #e74c3c' : '2px solid transparent', borderRadius: '6px 6px 0 0', padding: '8px 18px' }} onClick={() => setAdminSubTab(id)}>{label}</button>
                 ))}
               </div>
@@ -2550,19 +2570,8 @@ if (game.winner?.name === clicked.name) {
                       <span style={{ fontSize: 12, color: '#7A7068' }}>Currently: <strong style={{ color: NAVY }}>{tournamentYear}</strong></span>
                     </div>
                   </div>
-                  <div style={{ ...S.card, borderColor: 'rgba(9,24,40,0.2)', marginBottom: 16 }}>
-                    <h3 style={{ color: NAVY, marginBottom: 8, fontSize: 15 }}>Admin Password</h3>
-                    <p style={{ color: '#7A7068', fontSize: 13, marginBottom: 12 }}>Change the password used to access this admin panel.</p>
-                    <div style={{ display: 'flex', gap: 10 }}>
-                      <input type="password" placeholder="New password" id="new-admin-pw" style={{ ...S.input, flex: 1, padding: '8px 12px' }} />
-                      <button style={{ ...S.btn(NAVY, '#fff'), padding: '8px 20px', flexShrink: 0 }} onClick={async () => {
-                        const val = document.getElementById('new-admin-pw').value.trim();
-                        if (!val) return;
-                        await setAdminPassword(val);
-                        document.getElementById('new-admin-pw').value = '';
-                        alert('Password updated.');
-                      }}>Update</button>
-                    </div>
+                  <div style={{ ...S.card, borderColor: 'rgba(9,24,40,0.15)', marginBottom: 16 }}>
+                    <p style={{ color: '#7A7068', fontSize: 13, margin: 0 }}>Admin access is now email-based. Manage admins and teachers in the <strong style={{ color: NAVY }}>People</strong> sub-tab.</p>
                   </div>
                   <div style={{ ...S.card, borderColor: 'rgba(9,24,40,0.15)', marginBottom: 16 }}>
                     <p style={{ color: '#7A7068', fontSize: 14, lineHeight: 1.7, margin: 0 }}>
@@ -2624,6 +2633,36 @@ if (game.winner?.name === clicked.name) {
 
               {adminSubTab === 'mammals' && (
                 <>
+                  {/* Mammal Battle Videos */}
+                  <div style={{ ...S.card, marginBottom: 24 }}>
+                    <h4 style={{ color: GREEN, marginBottom: 4, fontWeight: 700 }}>Mammal Battle Videos</h4>
+                    <p style={{ fontSize: 12, color: '#7A7068', marginBottom: 16 }}>Enter YouTube video IDs (e.g. <code style={{ background: 'rgba(9,24,40,0.07)', padding: '1px 4px', borderRadius: 3 }}>dQw4w9WgXcQ</code>) for each round. Leave blank to hide.</p>
+                    {['Round 1', 'Round 2', 'Round 3', 'Round 4', 'Final Four', 'Championship'].map(round => (
+                      <div key={round} style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
+                        <label style={{ fontSize: 13, fontWeight: 600, color: '#1A1208', minWidth: 120 }}>{round}</label>
+                        <input
+                          value={adminMammalVideos[round] || ''}
+                          onChange={e => setAdminMammalVideos(prev => ({ ...prev, [round]: e.target.value.trim() }))}
+                          placeholder="YouTube video ID"
+                          style={{ ...S.input, flex: 1, fontSize: 13 }}
+                        />
+                      </div>
+                    ))}
+                    <button
+                      disabled={adminMammalVideosSaving}
+                      onClick={async () => {
+                        setAdminMammalVideosSaving(true);
+                        try {
+                          const clean = Object.fromEntries(Object.entries(adminMammalVideos).filter(([, v]) => v));
+                          await saveMammalBattleVideos(clean);
+                        } catch (e) { console.warn('Failed to save videos:', e); }
+                        setAdminMammalVideosSaving(false);
+                      }}
+                      style={{ ...S.btn(GREEN), marginTop: 8 }}>
+                      {adminMammalVideosSaving ? 'Saving...' : 'Save Videos'}
+                    </button>
+                  </div>
+
                   <div style={{ ...S.card, borderColor: 'rgba(134,239,172,0.2)', marginBottom: 16 }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                       <div><h3 style={{ color: '#86efac', marginBottom: 4 }}>Mammal Bracket Lock</h3><p style={{ color: '#999', fontSize: 13, margin: 0 }}>Status: <span style={{ color: mammalLocked ? '#e74c3c' : '#22c55e', fontWeight: 700 }}>{mammalLocked ? 'Locked' : 'Open'}</span></p></div>
@@ -2686,6 +2725,76 @@ if (game.winner?.name === clicked.name) {
                       }}>Mark as Teacher</button>
                     </div>
                   </div>
+                </div>
+              )}
+
+              {adminSubTab === 'people' && (
+                <div>
+                  <h3 style={{ fontFamily: "'Libre Bodoni', serif", color: NAVY, marginBottom: 20 }}>Manage Roles</h3>
+                  {adminPeopleLoading
+                    ? <div style={{ color: '#7A7068', padding: 20 }}>Loading...</div>
+                    : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+                        {/* Admins */}
+                        <div style={{ ...S.card }}>
+                          <h4 style={{ color: NAVY, marginBottom: 12, fontWeight: 700 }}>Super Admins</h4>
+                          {adminPeopleAdmins.map(email => (
+                            <div key={email} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid rgba(9,24,40,0.08)' }}>
+                              <span style={{ fontSize: 14 }}>{email}</span>
+                              <button onClick={() => {
+                                const updated = adminPeopleAdmins.filter(e => e !== email);
+                                setAdminPeopleAdmins(updated);
+                                saveSuperAdmins(updated).catch(console.warn);
+                              }} style={{ ...S.btn('#c0392b'), padding: '4px 10px', fontSize: 11 }}>Remove</button>
+                            </div>
+                          ))}
+                          <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+                            <input placeholder="Email address" value={adminNewAdminEmail} onChange={e => setAdminNewAdminEmail(e.target.value)} style={{ ...S.input, flex: 1 }} />
+                            <button onClick={() => {
+                              const email = adminNewAdminEmail.trim().toLowerCase();
+                              if (!email || adminPeopleAdmins.includes(email)) return;
+                              const updated = [...adminPeopleAdmins, email];
+                              setAdminPeopleAdmins(updated);
+                              saveSuperAdmins(updated).catch(console.warn);
+                              setAdminNewAdminEmail('');
+                            }} style={{ ...S.btn(NAVY), padding: '10px 18px', fontSize: 13, flexShrink: 0 }}>Add Admin</button>
+                          </div>
+                        </div>
+                        {/* Teachers */}
+                        <div style={{ ...S.card }}>
+                          <h4 style={{ color: NAVY, marginBottom: 12, fontWeight: 700 }}>Teachers</h4>
+                          {Object.entries(adminPeopleTeachers).filter(([k]) => k !== 'updatedAt').map(([email, data]) => (
+                            <div key={email} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid rgba(9,24,40,0.08)' }}>
+                              <div>
+                                <div style={{ fontSize: 14, fontWeight: 600 }}>{email}</div>
+                                <div style={{ fontSize: 12, color: '#7A7068' }}>{data.school}</div>
+                              </div>
+                              <button onClick={() => {
+                                const updated = { ...adminPeopleTeachers };
+                                delete updated[email];
+                                setAdminPeopleTeachers(updated);
+                                saveTeachers(updated).catch(console.warn);
+                              }} style={{ ...S.btn('#c0392b'), padding: '4px 10px', fontSize: 11 }}>Remove</button>
+                            </div>
+                          ))}
+                          <div style={{ display: 'flex', gap: 8, marginTop: 16, flexWrap: 'wrap' }}>
+                            <input placeholder="Teacher email" value={adminNewTeacherEmail} onChange={e => setAdminNewTeacherEmail(e.target.value)} style={{ ...S.input, flex: 2, minWidth: 200 }} />
+                            <select value={adminNewTeacherSchool} onChange={e => setAdminNewTeacherSchool(e.target.value)} style={{ ...S.input, flex: 1, minWidth: 120 }}>
+                              {['Hart','Van Hoosen','Reuther','West'].map(s => <option key={s} value={s}>{s}</option>)}
+                            </select>
+                            <button onClick={() => {
+                              const email = adminNewTeacherEmail.trim().toLowerCase();
+                              if (!email) return;
+                              const updated = { ...adminPeopleTeachers, [email]: { school: adminNewTeacherSchool } };
+                              setAdminPeopleTeachers(updated);
+                              saveTeachers(updated).catch(console.warn);
+                              setAdminNewTeacherEmail('');
+                            }} style={{ ...S.btn(NAVY), padding: '10px 18px', fontSize: 13, flexShrink: 0 }}>Add Teacher</button>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  }
                 </div>
               )}
 
