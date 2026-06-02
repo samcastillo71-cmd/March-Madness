@@ -67,14 +67,14 @@ ANTHROPIC_KEY    # Anthropic API key for Claude Haiku calls
 
 ## Authentication & Identity
 
-There is **no Google Sign-In or account system**. Identity works as follows:
+Students log in via **Firebase Google Sign-In** (popup). School Gmail accounts (`@rcs-k12.us`) are the expected identity provider.
 
-1. User enters a **username** (used as their Firestore document ID / UID).
-2. If the username exists in Firestore, their saved bracket and display name are loaded.
-3. If new, they enter their **display name** (shown on leaderboard).
-4. Both `uid` and `displayName` are persisted to `localStorage` (`mm_uid`, `mm_name`, `mm_teacher`, `mm_admin`) so users don't have to re-enter on return visits.
+1. `signInWithPopup(auth, googleProvider)` — popup approach (redirect caused Go Guardian compatibility issues).
+2. `user.uid` (Firebase Auth uid) is used as the Firestore document key — replaces the old username string.
+3. `user.displayName` from Google account is the display name — no separate name entry step.
+4. `onAuthStateChanged` listener drives `uid` and `displayName` state in `App.jsx`.
 
-Admin access is separate — a password stored in Firestore under `admin/auth`. The admin password is stored in plaintext (intentional for a school hobby app; no PII is gated behind it).
+Admin access is separate — a password stored in Firestore under `admin/auth`. The admin password is stored in plaintext (intentional for a school hobby app; no PII is gated behind it). Admin login is triggered via a small link, not the Google Sign-In button.
 
 ---
 
@@ -152,10 +152,26 @@ Each team object: `{ seed, name, espnId, firstFour, isFFPlaceholder?, ffTeams? }
 
 This is a single large file (~2,245 lines) containing all UI components and the main app logic. Key sections:
 
-### Theme / Styles
-- Dark green theme (`#0a1a0e` background, `#16a34a` accent).
-- Style constants at top: `ACCENT`, `ACCENT2`, `GOLD`, `RC` (region colors), `ROUND_COLORS`, `ROUND_BORDER_COLORS`.
+### Theme / Styles — CANONICAL PALETTE (do not revert)
+| Role | Hex |
+|---|---|
+| Page background | `#E8E2D8` |
+| Card / tile surface | `#F4EFE6` |
+| Primary text | `#1A1208` |
+| Border | `#C8BFB0` |
+| Muted text | `#7A7068` |
+| Basketball navy | `#091828` |
+| Navy mid | `#1C3558` |
+| Navy light | `#B8CBE8` |
+| Forest green | `#1A4332` |
+| Green light | `#AACFBF` |
+| Winner mint bg | `#C2EDD5` |
+| Winner mint fg | `#1E6B47` |
+
+- Heading font: **Libre Bodoni** (700). Body/UI font: **Public Sans** (400–700).
+- Style constants at top of `App.jsx`: `NAVY`, `GREEN`, `MINT_BG`, `MINT_FG`.
 - `S` object holds reusable style objects (`S.card`, `S.btn()`, `S.input`, `S.navBtn()`, etc.).
+- **Previous dark green theme (`#0a1a0e`, `#16a34a`) was replaced in the 2026-06-02 redesign. Do not restore it.**
 
 ### UI Components (all defined before `App()`)
 | Component | Purpose |
