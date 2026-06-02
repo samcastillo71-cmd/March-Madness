@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Habitat Split — Compare Demo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Libre+Bodoni:wght@400;700&family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:     #E8E2D8;
+    --card:   #F4EFE6;
+    --text:   #1A1208;
+    --border: #C8BFB0;
+    --muted:  #7A7068;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    font-family: 'Public Sans', sans-serif;
+    color: var(--text);
+    padding: 40px;
+    display: flex;
+    flex-direction: column;
+    gap: 40px;
+  }
+  h1 {
+    font-family: 'Libre Bodoni', serif;
+    font-size: 11px; font-weight: 500;
+    letter-spacing: 3px; text-transform: uppercase;
+    color: var(--muted);
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 10px;
+  }
+  .row {
+    display: flex;
+    gap: 32px;
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+  .col { display: flex; flex-direction: column; gap: 8px; }
+  .col-label {
+    font-size: 9px; font-weight: 700; letter-spacing: 2px;
+    text-transform: uppercase; color: var(--muted);
+  }
+
+  /* ── TILE ── */
+  .tile {
+    width: 230px;
+    border-radius: 8px;
+    overflow: hidden;
+    background: var(--card);
+    cursor: default;
+  }
+  /* Border color passed via inline style per tile */
+
+  .team-row {
+    display: flex; align-items: center; gap: 9px;
+    padding: 9px 11px; height: 42px;
+    transition: background 0.12s;
+    cursor: pointer; position: relative; z-index: 1;
+  }
+
+  .logo {
+    width: 24px; height: 24px; border-radius: 50%;
+    flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 9px; font-weight: 800;
+    font-family: 'Public Sans', sans-serif;
+  }
+  .seed { font-size: 10px; font-weight: 700; color: var(--muted); min-width: 14px; }
+  .tname { font-size: 13px; font-weight: 500; flex: 1; }
+
+  /* Habitat tag shown under animal name */
+  .habitat-tag {
+    font-size: 8px; font-weight: 600; letter-spacing: 1.5px;
+    text-transform: uppercase; opacity: 0.65;
+    display: block; margin-top: 1px;
+  }
+  .tname-wrap { display: flex; flex-direction: column; flex: 1; }
+
+  /* ── COMPARE ZONE ── */
+  .cz {
+    height: 34px;
+    position: relative;
+    overflow: hidden;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  /* Default hairline */
+  .cz-vs {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    transition: opacity 0.14s ease, transform 0.14s ease;
+    pointer-events: none;
+  }
+  .cz-vs::before, .cz-vs::after {
+    content: ''; flex: 1; height: 1px;
+    background: var(--border); margin: 0 10px;
+  }
+  .vs-txt {
+    font-size: 9px; font-weight: 700; letter-spacing: 2px;
+    text-transform: uppercase; color: var(--border);
+  }
+
+  /* Habitat fills — top and bottom */
+  .fill-top, .fill-bottom {
+    position: absolute; left: 0; right: 0;
+    height: 0;
+    pointer-events: none;
+  }
+  .fill-top    { top: 0;    transition: height 0.24s cubic-bezier(0.4,0,0.2,1); }
+  .fill-bottom { bottom: 0; transition: height 0.24s cubic-bezier(0.4,0,0.2,1) 0.04s; }
+
+  /* Bracket connectors */
+  .brk-l, .brk-r {
+    position: absolute; top: 50%;
+    height: 1.5px; background: rgba(255,255,255,0.6);
+    width: 0; opacity: 0;
+    transition: width 0.2s ease 0.2s, opacity 0.05s ease 0.2s;
+    pointer-events: none;
+  }
+  .brk-l { left: 0; }
+  .brk-r { right: 0; }
+
+  /* Corner ticks */
+  .brk-tl, .brk-bl, .brk-tr, .brk-br {
+    position: absolute;
+    width: 0; height: 0;
+    border: 1.5px solid transparent;
+    transition: width 0.14s ease 0.2s, height 0.14s ease 0.2s,
+                border-color 0.05s ease 0.2s;
+    pointer-events: none;
+  }
+  .brk-tl { top: 4px;    left: 9px; }
+  .brk-bl { bottom: 4px; left: 9px; }
+  .brk-tr { top: 4px;    right: 9px; }
+  .brk-br { bottom: 4px; right: 9px; }
+
+  /* Compare label — 3D extruded */
+  .cz-label {
+    position: absolute; z-index: 3;
+    color: #ffffff;
+    font-weight: 800; font-size: 13px;
+    letter-spacing: 3.5px; text-transform: uppercase;
+    opacity: 0; transform: translateY(3px) scale(1.02);
+    transition: opacity 0.14s ease 0.34s, transform 0.14s ease 0.34s;
+    pointer-events: none; white-space: nowrap;
+    text-shadow:
+      1px 1px 0 rgba(0,0,0,0.9),
+      2px 2px 0 rgba(0,0,0,0.7),
+      3px 3px 0 rgba(0,0,0,0.45),
+      4px 4px 0 rgba(0,0,0,0.25),
+      5px 5px 12px rgba(0,0,0,0.5),
+      0 0 24px rgba(255,255,255,0.08);
+  }
+
+  /* Hover triggers */
+  .tile:hover .cz-vs      { opacity: 0; transform: scale(0.9); }
+  .tile:hover .fill-top   { height: 52%; }
+  .tile:hover .fill-bottom{ height: 52%; }
+  .tile:hover .brk-l,
+  .tile:hover .brk-r      { width: 22%; opacity: 1; }
+  .tile:hover .brk-tl,
+  .tile:hover .brk-tr,
+  .tile:hover .brk-bl,
+  .tile:hover .brk-br     { width: 9px; height: 9px; }
+  .tile:hover .brk-tl     { border-top-color: rgba(255,255,255,0.6); border-left-color: rgba(255,255,255,0.6); }
+  .tile:hover .brk-bl     { border-bottom-color: rgba(255,255,255,0.6); border-left-color: rgba(255,255,255,0.6); }
+  .tile:hover .brk-tr     { border-top-color: rgba(255,255,255,0.6); border-right-color: rgba(255,255,255,0.6); }
+  .tile:hover .brk-br     { border-bottom-color: rgba(255,255,255,0.6); border-right-color: rgba(255,255,255,0.6); }
+  .tile:hover .cz-label   { opacity: 1; transform: translateY(0); }
+
+  /* Hover row highlight */
+  .team-row:hover { background: rgba(0,0,0,0.04); }
+
+  /* ── HABITAT COLOR MAP ── */
+  /* Savanna / grassland */
+  .h-savanna  { background: #6B3E1A; }  /* warm earth */
+  .h-savanna-lt { background: #A86030; } /* dry gold */
+  /* Desert */
+  .h-desert   { background: #8B5E2A; }
+  .h-desert-lt { background: #C4952A; }
+  /* Forest / woodland */
+  .h-forest   { background: #0D2E1A; }
+  .h-forest-lt { background: #2A5C3A; }
+  /* Ocean / marine */
+  .h-ocean    { background: #003459; }
+  .h-ocean-lt { background: #0E6E8C; }
+  /* Arctic / tundra */
+  .h-arctic   { background: #2B4C6F; }
+  .h-arctic-lt { background: #5C8AAA; }
+  /* Rainforest */
+  .h-rainforest   { background: #0B3D1E; }
+  .h-rainforest-lt { background: #1A6640; }
+  /* Mountain */
+  .h-mountain  { background: #3D3A50; }
+  .h-mountain-lt { background: #6B6880; }
+  /* Basketball (navy split) */
+  .h-bb-dk { background: #040C15; }
+  .h-bb-lt { background: #1E4A88; }
+
+  /* Logo tints per habitat */
+  .logo-savanna  { background: #D4956A; color: #6B3E1A; }
+  .logo-desert   { background: #E8C080; color: #8B5E2A; }
+  .logo-forest   { background: #7AB892; color: #0D2E1A; }
+  .logo-ocean    { background: #7AC0D8; color: #003459; }
+  .logo-arctic   { background: #A8C8E0; color: #2B4C6F; }
+  .logo-rainforest{ background: #7AC095; color: #0B3D1E; }
+  .logo-mountain { background: #A8A4C0; color: #3D3A50; }
+  .logo-bb       { background: #B8CBE8; color: #091828; }
+
+  /* Habitat tag colors */
+  .tag-savanna  { color: #6B3E1A; }
+  .tag-desert   { color: #8B5E2A; }
+  .tag-forest   { color: #0D2E1A; }
+  .tag-ocean    { color: #003459; }
+  .tag-arctic   { color: #2B4C6F; }
+  .tag-rainforest { color: #0B3D1E; }
+  .tag-mountain { color: #3D3A50; }
+
+  /* Note */
+  .note {
+    font-size: 11px; line-height: 1.6; color: var(--muted);
+    max-width: 230px; font-style: italic;
+  }
+  .note strong { font-style: normal; color: var(--text); font-weight: 600; }
+
+  /* Section label */
+  .section-label {
+    font-family: 'Libre Bodoni', serif;
+    font-size: 10px; font-weight: 500;
+    letter-spacing: 2px; text-transform: uppercase;
+    color: var(--muted); margin-bottom: 16px;
+  }
+</style>
+</head>
+<body>
+
+<h1>Habitat Split — Compare Animation · Hover each tile</h1>
+
+<!-- MAMMAL HABITAT EXAMPLES -->
+<div>
+  <div class="section-label">Mammal Madness — habitat split (from ASU research data)</div>
+  <div class="row">
+
+    <!-- Savanna vs Arctic -->
+    <div class="col">
+      <div class="col-label">Savanna vs Arctic</div>
+      <div class="tile" style="border: 2px solid #1A4332;">
+        <div class="team-row">
+          <div class="logo logo-savanna">HB</div>
+          <span class="seed">1</span>
+          <div class="tname-wrap">
+            <span class="tname">Honey Badger</span>
+            <span class="habitat-tag tag-savanna">Savanna</span>
+          </div>
+        </div>
+        <div class="cz">
+          <div class="cz-vs"><span class="vs-txt">vs</span></div>
+          <div class="fill-top h-savanna"></div>
+          <div class="fill-bottom h-arctic-lt"></div>
+          <div class="brk-l"></div><div class="brk-r"></div>
+          <div class="brk-tl"></div><div class="brk-tr"></div>
+          <div class="brk-bl"></div><div class="brk-br"></div>
+          <span class="cz-label">Compare</span>
+        </div>
+        <div class="team-row">
+          <div class="logo logo-arctic">PB</div>
+          <span class="seed">4</span>
+          <div class="tname-wrap">
+            <span class="tname">Polar Bear</span>
+            <span class="habitat-tag tag-arctic">Arctic Tundra</span>
+          </div>
+        </div>
+      </div>
+      <div class="note"><strong>Earth brown</strong> meets <strong>ice blue</strong> — immediately tells a story.</div>
+    </div>
+
+    <!-- Forest vs Ocean -->
+    <div class="col">
+      <div class="col-label">Forest vs Ocean</div>
+      <div class="tile" style="border: 2px solid #1A4332;">
+        <div class="team-row">
+          <div class="logo logo-forest">WO</div>
+          <span class="seed">2</span>
+          <div class="tname-wrap">
+            <span class="tname">Wolf</span>
+            <span class="habitat-tag tag-forest">Forest</span>
+          </div>
+        </div>
+        <div class="cz">
+          <div class="cz-vs"><span class="vs-txt">vs</span></div>
+          <div class="fill-top h-forest"></div>
+          <div class="fill-bottom h-ocean-lt"></div>
+          <div class="brk-l"></div><div class="brk-r"></div>
+          <div class="brk-tl"></div><div class="brk-tr"></div>
+          <div class="brk-bl"></div><div class="brk-br"></div>
+          <span class="cz-label">Compare</span>
+        </div>
+        <div class="team-row">
+          <div class="logo logo-ocean">OT</div>
+          <span class="seed">3</span>
+          <div class="tname-wrap">
+            <span class="tname">Orca</span>
+            <span class="habitat-tag tag-ocean">Ocean</span>
+          </div>
+        </div>
+      </div>
+      <div class="note"><strong>Dark canopy</strong> meets <strong>deep teal</strong>.</div>
+    </div>
+
+    <!-- Desert vs Rainforest -->
+    <div class="col">
+      <div class="col-label">Desert vs Rainforest</div>
+      <div class="tile" style="border: 2px solid #1A4332;">
+        <div class="team-row">
+          <div class="logo logo-desert">CM</div>
+          <span class="seed">5</span>
+          <div class="tname-wrap">
+            <span class="tname">Coyote</span>
+            <span class="habitat-tag tag-desert">Desert</span>
+          </div>
+        </div>
+        <div class="cz">
+          <div class="cz-vs"><span class="vs-txt">vs</span></div>
+          <div class="fill-top h-desert"></div>
+          <div class="fill-bottom h-rainforest-lt"></div>
+          <div class="brk-l"></div><div class="brk-r"></div>
+          <div class="brk-tl"></div><div class="brk-tr"></div>
+          <div class="brk-bl"></div><div class="brk-br"></div>
+          <span class="cz-label">Compare</span>
+        </div>
+        <div class="team-row">
+          <div class="logo logo-rainforest">JP</div>
+          <span class="seed">12</span>
+          <div class="tname-wrap">
+            <span class="tname">Jaguar</span>
+            <span class="habitat-tag tag-rainforest">Rainforest</span>
+          </div>
+        </div>
+      </div>
+      <div class="note"><strong>Ochre sand</strong> meets <strong>jungle green</strong>.</div>
+    </div>
+
+    <!-- Mountain vs Forest (same biome — subtle) -->
+    <div class="col">
+      <div class="col-label">Mountain vs Forest (similar biomes)</div>
+      <div class="tile" style="border: 2px solid #1A4332;">
+        <div class="team-row">
+          <div class="logo logo-mountain">SL</div>
+          <span class="seed">6</span>
+          <div class="tname-wrap">
+            <span class="tname">Snow Leopard</span>
+            <span class="habitat-tag tag-mountain">Mountain</span>
+          </div>
+        </div>
+        <div class="cz">
+          <div class="cz-vs"><span class="vs-txt">vs</span></div>
+          <div class="fill-top h-mountain"></div>
+          <div class="fill-bottom h-forest-lt"></div>
+          <div class="brk-l"></div><div class="brk-r"></div>
+          <div class="brk-tl"></div><div class="brk-tr"></div>
+          <div class="brk-bl"></div><div class="brk-br"></div>
+          <span class="cz-label">Compare</span>
+        </div>
+        <div class="team-row">
+          <div class="logo logo-forest">GR</div>
+          <span class="seed">11</span>
+          <div class="tname-wrap">
+            <span class="tname">Grizzly Bear</span>
+            <span class="habitat-tag tag-forest">Forest</span>
+          </div>
+        </div>
+      </div>
+      <div class="note"><strong>Slate purple</strong> meets <strong>forest green</strong> — even similar biomes read as different.</div>
+    </div>
+
+  </div>
+</div>
+
+<!-- BASKETBALL COMPARISON -->
+<div>
+  <div class="section-label">Basketball — two-tone navy split (no team colors yet)</div>
+  <div class="row">
+
+    <div class="col">
+      <div class="col-label">Navy dark vs Navy bright</div>
+      <div class="tile" style="border: 2px solid #091828;">
+        <div class="team-row">
+          <div class="logo logo-bb">AU</div>
+          <span class="seed">1</span>
+          <span class="tname">Auburn Tigers</span>
+        </div>
+        <div class="cz">
+          <div class="cz-vs"><span class="vs-txt">vs</span></div>
+          <div class="fill-top h-bb-dk"></div>
+          <div class="fill-bottom h-bb-lt"></div>
+          <div class="brk-l"></div><div class="brk-r"></div>
+          <div class="brk-tl"></div><div class="brk-tr"></div>
+          <div class="brk-bl"></div><div class="brk-br"></div>
+          <span class="cz-label">Compare</span>
+        </div>
+        <div class="team-row">
+          <div class="logo logo-bb">AL</div>
+          <span class="seed">16</span>
+          <span class="tname">Alabama St.</span>
+        </div>
+      </div>
+      <div class="note">Near-black vs bright navy. Clear clash, single-color theme. Team colors can replace these later.</div>
+    </div>
+
+    <div class="col" style="justify-content: flex-start; padding-top: 24px;">
+      <div style="background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 16px; max-width: 280px;">
+        <div style="font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); margin-bottom: 10px;">How habitat colors are assigned</div>
+        <div style="font-size: 12px; line-height: 1.8; color: var(--text);">
+          Each animal's research card in Firestore has a <code style="background:#E0D8CC;padding:1px 4px;border-radius:3px;font-size:11px;">habitat</code> field.<br><br>
+          On compare hover, the app reads:<br>
+          <code style="background:#E0D8CC;padding:1px 4px;border-radius:3px;font-size:11px;">researchData[animal.name].habitat</code><br><br>
+          and maps it to a color pair.<br><br>
+          <strong>Fallback:</strong> if no research data is loaded yet, defaults to the two-tone forest green split.
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+</body>
+</html>
