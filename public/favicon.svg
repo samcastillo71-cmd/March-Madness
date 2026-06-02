@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <title>March Madness Bracket Challenge</title>
+  <rect width="32" height="32" rx="7" fill="#091828"/>
+  <g stroke="#D8D0C4" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <line x1="3"  y1="8"    x2="12" y2="8"/>
+    <line x1="3"  y1="13"   x2="12" y2="13"/>
+    <line x1="3"  y1="20"   x2="12" y2="20"/>
+    <line x1="3"  y1="25"   x2="12" y2="25"/>
+    <line x1="12" y1="8"    x2="12" y2="13"/>
+    <line x1="12" y1="20"   x2="12" y2="25"/>
+    <line x1="12" y1="10.5" x2="20" y2="10.5"/>
+    <line x1="12" y1="22.5" x2="20" y2="22.5"/>
+    <line x1="20" y1="10.5" x2="20" y2="22.5"/>
+    <line x1="20" y1="16.5" x2="27" y2="16.5"/>
+  </g>
+  <circle cx="29" cy="16.5" r="2.2" fill="#C4952A"/>
+</svg>
