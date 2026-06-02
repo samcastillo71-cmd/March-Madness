@@ -230,6 +230,7 @@ const GameSlot = memo(function GameSlot({ game, onPick, locked, isChampionship, 
     const isLiveWinning = hasLive && live && live.score > (side === 'top' ? bottomLive?.score : topLive?.score);
     if (isHorizontal) return (
       <div onClick={() => !locked && !isFF && onPick?.(side)}
+        className={!locked && !isFF ? (isW ? 'mm-tile mm-tile-win' : 'mm-tile') : ''}
         style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, padding: '10px 14px', background: isW ? MINT_BG : '#F4EFE6', cursor: locked || isFF ? 'default' : 'pointer', borderRadius: 6, opacity: isL ? 0.4 : 1, transition: 'background .12s', minWidth: 100, border: isW ? `1px solid ${MINT_FG}` : '1px solid #C8BFB0' }}>
         <TeamLogo espnId={team.espnId} name={team.name} size={36} />
         <span style={{ fontSize: 10, color: isW ? MINT_FG : '#7A7068', fontWeight: 700 }}>{team.seed}</span>
@@ -240,7 +241,8 @@ const GameSlot = memo(function GameSlot({ game, onPick, locked, isChampionship, 
     );
     return (
       <div onClick={() => !locked && !isFF && onPick?.(side)}
-        style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '3px 8px', height: 36, boxSizing: 'border-box', flexDirection: flipped ? 'row-reverse' : 'row', background: isW ? MINT_BG : '#F4EFE6', cursor: locked || isFF ? 'default' : 'pointer', borderRadius: 4, opacity: isL ? 0.4 : 1, transition: 'background .12s', borderLeft: isW ? `3px solid ${MINT_FG}` : 'none' }}>
+        className={!locked && !isFF ? (isW ? 'mm-tile mm-tile-win' : 'mm-tile') : ''}
+        style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 8px', minHeight: 44, boxSizing: 'border-box', flexDirection: flipped ? 'row-reverse' : 'row', background: isW ? MINT_BG : '#F4EFE6', cursor: locked || isFF ? 'default' : 'pointer', borderRadius: 4, opacity: isL ? 0.4 : 1, transition: 'background .12s', borderLeft: isW ? `3px solid ${MINT_FG}` : 'none' }}>
         <TeamLogo espnId={team.espnId} name={team.name} size={20} />
         <span style={{ fontSize: 10, color: isW ? MINT_FG : '#7A7068', fontWeight: 700, minWidth: 14, textDecoration: isL ? 'line-through' : 'none' }}>{team.seed}</span>
         <span style={{ fontSize: team.name?.length > 18 ? 11 : team.name?.length > 13 ? 13 : 14, fontWeight: isW ? 700 : 500, color: isW ? MINT_FG : isL ? '#C8BFB0' : '#1A1208', textDecoration: isL ? 'line-through' : 'none', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: hasLive ? 80 : 140, flex: 1 }}>
@@ -1960,9 +1962,17 @@ if (game.winner?.name === clicked.name) {
   // ── LOADING SCREEN ────────────────────────────────────────────────────────
   if (uid && (!appReady || !profileLoaded)) return (
     <div style={{ ...S.app, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
-      <div style={{ textAlign: 'center' }}>
-        <Trophy size={48} color={NAVY} style={{ marginBottom: 16 }} />
-        <div style={{ fontSize: 16, color: NAVY, fontWeight: 700 }}>Loading your bracket...</div>
+      <div style={{ width: 260, display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 4 }}>
+          <div className="mm-skeleton" style={{ width: 40, height: 40, borderRadius: '50%', flexShrink: 0 }} />
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div className="mm-skeleton" style={{ height: 14, width: '75%' }} />
+            <div className="mm-skeleton" style={{ height: 11, width: '50%' }} />
+          </div>
+        </div>
+        <div className="mm-skeleton" style={{ height: 80 }} />
+        <div className="mm-skeleton" style={{ height: 80 }} />
+        <div className="mm-skeleton" style={{ height: 80 }} />
       </div>
     </div>
   );
@@ -2102,6 +2112,9 @@ if (game.winner?.name === clicked.name) {
           .compare-zone:hover .cz-conn-r   { width:22%; }
           .compare-zone:hover .cz-label    { opacity:1; transform:translateY(0); }
           button:active { transform: scale(0.96); }
+          button:hover:not(:disabled) { filter: brightness(1.08); }
+          button:focus-visible { outline: 2px solid #1E6B47; outline-offset: 3px; border-radius: 8px; }
+          select:focus-visible, input:focus-visible { outline: 2px solid #1E6B47; outline-offset: 2px; }
           .spring-pick { animation: springBounce 250ms cubic-bezier(0.34,1.56,0.64,1) forwards; }
           @keyframes springBounce { 0%{transform:scale(1)} 40%{transform:scale(0.97)} 70%{transform:scale(1.02)} 100%{transform:scale(1)} }
           @keyframes underlineGrow { from{width:0} to{width:100%} }
@@ -2119,7 +2132,29 @@ if (game.winner?.name === clicked.name) {
           @keyframes stampIn { 0%{opacity:0;transform:rotate(-15deg) scale(1.4)} 60%{opacity:1;transform:rotate(-15deg) scale(0.95)} 100%{opacity:0.65;transform:rotate(-15deg) scale(1)} }
           .locked-stamp { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none; z-index:10; }
           .locked-stamp span { font-family:'Libre Bodoni',serif; font-size:13px; font-weight:900; color:#dc2626; border:2px solid #dc2626; padding:2px 8px; border-radius:3px; letter-spacing:3px; text-transform:uppercase; opacity:0.65; transform:rotate(-15deg); }
-          @media (prefers-reduced-motion: reduce) { button:active { transform: none; } .spring-pick { animation: none; } .signin-underline::after { animation:none; width:100%; } @keyframes bgDrift {} .school-card { transition:none; } .school-card:hover { transform:none; } }
+          .mm-tile { transition: background 0.15s, transform 0.12s !important; }
+          .mm-tile:hover { transform: translateX(2px) !important; background: rgba(9,24,40,0.06) !important; }
+          .mm-tile-win:hover { background: #afdfc5 !important; }
+          .mm-lb-row { transition: transform 200ms ease-out, box-shadow 200ms ease-out !important; }
+          .mm-lb-row:hover { transform: translateY(-2px); box-shadow: 6px 10px 20px rgba(9,24,40,0.13), inset -1px -1px 4px rgba(255,255,255,0.8) !important; }
+          .mm-podium { transition: transform 220ms cubic-bezier(0.34,1.56,0.64,1), box-shadow 220ms ease-out !important; cursor: default; }
+          .mm-podium:hover { transform: translateY(-4px) scale(1.02); box-shadow: 8px 14px 28px rgba(9,24,40,0.16), inset -1px -1px 4px rgba(255,255,255,0.8) !important; }
+          @keyframes shimmer { 0%{background-position:-800px 0} 100%{background-position:800px 0} }
+          .mm-skeleton { background: linear-gradient(90deg, rgba(9,24,40,0.05) 25%, rgba(9,24,40,0.10) 50%, rgba(9,24,40,0.05) 75%); background-size:1600px 100%; animation: shimmer 1.6s ease-in-out infinite; border-radius: 10px; }
+          @media (prefers-reduced-motion: reduce) {
+            button:active { transform: none; }
+            button:hover:not(:disabled) { filter: none; }
+            .spring-pick { animation: none; }
+            .signin-underline::after { animation:none; width:100%; }
+            @keyframes bgDrift {}
+            .school-card { transition:none; }
+            .school-card:hover { transform:none; }
+            .mm-tile { transition: background 0.15s !important; }
+            .mm-tile:hover { transform: none !important; }
+            .mm-lb-row:hover { transform: none; }
+            .mm-podium:hover { transform: none; }
+            .mm-skeleton { animation: none; background: rgba(9,24,40,0.06); }
+          }
         `}</style>
 
         <OfflineBar />
@@ -2380,7 +2415,7 @@ if (game.winner?.name === clicked.name) {
                     {top3.length > 0 && schoolFilter === 'all' && (
                       <div style={{ display: 'flex', gap: 12, marginBottom: 24, justifyContent: 'center' }}>
                         {top3.map((entry, i) => (
-                          <div key={entry.uid} style={{
+                          <div key={entry.uid} className="mm-podium" style={{
                             ...S.card,
                             flex: i === 0 ? '1.2' : '1',
                             border: `2px solid ${PODIUM_COLORS[i]}`,
@@ -2409,7 +2444,7 @@ if (game.winner?.name === clicked.name) {
                           const isMe = entry.uid === uid;
                           const isFlashed = !!flashedScores[entry.uid];
                           return (
-                            <div key={entry.uid} className={isFlashed ? 'score-flash' : ''}
+                            <div key={entry.uid} className={`mm-lb-row${isFlashed ? ' score-flash' : ''}`}
                               style={{ ...S.card, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12, border: isMe ? `2px solid ${accentColor}` : '2px solid rgba(9,24,40,0.20)' }}>
                               <span style={{ fontSize: 14, fontWeight: 900, color: '#7A7068', minWidth: 28 }}>#{entry.rank}</span>
                               <Avatar name={entry.displayName} size={28} />
