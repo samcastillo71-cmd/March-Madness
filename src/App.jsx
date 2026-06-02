@@ -959,6 +959,10 @@ export default function App() {
   const [mammalBattleVideos, setMammalBattleVideos] = useState({});
   const [selectedSchoolCard, setSelectedSchoolCard] = useState(null);
   const [flashedScores, setFlashedScores] = useState({});
+  const [teacherRosterStudents, setTeacherRosterStudents] = useState([]);
+  const [teacherRosterLoading, setTeacherRosterLoading] = useState(false);
+  const [teacherActiveView, setTeacherActiveView] = useState('leaderboard');
+  const [teacherTournament, setTeacherTournament] = useState('basketball');
 
   // ── ADMIN ─────────────────────────────────────────────────────────────────
   const [isAdmin,      setIsAdmin]      = useState(false);
@@ -1201,6 +1205,18 @@ export default function App() {
     setAppReady(true);
     return () => { u1(); u2(); u3(); u4(); u5(); u6(); u7(); u8(); u9(); };
   }, [uid, isAdmin]);
+
+  // ── TEACHER ROSTER LOADER ────────────────────────────────────────────────
+  useEffect(() => {
+    if (tab !== 'teacher' || !uid) return;
+    const schoolToFilter = teacherSchool || school;
+    if (!schoolToFilter) return;
+    setTeacherRosterLoading(true);
+    getAllUsers().then(users => {
+      setTeacherRosterStudents(users.filter(u => u.school === schoolToFilter));
+      setTeacherRosterLoading(false);
+    }).catch(() => setTeacherRosterLoading(false));
+  }, [tab, uid, teacherSchool, school]);
 
   // ── LIVE SCORES ───────────────────────────────────────────────────────────
   useEffect(() => {
@@ -2396,6 +2412,117 @@ if (game.winner?.name === clicked.name) {
                   </>
                 );
               })()}
+            </div>
+          )}
+
+          {/* ══ TEACHER TAB ══ */}
+          {tab === 'teacher' && (isTeacher || isAdmin) && (
+            <div style={{ padding: 24, maxWidth: 900, margin: '0 auto' }}>
+              <h2 style={{ fontFamily: "'Libre Bodoni', serif", color: NAVY, marginBottom: 4, fontSize: 24 }}>
+                {teacherSchool || school} — Your Class
+              </h2>
+              <div style={{ display: 'flex', gap: 8, marginBottom: 24, flexWrap: 'wrap' }}>
+                {['leaderboard','roster','videos'].map(v => (
+                  <button key={v} onClick={() => setTeacherActiveView(v)}
+                    style={{ ...S.btn(teacherActiveView === v ? NAVY : 'rgba(9,24,40,0.08)', teacherActiveView === v ? '#fff' : '#7A7068'), padding: '8px 18px', fontSize: 13 }}>
+                    {v === 'leaderboard' ? 'Class Leaderboard' : v === 'roster' ? 'Student Roster' : 'Battle Videos'}
+                  </button>
+                ))}
+              </div>
+
+              {/* Class Leaderboard */}
+              {teacherActiveView === 'leaderboard' && (() => {
+                const schoolToFilter = teacherSchool || school;
+                const lb = (teacherTournament === 'basketball' ? leaderboard : mammalLeaderboard)
+                  .filter(e => e.school === schoolToFilter);
+                return (
+                  <div>
+                    <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+                      <button onClick={() => setTeacherTournament('basketball')} style={{ ...S.btn(teacherTournament === 'basketball' ? NAVY : 'rgba(9,24,40,0.08)', teacherTournament === 'basketball' ? '#fff' : '#7A7068'), padding: '6px 16px', fontSize: 12 }}>Basketball</button>
+                      <button onClick={() => setTeacherTournament('mammals')} style={{ ...S.btn(teacherTournament === 'mammals' ? GREEN : 'rgba(9,24,40,0.08)', teacherTournament === 'mammals' ? '#fff' : '#7A7068'), padding: '6px 16px', fontSize: 12 }}>Mammal Madness</button>
+                    </div>
+                    {lb.length === 0
+                      ? <div style={{ ...S.card, textAlign: 'center', padding: 40, color: '#7A7068' }}>No students from {schoolToFilter} have submitted yet.</div>
+                      : <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                          {lb.map((entry, i) => (
+                            <div key={entry.uid} style={{ ...S.card, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
+                              <span style={{ fontSize: 14, fontWeight: 900, color: '#7A7068', minWidth: 28 }}>#{i + 1}</span>
+                              <Avatar name={entry.displayName} size={24} />
+                              <span style={{ flex: 1, fontWeight: 600, fontSize: 14 }}>{formatName(entry.displayName)}</span>
+                              <span style={{ fontSize: 18, fontWeight: 900, color: NAVY }}>{entry.score}</span>
+                            </div>
+                          ))}
+                        </div>
+                    }
+                  </div>
+                );
+              })()}
+
+              {/* Student Roster */}
+              {teacherActiveView === 'roster' && (
+                <div>
+                  {teacherRosterLoading
+                    ? <div style={{ textAlign: 'center', color: '#7A7068', padding: 40 }}>Loading roster...</div>
+                    : teacherRosterStudents.length === 0
+                    ? <div style={{ ...S.card, textAlign: 'center', padding: 40, color: '#7A7068' }}>No students from {teacherSchool || school} found.</div>
+                    : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr auto', gap: 12, padding: '8px 16px', fontSize: 11, color: '#7A7068', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1 }}>
+                          <span>Name</span><span>School</span><span>BB Score</span><span>Mammal</span><span>Actions</span>
+                        </div>
+                        {teacherRosterStudents.map(student => {
+                          const bbEntry = leaderboard.find(e => e.uid === student.uid);
+                          const mmEntry = mammalLeaderboard.find(e => e.uid === student.uid);
+                          return (
+                            <div key={student.uid} style={{ ...S.card, padding: '10px 16px', display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr auto', gap: 12, alignItems: 'center' }}>
+                              <span style={{ fontWeight: 600, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{bbEntry?.displayName || mmEntry?.displayName || 'Unknown'}</span>
+                              <span style={{ fontSize: 13, color: '#7A7068' }}>{student.school}</span>
+                              <span style={{ fontWeight: 700 }}>{bbEntry?.score ?? '—'}</span>
+                              <span style={{ fontWeight: 700 }}>{mmEntry?.score ?? '—'}</span>
+                              <button onClick={() => {
+                                const name = bbEntry?.displayName || mmEntry?.displayName || student.uid;
+                                if (!window.confirm(`Remove ${name}? This deletes their bracket and score.`)) return;
+                                deleteBracketAndScore(student.uid, false).catch(() => {});
+                                deleteBracketAndScore(student.uid, true).catch(() => {});
+                                setTeacherRosterStudents(prev => prev.filter(s => s.uid !== student.uid));
+                              }} style={{ ...S.btn('#c0392b'), padding: '4px 10px', fontSize: 11 }}>Remove</button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )
+                  }
+                </div>
+              )}
+
+              {/* Battle Videos (teacher projection view) */}
+              {teacherActiveView === 'videos' && (
+                <div>
+                  {Object.keys(mammalBattleVideos).filter(k => mammalBattleVideos[k]).length === 0
+                    ? <div style={{ ...S.card, textAlign: 'center', padding: 40, color: '#7A7068' }}>No battle videos added yet. Ask the admin to add video IDs in Admin → Mammal.</div>
+                    : <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                        {Object.entries(mammalBattleVideos)
+                          .filter(([, v]) => v)
+                          .map(([round, videoId]) => (
+                            <div key={round} style={{ ...S.card }}>
+                              <div style={{ fontSize: 13, color: '#7A7068', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>{round}</div>
+                              <div style={{ position: 'relative', paddingBottom: '56.25%', height: 0, borderRadius: 12, overflow: 'hidden', background: '#000' }}>
+                                <iframe
+                                  style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', border: 'none' }}
+                                  src={`https://www.youtube.com/embed/${videoId}?rel=0`}
+                                  title={`Mammal Battle ${round}`}
+                                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                  allowFullScreen
+                                  loading="lazy"
+                                />
+                              </div>
+                            </div>
+                          ))
+                        }
+                      </div>
+                  }
+                </div>
+              )}
             </div>
           )}
 
