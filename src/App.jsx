@@ -1216,7 +1216,7 @@ export default function App() {
 
   // ── TEACHER ROSTER LOADER ────────────────────────────────────────────────
   useEffect(() => {
-    if (tab !== 'teacher' || !uid) return;
+    if (tab !== 'teacher' || !uid || !(isTeacher || isAdmin)) return;
     const schoolToFilter = teacherSchool || school;
     if (!schoolToFilter) return;
     setTeacherRosterLoading(true);
