@@ -2,9 +2,11 @@
 import { useState, useEffect, useCallback, useRef, useMemo, memo } from 'react';
 import { Component } from 'react';
 import { doc, setDoc, getDoc, deleteDoc, getDocs, collection, serverTimestamp } from 'firebase/firestore';
-import { db } from './firebase';
+import { signInWithPopup, onAuthStateChanged, signOut } from 'firebase/auth';
+import { db, auth, googleProvider } from './firebase';
+import { LogIn, Lock, Check, Settings, AlertTriangle, Trophy } from 'lucide-react';
 import {
-  saveBracket, loadBracket, findBracketByName,
+  saveBracket, loadBracket,
   saveOfficialBracket, subscribeToOfficialBracket,
   subscribeToConfig, setTournamentLocked,
   subscribeToLeaderboard, updateLeaderboardEntry,
@@ -14,38 +16,68 @@ import {
   subscribeToMammalConfig, setMammalTournamentLocked,
   subscribeToMammalLeaderboard, updateMammalLeaderboardEntry,
   saveMammalResearchData, saveOneMammalResearch, subscribeToMammalResearchData,
-  saveMammalRoster, checkAdminPassword, adminExists, setAdminPassword,
-  deleteBracketAndScore, getAllBracketUids,
+  saveMammalRoster,
+  deleteBracketAndScore, getAllBracketUids, deleteAllBrackets,
+  getUserProfile, saveUserProfile,
+  getUserRole, getSuperAdmins, saveSuperAdmins,
+  getTeachers, saveTeachers,
+  getMammalBattleVideos, saveMammalBattleVideos, subscribeToMammalBattleVideos,
+  getAllUsers, updateUserSchool,
 } from './firestoreService';
 import {
   CURRENT_YEAR, buildInitialBracket, buildInitialBracketFromTeams, calcScore,
 } from './bracketData';
 
 // ── THEME ─────────────────────────────────────────────────────────────────────
-const ACCENT  = '#16a34a';
-const ACCENT2 = '#4ade80';
-const GOLD    = '#f59e0b';
-const GOLD2   = '#fcd34d';
+const NAVY     = '#091828';
+const GREEN    = '#1A4332';
+const MINT_BG  = '#C2EDD5';
+const MINT_FG  = '#1E6B47';
 const RC = { East: '#93c5fd', West: '#fca5a5', South: '#86efac', Midwest: '#fdba74' };
 const ROUND_COLORS = [
-  'rgba(96,165,250,0.22)', 'rgba(167,139,250,0.22)',
-  'rgba(251,191,36,0.18)', 'rgba(239,68,68,0.22)', 'rgba(16,185,129,0.25)',
+  'rgba(9,24,40,0.10)', 'rgba(9,24,40,0.13)',
+  'rgba(9,24,40,0.16)', 'rgba(9,24,40,0.20)', 'rgba(26,67,50,0.15)',
 ];
 const ROUND_BORDER_COLORS = [
-  'rgba(96,165,250,0.6)', 'rgba(167,139,250,0.6)',
-  'rgba(251,191,36,0.55)', 'rgba(239,68,68,0.6)', 'rgba(52,211,153,0.7)',
+  'rgba(9,24,40,0.40)', 'rgba(9,24,40,0.50)',
+  'rgba(9,24,40,0.60)', 'rgba(9,24,40,0.70)', 'rgba(26,67,50,0.65)',
 ];
 
 const S = {
-  app:    { minHeight: '100vh', background: '#0a1a0e', color: '#e8f5ee', fontFamily: "'Source Sans 3', sans-serif" },
-  header: { background: 'rgba(10,26,14,.97)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(22,163,74,.5)', padding: '0 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 60, position: 'sticky', top: 0, zIndex: 200 },
-  logo:   { fontFamily: "'Playfair Display', serif", fontSize: 19, fontWeight: 900, color: ACCENT2, letterSpacing: 1 },
-  card:   { background: 'rgba(22,163,74,0.10)', border: '1px solid rgba(22,163,74,0.30)', borderRadius: 12, padding: 20 },
-  btn:    (bg = ACCENT, fg = '#fff') => ({ padding: '10px 22px', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, fontWeight: 700, background: bg, color: fg, letterSpacing: 0.3 }),
-  navBtn: a => ({ padding: '7px 15px', borderRadius: 6, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 600, background: a ? ACCENT : 'transparent', color: a ? '#fff' : '#999', transition: 'all .15s' }),
-  input:  { background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(22,163,74,0.35)', borderRadius: 8, color: '#fff', padding: '10px 14px', fontSize: 14, fontFamily: 'inherit', outline: 'none', width: '100%' },
+  app:    { minHeight: '100vh', background: '#E8E2D8', color: '#1A1208', fontFamily: "'Public Sans', sans-serif" },
+  header: { background: 'rgba(9,24,40,0.97)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(28,53,88,0.6)', padding: '0 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 60, position: 'sticky', top: 0, zIndex: 200 },
+  logo:   { fontFamily: "'Libre Bodoni', serif", fontSize: 19, fontWeight: 700, color: '#B8CBE8', letterSpacing: 1 },
+  card:   { background: '#F4EFE6', border: '1px solid #C8BFB0', borderRadius: 12, padding: 20 },
+  btn:    (bg = NAVY, fg = '#fff') => ({ padding: '10px 22px', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, fontWeight: 700, background: bg, color: fg, letterSpacing: 0.3 }),
+  navBtn: a => ({ padding: '7px 15px', borderRadius: 6, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 600, background: a ? NAVY : 'transparent', color: a ? '#fff' : '#B8CBE8', transition: 'all .15s' }),
+  input:  { background: 'rgba(255,255,255,0.7)', border: '1px solid #C8BFB0', borderRadius: 8, color: '#1A1208', padding: '10px 14px', fontSize: 14, fontFamily: 'inherit', outline: 'none', width: '100%' },
   tag:    (color) => ({ fontSize: 10, color, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4, fontWeight: 700 }),
 };
+
+// ── COMPARE ZONE COLORS ───────────────────────────────────────────────────────
+const HABITAT_COLORS = {
+  savanna:    { top: '#6B3E1A', bottom: '#A86030' },
+  grassland:  { top: '#6B3E1A', bottom: '#A86030' },
+  desert:     { top: '#8B5E2A', bottom: '#C4952A' },
+  forest:     { top: '#0D2E1A', bottom: '#2A5C3A' },
+  woodland:   { top: '#0D2E1A', bottom: '#2A5C3A' },
+  ocean:      { top: '#003459', bottom: '#0E6E8C' },
+  marine:     { top: '#003459', bottom: '#0E6E8C' },
+  arctic:     { top: '#2B4C6F', bottom: '#5C8AAA' },
+  tundra:     { top: '#2B4C6F', bottom: '#5C8AAA' },
+  rainforest: { top: '#0B3D1E', bottom: '#1A6640' },
+  mountain:   { top: '#3D3A50', bottom: '#6B6880' },
+};
+const FALLBACK_HABITAT = { top: '#0D2419', bottom: '#2A6348' };
+const BB_COMPARE = { top: '#040C15', bottom: '#1E4A88' };
+
+function getHabitatColor(animalName, researchData) {
+  const h = ((researchData || {})[animalName]?.habitat || '').toLowerCase();
+  for (const [key, colors] of Object.entries(HABITAT_COLORS)) {
+    if (h.includes(key)) return colors;
+  }
+  return FALLBACK_HABITAT;
+}
 
 // ── HELPERS ───────────────────────────────────────────────────────────────────
 function generateUUID() {
@@ -64,7 +96,7 @@ function formatName(displayName) {
 
 // Deterministic color from name string
 function nameToColor(name) {
-  const colors = ['#16a34a','#2563eb','#7c3aed','#db2777','#ea580c','#0891b2','#059669','#d97706'];
+  const colors = ['#091828','#1A4332','#1C3558','#4A2060','#8B3A3A','#2A5C6E','#1E6B47','#7A4A1A'];
   let hash = 0;
   for (let i = 0; i < (name || '').length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
   return colors[Math.abs(hash) % colors.length];
@@ -102,12 +134,12 @@ class ErrorBoundary extends Component {
   static getDerivedStateFromError(error) { return { error }; }
   render() {
     if (this.state.error) return (
-      <div style={{ minHeight: '100vh', background: '#0a0a0a', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 40 }}>
+      <div style={{ minHeight: '100vh', background: '#E8E2D8', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 40 }}>
         <div style={{ textAlign: 'center', maxWidth: 420 }}>
-          <div style={{ fontSize: 48, marginBottom: 16 }}>🏀</div>
-          <h2 style={{ color: '#f87171', fontFamily: "'Playfair Display', serif", marginBottom: 8 }}>Something went wrong</h2>
-          <p style={{ color: '#888', fontSize: 14, lineHeight: 1.6, marginBottom: 24 }}>Your bracket picks are saved. Try reloading the page.</p>
-          <button style={{ background: '#16a34a', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 24px', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }} onClick={() => window.location.reload()}>Reload Page</button>
+          <Trophy size={48} color="#091828" style={{ marginBottom: 16 }} />
+          <h2 style={{ color: '#c0392b', fontFamily: "'Libre Bodoni', serif", marginBottom: 8 }}>Something went wrong</h2>
+          <p style={{ color: '#7A7068', fontSize: 14, lineHeight: 1.6, marginBottom: 24 }}>Your bracket picks are saved. Try reloading the page.</p>
+          <button style={{ background: '#091828', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 24px', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }} onClick={() => window.location.reload()}>Reload Page</button>
         </div>
       </div>
     );
@@ -124,14 +156,14 @@ function OfflineBar() {
     return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off); };
   }, []);
   if (!offline) return null;
-  return <div style={{ background: '#7f1d1d', color: '#fca5a5', padding: '6px 16px', fontSize: 12, textAlign: 'center', fontWeight: 600 }}>You are offline — picks will save when you reconnect</div>;
+  return <div style={{ background: '#7f1d1d', color: '#fca5a5', padding: '6px 16px', fontSize: 12, textAlign: 'center', fontWeight: 600, fontFamily: "'Public Sans', sans-serif" }}>You are offline — picks will save when you reconnect</div>;
 }
 
 // ── TEAM LOGO ─────────────────────────────────────────────────────────────────
 const TeamLogo = memo(function TeamLogo({ espnId, name, size = 22 }) {
   const [err, setErr] = useState(false);
   if (!espnId || err) return (
-    <span style={{ width: size, height: size, borderRadius: '50%', background: 'linear-gradient(135deg,#14532d,#166534)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: size * 0.42, fontWeight: 800, color: '#fff', flexShrink: 0, border: '1px solid rgba(255,255,255,0.15)' }}>
+    <span style={{ width: size, height: size, borderRadius: '50%', background: 'linear-gradient(135deg,#091828,#1C3558)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: size * 0.42, fontWeight: 800, color: '#fff', flexShrink: 0, border: '1px solid rgba(255,255,255,0.15)' }}>
       {name?.charAt(0) || '?'}
     </span>
   );
@@ -141,13 +173,13 @@ const TeamLogo = memo(function TeamLogo({ espnId, name, size = 22 }) {
 // ── CONFIRM DIALOG ────────────────────────────────────────────────────────────
 function ConfirmDialog({ message, onConfirm, onCancel }) {
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div style={{ ...S.card, maxWidth: 360, textAlign: 'center', padding: 32 }}>
-        <div style={{ fontSize: 24, marginBottom: 12 }}>⚠️</div>
-        <div style={{ fontSize: 15, color: '#ccc', marginBottom: 24, lineHeight: 1.6 }}>{message}</div>
+        <AlertTriangle size={28} color="#c0392b" style={{ marginBottom: 12 }} />
+        <div style={{ fontSize: 15, color: '#1A1208', marginBottom: 24, lineHeight: 1.6 }}>{message}</div>
         <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
-          <button style={S.btn('#e74c3c')} onClick={onConfirm}>Confirm</button>
-          <button style={S.btn('rgba(255,255,255,0.1)', '#aaa')} onClick={onCancel}>Cancel</button>
+          <button style={S.btn('#c0392b')} onClick={onConfirm}>Confirm</button>
+          <button style={S.btn('#C8BFB0', '#1A1208')} onClick={onCancel}>Cancel</button>
         </div>
       </div>
     </div>
@@ -155,7 +187,7 @@ function ConfirmDialog({ message, onConfirm, onCancel }) {
 }
 
 // ── GAME SLOT ─────────────────────────────────────────────────────────────────
-const scoreInput = { width: 60, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 4, color: '#fff', padding: '2px 6px', fontSize: 11, fontFamily: 'inherit' };
+const scoreInput = { width: 60, background: 'rgba(255,255,255,0.7)', border: '1px solid #C8BFB0', borderRadius: 4, color: '#1A1208', padding: '2px 6px', fontSize: 11, fontFamily: 'inherit' };
 
 function findLiveScore(liveScores, teamName) {
   if (!teamName || !liveScores) return null;
@@ -167,11 +199,17 @@ function findLiveScore(liveScores, teamName) {
   return sub ? sub[1] : null;
 }
 
-const GameSlot = memo(function GameSlot({ game, onPick, locked, isChampionship, onScoreChange, flipped, roundIdx = 0, liveScores = {}, isHorizontal = false, onCompare }) {
+const GameSlot = memo(function GameSlot({ game, onPick, locked, isChampionship, onScoreChange, flipped, roundIdx = 0, liveScores = {}, isHorizontal = false, onCompare, isMammal = false, mammalResearchData = {} }) {
   if (!game) return null;
   const { top, bottom, winner } = game;
-  const slotBg     = isChampionship ? 'rgba(245,158,11,0.08)' : ROUND_COLORS[roundIdx] || ROUND_COLORS[0];
-  const slotBorder = isChampionship ? 'rgba(245,158,11,0.4)'  : ROUND_BORDER_COLORS[roundIdx] || ROUND_BORDER_COLORS[0];
+  const slotBg     = isChampionship ? 'rgba(196,149,42,0.08)' : ROUND_COLORS[roundIdx] || ROUND_COLORS[0];
+  const slotBorder = isChampionship ? 'rgba(196,149,42,0.4)'  : ROUND_BORDER_COLORS[roundIdx] || ROUND_BORDER_COLORS[0];
+  const compareColors = (() => {
+    if (!isMammal) return BB_COMPARE;
+    const tc = getHabitatColor(top?.name, mammalResearchData);
+    const bc = getHabitatColor(bottom?.name, mammalResearchData);
+    return { top: tc.top, bottom: bc.bottom };
+  })();
   const topLive    = findLiveScore(liveScores, top?.name);
   const bottomLive = findLiveScore(liveScores, bottom?.name);
   const hasLive    = topLive && bottomLive;
@@ -191,24 +229,24 @@ const GameSlot = memo(function GameSlot({ game, onPick, locked, isChampionship, 
     const isLiveWinning = hasLive && live && live.score > (side === 'top' ? bottomLive?.score : topLive?.score);
     if (isHorizontal) return (
       <div onClick={() => !locked && !isFF && onPick?.(side)}
-        style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, padding: '10px 14px', background: isW ? 'linear-gradient(180deg,rgba(22,163,74,.3),rgba(22,163,74,.08))' : 'rgba(0,0,0,0.25)', cursor: locked || isFF ? 'default' : 'pointer', borderRadius: 6, opacity: isL ? 0.3 : 1, transition: 'background .12s', minWidth: 100, border: isW ? '1px solid rgba(22,163,74,0.4)' : '1px solid rgba(255,255,255,0.06)' }}>
+        style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, padding: '10px 14px', background: isW ? MINT_BG : '#F4EFE6', cursor: locked || isFF ? 'default' : 'pointer', borderRadius: 6, opacity: isL ? 0.4 : 1, transition: 'background .12s', minWidth: 100, border: isW ? `1px solid ${MINT_FG}` : '1px solid #C8BFB0' }}>
         <TeamLogo espnId={team.espnId} name={team.name} size={36} />
-        <span style={{ fontSize: 10, color: isW ? ACCENT2 : '#666', fontWeight: 700 }}>{team.seed}</span>
-        <span style={{ fontSize: 14, fontWeight: isW ? 700 : 500, color: isW ? ACCENT2 : isL ? '#3a3a3a' : '#d0d0d0', textAlign: 'center', maxWidth: 120, lineHeight: 1.2 }}>{isFF ? 'TBD' : team.name}</span>
-        {hasLive && live && <span style={{ fontSize: 18, fontWeight: 800, color: isFinal && live.winner ? ACCENT2 : isLiveGame && isLiveWinning ? '#facc15' : '#888' }}>{live.score}</span>}
-        {isW && <span style={{ color: ACCENT2, fontSize: 13 }}>✓</span>}
+        <span style={{ fontSize: 10, color: isW ? MINT_FG : '#7A7068', fontWeight: 700 }}>{team.seed}</span>
+        <span style={{ fontSize: 14, fontWeight: isW ? 700 : 500, color: isW ? MINT_FG : isL ? '#C8BFB0' : '#1A1208', textAlign: 'center', maxWidth: 120, lineHeight: 1.2 }}>{isFF ? 'TBD' : team.name}</span>
+        {hasLive && live && <span style={{ fontSize: 18, fontWeight: 800, color: isFinal && live.winner ? MINT_FG : isLiveGame && isLiveWinning ? '#C4952A' : '#7A7068' }}>{live.score}</span>}
+        {isW && <Check size={14} color={MINT_FG} />}
       </div>
     );
     return (
       <div onClick={() => !locked && !isFF && onPick?.(side)}
-        style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '3px 8px', height: 36, boxSizing: 'border-box', flexDirection: flipped ? 'row-reverse' : 'row', background: isW ? 'linear-gradient(90deg,rgba(22,163,74,.3),rgba(22,163,74,.08))' : 'rgba(0,0,0,0.25)', cursor: locked || isFF ? 'default' : 'pointer', borderRadius: 4, opacity: isL ? 0.3 : 1, transition: 'background .12s' }}>
+        style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '3px 8px', height: 36, boxSizing: 'border-box', flexDirection: flipped ? 'row-reverse' : 'row', background: isW ? MINT_BG : '#F4EFE6', cursor: locked || isFF ? 'default' : 'pointer', borderRadius: 4, opacity: isL ? 0.4 : 1, transition: 'background .12s' }}>
         <TeamLogo espnId={team.espnId} name={team.name} size={20} />
-        <span style={{ fontSize: 10, color: isW ? ACCENT2 : '#666', fontWeight: 700, minWidth: 14, textDecoration: isL ? 'line-through' : 'none' }}>{team.seed}</span>
-        <span style={{ fontSize: team.name?.length > 18 ? 11 : team.name?.length > 13 ? 13 : 14, fontWeight: isW ? 700 : 500, color: isW ? ACCENT2 : isL ? '#3a3a3a' : '#d0d0d0', textDecoration: isL ? 'line-through' : 'none', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: hasLive ? 80 : 140, flex: 1 }}>
+        <span style={{ fontSize: 10, color: isW ? MINT_FG : '#7A7068', fontWeight: 700, minWidth: 14, textDecoration: isL ? 'line-through' : 'none' }}>{team.seed}</span>
+        <span style={{ fontSize: team.name?.length > 18 ? 11 : team.name?.length > 13 ? 13 : 14, fontWeight: isW ? 700 : 500, color: isW ? MINT_FG : isL ? '#C8BFB0' : '#1A1208', textDecoration: isL ? 'line-through' : 'none', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: hasLive ? 80 : 140, flex: 1 }}>
           {isFF ? 'First Four Winner' : team.name}
         </span>
-        {hasLive && live && <span style={{ fontSize: 13, fontWeight: 800, color: isFinal && live.winner ? ACCENT2 : isLiveGame && isLiveWinning ? '#facc15' : '#888', minWidth: 24, textAlign: 'right', flexShrink: 0 }}>{live.score}</span>}
-        {isW && !hasLive && <span style={{ marginLeft: flipped ? 0 : 'auto', marginRight: flipped ? 'auto' : 0, color: ACCENT2, fontSize: 11 }}>✓</span>}
+        {hasLive && live && <span style={{ fontSize: 13, fontWeight: 800, color: isFinal && live.winner ? MINT_FG : isLiveGame && isLiveWinning ? '#C4952A' : '#7A7068', minWidth: 24, textAlign: 'right', flexShrink: 0 }}>{live.score}</span>}
+        {isW && !hasLive && <Check size={13} color={MINT_FG} style={{ marginLeft: flipped ? 0 : 'auto', marginRight: flipped ? 'auto' : 0, flexShrink: 0 }} />}
       </div>
     );
   };
@@ -231,31 +269,39 @@ const GameSlot = memo(function GameSlot({ game, onPick, locked, isChampionship, 
         </div>
         <Team team={bottom} side="bottom" />
       </div>
-      {onCompare && top && bottom && !top.isFFPlaceholder && !bottom.isFFPlaceholder && (
-        <div onClick={() => onCompare(top, bottom)} style={{ textAlign: 'center', padding: '3px 8px', background: 'rgba(255,255,255,0.03)', borderTop: '1px solid rgba(255,255,255,0.06)', cursor: 'pointer', fontSize: 10, color: '#666', letterSpacing: 0.5, userSelect: 'none' }}>
-          Compare
-        </div>
-      )}
     </div>
   );
 
+  const canCompare = onCompare && top && bottom && !top.isFFPlaceholder && !bottom.isFFPlaceholder;
   return (
     <div style={{ border: `1px solid ${slotBorder}`, borderRadius: 6, overflow: 'hidden', background: slotBg, minWidth: 178 }}>
       <Team team={top} side="top" />
-      <div style={{ height: 1, background: 'rgba(255,255,255,0.15)' }} />
-      <Team team={bottom} side="bottom" />
-      {isLiveGame && <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, padding: '2px 8px', background: 'rgba(239,68,68,0.12)', borderTop: '1px solid rgba(239,68,68,0.2)' }}><span style={{ width: 6, height: 6, borderRadius: '50%', background: '#ef4444', display: 'inline-block', animation: 'livePulse 1.2s ease-in-out infinite' }} /><span style={{ fontSize: 10, color: '#f87171', fontWeight: 700 }}>LIVE</span></div>}
-      {isFinal && <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2px 8px', background: 'rgba(255,255,255,0.04)', borderTop: '1px solid rgba(255,255,255,0.06)' }}><span style={{ fontSize: 10, color: '#777', fontWeight: 700 }}>FINAL</span></div>}
-      {isChampionship && (
-        <div style={{ display: 'flex', gap: 4, padding: '4px 8px', borderTop: '1px solid rgba(245,158,11,0.2)' }}>
-          <input placeholder="Score 1" value={game.scoreTop || ''} onChange={e => onScoreChange?.('scoreTop', e.target.value)} style={scoreInput} />
-          <span style={{ color: '#777', fontSize: 11, alignSelf: 'center' }}>-</span>
-          <input placeholder="Score 2" value={game.scoreBottom || ''} onChange={e => onScoreChange?.('scoreBottom', e.target.value)} style={scoreInput} />
+      {canCompare ? (
+        <div
+          className="compare-zone"
+          onClick={() => onCompare(top, bottom)}
+          style={{ '--cz-top': compareColors.top, '--cz-bot': compareColors.bottom }}
+        >
+          <div className="cz-fill-top" />
+          <div className="cz-fill-bot" />
+          <div className="cz-divider" />
+          <div className="cz-vs">vs</div>
+          <div className="cz-corner cz-tl" /><div className="cz-corner cz-tr" />
+          <div className="cz-corner cz-bl" /><div className="cz-corner cz-br" />
+          <div className="cz-conn cz-conn-l" /><div className="cz-conn cz-conn-r" />
+          <div className="cz-label">COMPARE</div>
         </div>
+      ) : (
+        <div style={{ height: 1, background: '#C8BFB0' }} />
       )}
-      {onCompare && top && bottom && !top.isFFPlaceholder && !bottom.isFFPlaceholder && (
-        <div onClick={() => onCompare(top, bottom)} style={{ textAlign: 'center', padding: '3px 8px', background: 'rgba(255,255,255,0.03)', borderTop: '1px solid rgba(255,255,255,0.06)', cursor: 'pointer', fontSize: 10, color: '#666', letterSpacing: 0.5, userSelect: 'none' }}>
-          Compare
+      <Team team={bottom} side="bottom" />
+      {isLiveGame && <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, padding: '2px 8px', background: 'rgba(239,68,68,0.10)', borderTop: '1px solid rgba(239,68,68,0.2)' }}><span style={{ width: 6, height: 6, borderRadius: '50%', background: '#ef4444', display: 'inline-block', animation: 'livePulse 1.2s ease-in-out infinite' }} /><span style={{ fontSize: 10, color: '#e74c3c', fontWeight: 700 }}>LIVE</span></div>}
+      {isFinal && <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2px 8px', background: 'rgba(200,191,176,0.3)', borderTop: '1px solid #C8BFB0' }}><span style={{ fontSize: 10, color: '#7A7068', fontWeight: 700 }}>FINAL</span></div>}
+      {isChampionship && (
+        <div style={{ display: 'flex', gap: 4, padding: '4px 8px', borderTop: '1px solid #C8BFB0' }}>
+          <input placeholder="Score 1" value={game.scoreTop || ''} onChange={e => onScoreChange?.('scoreTop', e.target.value)} style={scoreInput} />
+          <span style={{ color: '#7A7068', fontSize: 11, alignSelf: 'center' }}>-</span>
+          <input placeholder="Score 2" value={game.scoreBottom || ''} onChange={e => onScoreChange?.('scoreBottom', e.target.value)} style={scoreInput} />
         </div>
       )}
     </div>
@@ -303,13 +349,13 @@ function ResearchCard({ teamName, card, isAdmin, onFieldSave }) {
         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg,rgba(0,0,0,0.7) 0%,rgba(0,0,0,0.2) 100%)' }} />
         <div style={{ position: 'absolute', bottom: 16, left: 20 }}>
           <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 2 }}>{card.conference || ''}</div>
-          <h2 style={{ fontFamily: "'Playfair Display', serif", color: '#fff', margin: 0, fontSize: 24, textShadow: '0 2px 8px rgba(0,0,0,0.8)' }}>{teamName}</h2>
+          <h2 style={{ fontFamily: "'Libre Bodoni', serif", color: '#fff', margin: 0, fontSize: 24, textShadow: '0 2px 8px rgba(0,0,0,0.8)' }}>{teamName}</h2>
         </div>
-        {card.record && <div style={{ position: 'absolute', top: 16, right: 16, background: 'rgba(0,0,0,0.6)', borderRadius: 8, padding: '6px 12px', backdropFilter: 'blur(8px)' }}><div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', letterSpacing: 1 }}>RECORD</div><div style={{ fontSize: 18, fontWeight: 700, color: ACCENT2 }}>{card.record}</div></div>}
+        {card.record && <div style={{ position: 'absolute', top: 16, right: 16, background: 'rgba(0,0,0,0.6)', borderRadius: 8, padding: '6px 12px', backdropFilter: 'blur(8px)' }}><div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', letterSpacing: 1 }}>RECORD</div><div style={{ fontSize: 18, fontWeight: 700, color: MINT_FG }}>{card.record}</div></div>}
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 16 }}>
         <div style={S.card}>
-          <h3 style={{ color: ACCENT2, marginBottom: 14, fontFamily: "'Playfair Display', serif" }}>Team Stats</h3>
+          <h3 style={{ color: MINT_FG, marginBottom: 14, fontFamily: "'Libre Bodoni', serif" }}>Team Stats</h3>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
             {[['Rank','rank'],['Coach','coach'],['Conference','conference'],['KenPom','kenpom'],['Offense','offense'],['Defense','defense'],['Pace','pace']].map(([label, key]) => (
               <div key={key} style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 6, padding: '8px 12px' }}>
@@ -320,7 +366,7 @@ function ResearchCard({ teamName, card, isAdmin, onFieldSave }) {
           </div>
         </div>
         <div style={S.card}>
-          <h3 style={{ color: ACCENT2, marginBottom: 12 }}>Key Players</h3>
+          <h3 style={{ color: MINT_FG, marginBottom: 12 }}>Key Players</h3>
           {(card.keyPlayers || []).map((p, i) => (
             <div key={i} style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 6, padding: '10px 12px', marginBottom: 8 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
@@ -328,7 +374,7 @@ function ResearchCard({ teamName, card, isAdmin, onFieldSave }) {
                 {isAdmin ? <EditableField value={p.pos} label="pos" onSave={v => onFieldSave(teamName, `keyPlayers.${i}.pos`, v)} /> : <span style={{ color: '#999', fontSize: 12 }}>{p.pos}</span>}
               </div>
               {isAdmin ? <EditableField value={p.stats} label="stats" onSave={v => onFieldSave(teamName, `keyPlayers.${i}.stats`, v)} /> : <div style={{ fontSize: 13, color: '#999', margin: '3px 0' }}>{p.stats}</div>}
-              {isAdmin ? <EditableField value={p.note} label="note" onSave={v => onFieldSave(teamName, `keyPlayers.${i}.note`, v)} color={ACCENT2} /> : <div style={{ fontSize: 12, color: ACCENT2, fontStyle: 'italic' }}>{p.note}</div>}
+              {isAdmin ? <EditableField value={p.note} label="note" onSave={v => onFieldSave(teamName, `keyPlayers.${i}.note`, v)} color={MINT_FG} /> : <div style={{ fontSize: 12, color: MINT_FG, fontStyle: 'italic' }}>{p.note}</div>}
             </div>
           ))}
           <div style={{ padding: '10px 12px', background: 'rgba(231,76,60,0.07)', borderRadius: 6, border: '1px solid rgba(231,76,60,0.2)', marginTop: 8 }}>
@@ -337,8 +383,8 @@ function ResearchCard({ teamName, card, isAdmin, onFieldSave }) {
           </div>
         </div>
         <div style={S.card}>
-          <h3 style={{ color: ACCENT2, marginBottom: 12 }}>Scouting Report</h3>
-          {[['Strengths','#22c55e','strengths'],['Weaknesses','#e74c3c','weaknesses'],['Analyst Note',ACCENT2,'analystNote']].map(([label, color, key]) => (
+          <h3 style={{ color: MINT_FG, marginBottom: 12 }}>Scouting Report</h3>
+          {[['Strengths','#22c55e','strengths'],['Weaknesses','#e74c3c','weaknesses'],['Analyst Note',MINT_FG,'analystNote']].map(([label, color, key]) => (
             <div key={key} style={{ marginBottom: 14 }}>
               <div style={S.tag(color)}>{label}</div>
               {field(key, card[key], { color: '#bbb', multiline: true, label })}
@@ -346,7 +392,7 @@ function ResearchCard({ teamName, card, isAdmin, onFieldSave }) {
           ))}
         </div>
         <div style={S.card}>
-          <h3 style={{ color: ACCENT2, marginBottom: 10 }}>Championship Odds</h3>
+          <h3 style={{ color: MINT_FG, marginBottom: 10 }}>Championship Odds</h3>
           {field('odds', card.odds, { color: '#22c55e', large: true, label: 'odds' })}
           <div style={{ fontSize: 13, color: '#777', marginBottom: 16, marginTop: 6 }}>Consensus sportsbook odds to win it all</div>
           <div style={{ padding: 12, background: 'rgba(22,163,74,0.07)', borderRadius: 8, border: '1px solid rgba(22,163,74,0.18)', fontSize: 13, color: '#aaa', lineHeight: 1.5 }}>Bracket tip: Advancing this team deep rewards strong point upside relative to their championship probability.</div>
@@ -378,7 +424,7 @@ function MammalResearchCard({ animalName, card, isAdmin, onFieldSave, onGenerate
         <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '16px 20px', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
           <div>
             <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.6)', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 4 }}>{region} Region · Seed #{card?.seed || ''}</div>
-            <h2 style={{ fontFamily: "'Playfair Display', serif", color: '#fff', margin: 0, fontSize: 26, textShadow: '0 2px 8px rgba(0,0,0,0.8)', lineHeight: 1.1 }}>{animalName}</h2>
+            <h2 style={{ fontFamily: "'Libre Bodoni', serif", color: '#fff', margin: 0, fontSize: 26, textShadow: '0 2px 8px rgba(0,0,0,0.8)', lineHeight: 1.1 }}>{animalName}</h2>
             {card?.latinName && <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.65)', fontStyle: 'italic', marginTop: 3 }}>{card.latinName}</div>}
           </div>
           {isAdmin && <button onClick={() => onGenerate(animalName)} disabled={generating} style={{ ...S.btn('#6366f1', '#fff'), padding: '7px 16px', fontSize: 12, flexShrink: 0 }}>{generating ? 'Generating...' : 'Regenerate'}</button>}
@@ -459,7 +505,7 @@ function CompareModal({ teamA, teamB, cardA, cardB, isMammal, onClose }) {
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.88)', zIndex: 2000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: 20, overflowY: 'auto' }}>
       <div onClick={e => e.stopPropagation()} style={{ background: 'rgba(22,163,74,0.10)', border: '1px solid rgba(22,163,74,0.30)', borderRadius: 12, padding: 20, maxWidth: 700, width: '100%', marginTop: 20 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-          <h2 style={{ fontFamily: "'Playfair Display', serif", color: accent, margin: 0, fontSize: 20 }}>Head-to-Head</h2>
+          <h2 style={{ fontFamily: "'Libre Bodoni', serif", color: accent, margin: 0, fontSize: 20 }}>Head-to-Head</h2>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#888', fontSize: 22, cursor: 'pointer' }}>×</button>
         </div>
         <div style={{ display: 'flex', alignItems: 'flex-end', marginBottom: 20, gap: 8 }}>
@@ -467,14 +513,14 @@ function CompareModal({ teamA, teamB, cardA, cardB, isMammal, onClose }) {
             {!isMammal && <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 6 }}><TeamLogo espnId={teamA.espnId} name={teamA.name} size={44} /></div>}
             {isMammal && cardA?.wikiImageUrl && <img src={cardA.wikiImageUrl} alt={teamA.name} style={{ width: 60, height: 60, objectFit: 'cover', borderRadius: 8, display: 'block', marginLeft: 'auto', marginBottom: 6 }} />}
             <div style={{ fontSize: 11, color: accent }}>#{teamA.seed}</div>
-            <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 18, fontWeight: 700, color: '#fff' }}>{teamA.name}</div>
+            <div style={{ fontFamily: "'Libre Bodoni', serif", fontSize: 18, fontWeight: 700, color: '#fff' }}>{teamA.name}</div>
           </div>
           <div style={{ fontSize: 13, color: '#444', fontWeight: 700, flexShrink: 0, paddingBottom: 4 }}>VS</div>
           <div style={{ flex: 1, textAlign: 'left', paddingLeft: 12 }}>
             {!isMammal && <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: 6 }}><TeamLogo espnId={teamB.espnId} name={teamB.name} size={44} /></div>}
             {isMammal && cardB?.wikiImageUrl && <img src={cardB.wikiImageUrl} alt={teamB.name} style={{ width: 60, height: 60, objectFit: 'cover', borderRadius: 8, display: 'block', marginBottom: 6 }} />}
             <div style={{ fontSize: 11, color: accent }}>#{teamB.seed}</div>
-            <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 18, fontWeight: 700, color: '#fff' }}>{teamB.name}</div>
+            <div style={{ fontFamily: "'Libre Bodoni', serif", fontSize: 18, fontWeight: 700, color: '#fff' }}>{teamB.name}</div>
           </div>
         </div>
         {stats.map(([label, key]) => (
@@ -505,13 +551,13 @@ function ViewBracketModal({ data, onClose }) {
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.88)', zIndex: 1000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: 20, overflowY: 'auto' }}>
       <div style={{ ...S.card, maxWidth: 700, width: '100%', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-          <h2 style={{ fontFamily: "'Playfair Display', serif", color: isMammal ? '#86efac' : ACCENT2, margin: 0 }}>{displayName}'s Bracket</h2>
+          <h2 style={{ fontFamily: "'Libre Bodoni', serif", color: isMammal ? '#86efac' : MINT_FG, margin: 0 }}>{displayName}'s Bracket</h2>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#888', fontSize: 20, cursor: 'pointer' }}>×</button>
         </div>
         <div style={{ overflowY: 'auto', flex: 1 }}>
           {regions.map(region => (
             <div key={region} style={{ marginBottom: 24 }}>
-              <div style={{ fontSize: 11, color: isMammal ? '#86efac' : ACCENT2, letterSpacing: 2, textTransform: 'uppercase', fontWeight: 700, marginBottom: 10 }}>{region}</div>
+              <div style={{ fontSize: 11, color: isMammal ? '#86efac' : MINT_FG, letterSpacing: 2, textTransform: 'uppercase', fontWeight: 700, marginBottom: 10 }}>{region}</div>
               {(bracket[region]?.rounds || []).slice(0, 4).map((roundGames, rIdx) => (
                 <div key={rIdx} style={{ marginBottom: 8 }}>
                   <div style={{ fontSize: 10, color: '#555', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4 }}>{rounds[rIdx]}</div>
@@ -519,7 +565,7 @@ function ViewBracketModal({ data, onClose }) {
                     {roundGames.map((game, gIdx) => game.winner && (
                       <div key={gIdx} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px', background: 'rgba(255,255,255,0.04)', borderRadius: 6, border: '1px solid rgba(255,255,255,0.08)', fontSize: 12 }}>
                         {!isMammal && <TeamLogo espnId={game.winner?.espnId} name={game.winner?.name} size={16} />}
-                        <span style={{ color: isMammal ? '#86efac' : ACCENT2, fontWeight: 600 }}>#{game.winner.seed}</span>
+                        <span style={{ color: isMammal ? '#86efac' : MINT_FG, fontWeight: 600 }}>#{game.winner.seed}</span>
                         <span style={{ color: '#ccc' }}>{game.winner.name}</span>
                       </div>
                     ))}
@@ -530,8 +576,8 @@ function ViewBracketModal({ data, onClose }) {
           ))}
           {bracket.championship?.winner && (
             <div style={{ padding: 16, background: 'rgba(245,158,11,0.08)', borderRadius: 10, border: '1px solid rgba(245,158,11,0.3)', textAlign: 'center' }}>
-              <div style={{ fontSize: 11, color: GOLD2, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 8 }}>Champion</div>
-              <div style={{ fontSize: 20, fontWeight: 700, color: GOLD2, fontFamily: "'Playfair Display', serif" }}>{bracket.championship.winner.name}</div>
+              <div style={{ fontSize: 11, color: '#C4952A', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 8 }}>Champion</div>
+              <div style={{ fontSize: 20, fontWeight: 700, color: '#C4952A', fontFamily: "'Libre Bodoni', serif" }}>{bracket.championship.winner.name}</div>
             </div>
           )}
         </div>
@@ -545,6 +591,7 @@ function ViewBracketModal({ data, onClose }) {
 
 // ── BRACKET PICK HELPERS ──────────────────────────────────────────────────────
 function extractFFPlaceholders(bracket) {
+  if (!bracket || typeof bracket !== 'object') return {};
   const out = {};
   ['East','West','South','Midwest'].forEach(region => {
     (bracket[region]?.rounds?.[0] || []).forEach(game => {
@@ -625,10 +672,10 @@ function TeamEntryPanel({ onTeamsSaved, onRequestGenerateResearch, regionNames, 
     <div style={{ ...S.card, marginBottom: 16 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
         <div>
-          <h3 style={{ color: ACCENT2, marginBottom: 4 }}>Set Up This Year's Teams</h3>
+          <h3 style={{ color: MINT_FG, marginBottom: 4 }}>Set Up This Year's Teams</h3>
           <p style={{ color: '#999', fontSize: 13 }}>Enter all 64 teams after Selection Sunday.</p>
           <div style={{ marginTop: 10, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-            <span style={{ fontSize: 12, color: ACCENT2, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', flexShrink: 0 }}>Region Names:</span>
+            <span style={{ fontSize: 12, color: MINT_FG, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', flexShrink: 0 }}>Region Names:</span>
             {['East','West','South','Midwest'].map(r => (
               <div key={r} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                 <span style={{ fontSize: 11, color: RC[r], fontWeight: 700 }}>{r}:</span>
@@ -643,7 +690,7 @@ function TeamEntryPanel({ onTeamsSaved, onRequestGenerateResearch, regionNames, 
             <span style={{ fontSize: 12, color: '#888' }}>Year:</span>
             <input type="number" value={roster.year} onChange={e => { setRoster(p => ({ ...p, year: parseInt(e.target.value) })); setSaved(false); }} style={{ ...S.input, width: 82, padding: '6px 10px', fontSize: 13 }} />
           </div>
-          <button style={{ ...S.btn(saved ? '#22c55e' : ACCENT, '#fff'), padding: '8px 20px', fontSize: 13 }} onClick={async () => { setSaving(true); try { await setDoc(doc(db, 'admin', 'teamRoster'), { ...roster, _regionNames: regionNames, updatedAt: serverTimestamp() }); setSaved(true); } catch(e) { alert('Save failed: ' + e.message); } setSaving(false); }} disabled={saving}>{saving ? 'Saving...' : saved ? 'Roster Saved' : 'Save Roster'}</button>
+          <button style={{ ...S.btn(saved ? MINT_FG : NAVY, '#fff'), padding: '8px 20px', fontSize: 13 }} onClick={async () => { setSaving(true); try { await setDoc(doc(db, 'admin', 'teamRoster'), { ...roster, _regionNames: regionNames, updatedAt: serverTimestamp() }); setSaved(true); } catch(e) { alert('Save failed: ' + e.message); } setSaving(false); }} disabled={saving}>{saving ? 'Saving...' : saved ? 'Roster Saved' : 'Save Roster'}</button>
           {saved && <button style={{ ...S.btn(applied ? '#22c55e' : '#f59e0b', '#000'), padding: '8px 20px', fontSize: 13 }} onClick={async () => { setApplying(true); try { const nb = buildInitialBracketFromTeams(roster); await saveOfficialBracket(nb); setApplied(true); onTeamsSaved(nb, roster); } catch(e) { alert('Apply failed: ' + e.message); } setApplying(false); }} disabled={applying}>{applying ? 'Applying...' : applied ? 'Applied!' : 'Apply to Bracket'}</button>}
           {applied && (
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -741,7 +788,7 @@ function MammalEntryPanel({ onAnimalsSaved, onRequestGenerateMammalResearch, onR
           </div>
         </div>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          <button style={{ ...S.btn(saved ? '#22c55e' : ACCENT, '#fff'), padding: '8px 20px', fontSize: 13 }} onClick={async () => { setSaving(true); try { await saveMammalRoster({ ...roster, _regionNames: regionNames }); setSaved(true); } catch(e) { alert('Save failed: ' + e.message); } setSaving(false); }} disabled={saving}>{saving ? 'Saving...' : saved ? 'Saved' : 'Save Roster'}</button>
+          <button style={{ ...S.btn(saved ? MINT_FG : NAVY, '#fff'), padding: '8px 20px', fontSize: 13 }} onClick={async () => { setSaving(true); try { await saveMammalRoster({ ...roster, _regionNames: regionNames }); setSaved(true); } catch(e) { alert('Save failed: ' + e.message); } setSaving(false); }} disabled={saving}>{saving ? 'Saving...' : saved ? 'Saved' : 'Save Roster'}</button>
           <button style={{ ...S.btn(applied ? '#22c55e' : '#f59e0b', '#000'), padding: '8px 20px', fontSize: 13 }} onClick={async () => { setApplying(true); try { const nb = buildInitialBracketFromTeams(roster); await saveMammalOfficialBracket(nb); setApplied(true); onAnimalsSaved(nb, roster); } catch(e) { alert('Apply failed: ' + e.message); } setApplying(false); }} disabled={applying}>{applying ? 'Applying...' : applied ? 'Applied!' : 'Apply to Bracket'}</button>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -788,7 +835,7 @@ function PrivacyPolicyPage({ onBack }) {
     <div style={{ minHeight: '100vh', background: '#0a1a0e', color: '#e8f5ee', fontFamily: "'Source Sans 3', sans-serif", padding: '40px 20px' }}>
       <div style={{ maxWidth: 760, margin: '0 auto' }}>
         <button onClick={onBack} style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '7px 16px', color: '#aaa', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', marginBottom: 32 }}>← Back</button>
-        <h1 style={{ fontFamily: "'Playfair Display', serif", color: ACCENT2, marginBottom: 4, fontSize: 32 }}>Privacy Policy</h1>
+        <h1 style={{ fontFamily: "'Libre Bodoni', serif", color: MINT_FG, marginBottom: 4, fontSize: 32 }}>Privacy Policy</h1>
         <div style={{ marginBottom: 32, padding: '14px 16px', background: 'rgba(255,255,255,0.03)', borderRadius: 8, border: '1px solid rgba(255,255,255,0.08)', fontSize: 13, color: '#888' }}>
           <div><strong style={{ color: '#aaa' }}>Application:</strong> Hart Middle School March Madness Bracket Challenge</div>
           <div><strong style={{ color: '#aaa' }}>Operated by:</strong> Science Teacher, Hart Middle School, Rochester Community Schools</div>
@@ -806,7 +853,7 @@ function PrivacyPolicyPage({ onBack }) {
           ['9. Contact Information', 'Rochester Community Schools'],
         ].map(([title, body]) => (
           <div key={title} style={{ marginBottom: 28 }}>
-            <h2 style={{ color: ACCENT2, fontSize: 16, marginBottom: 10, fontFamily: "'Playfair Display', serif", borderBottom: '1px solid rgba(22,163,74,0.2)', paddingBottom: 6 }}>{title}</h2>
+            <h2 style={{ color: MINT_FG, fontSize: 16, marginBottom: 10, fontFamily: "'Libre Bodoni', serif", borderBottom: '1px solid rgba(22,163,74,0.2)', paddingBottom: 6 }}>{title}</h2>
             {title === '3. Information Collected' && (
               <div>
                 <p style={{ color: '#ccc', fontSize: 13, lineHeight: 1.8, marginBottom: 8 }}>The Application collects only the following:</p>
@@ -832,7 +879,7 @@ function TermsOfServicePage({ onBack }) {
     <div style={{ minHeight: '100vh', background: '#0a1a0e', color: '#e8f5ee', fontFamily: "'Source Sans 3', sans-serif", padding: '40px 20px' }}>
       <div style={{ maxWidth: 760, margin: '0 auto' }}>
         <button onClick={onBack} style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '7px 16px', color: '#aaa', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', marginBottom: 32 }}>← Back</button>
-        <h1 style={{ fontFamily: "'Playfair Display', serif", color: ACCENT2, marginBottom: 4, fontSize: 32 }}>Terms of Service</h1>
+        <h1 style={{ fontFamily: "'Libre Bodoni', serif", color: MINT_FG, marginBottom: 4, fontSize: 32 }}>Terms of Service</h1>
         <div style={{ marginBottom: 32, padding: '14px 16px', background: 'rgba(255,255,255,0.03)', borderRadius: 8, border: '1px solid rgba(255,255,255,0.08)', fontSize: 13, color: '#888' }}>
           <div><strong style={{ color: '#aaa' }}>Application:</strong> Hart Middle School March Madness Bracket Challenge</div>
           <div><strong style={{ color: '#aaa' }}>Operated by:</strong> Science Teacher, Hart Middle School, Rochester Community Schools</div>
@@ -849,7 +896,7 @@ function TermsOfServicePage({ onBack }) {
           ['8. Contact Information', 'Rochester Community Schools'],
         ].map(([title, body]) => (
           <div key={title} style={{ marginBottom: 28 }}>
-            <h2 style={{ color: ACCENT2, fontSize: 16, marginBottom: 10, fontFamily: "'Playfair Display', serif", borderBottom: '1px solid rgba(22,163,74,0.2)', paddingBottom: 6 }}>{title}</h2>
+            <h2 style={{ color: MINT_FG, fontSize: 16, marginBottom: 10, fontFamily: "'Libre Bodoni', serif", borderBottom: '1px solid rgba(22,163,74,0.2)', paddingBottom: 6 }}>{title}</h2>
             <p style={{ color: '#ccc', fontSize: 13, lineHeight: 1.8 }}>{body}</p>
           </div>
         ))}
@@ -895,22 +942,18 @@ export default function App() {
   // ── USER IDENTITY (no login) ──────────────────────────────────────────────
   const [uid,          setUid]          = useState(null);
   const [displayName,  setDisplayName]  = useState('');
-  const [nameInput,      setNameInput]      = useState('');
-  const [studentIdInput, setStudentIdInput] = useState('');
-  const [nameLoading,    setNameLoading]    = useState(false);
-  const [nameError,      setNameError]      = useState('');
-  const [nameStep, setNameStep] = useState('username'); // 'username' | 'new-name'
+  const [authLoading,  setAuthLoading]  = useState(false);
+  const [authError,    setAuthError]    = useState('');
   const [isTeacher,    setIsTeacher]    = useState(false);
+  const [teacherSchool,setTeacherSchool]= useState(null);
+  const [appReady,     setAppReady]     = useState(false);
+  const [school,       setSchool]       = useState('');
+  const [profileLoaded,setProfileLoaded] = useState(false);
+  const [schoolFilter, setSchoolFilter] = useState('all');
+  const [mammalBattleVideos, setMammalBattleVideos] = useState({});
 
   // ── ADMIN ─────────────────────────────────────────────────────────────────
-  const [isAdmin,       setIsAdmin]      = useState(false);
-  const [adminPwInput,  setAdminPwInput] = useState('');
-  const [adminPwError,  setAdminPwError] = useState('');
-  const [adminPwLoading,setAdminPwLoading] = useState(false);
-  const [showAdminLogin,setShowAdminLogin] = useState(false);
-  const [setupMode,     setSetupMode]    = useState(false);
-  const [newAdminPw,    setNewAdminPw]   = useState('');
-  const [newAdminPw2,   setNewAdminPw2]  = useState('');
+  const [isAdmin,      setIsAdmin]      = useState(false);
 
   // ── APP STATE ─────────────────────────────────────────────────────────────
   const [tab,              setTab]             = useState('bracket');
@@ -1050,24 +1093,34 @@ export default function App() {
     })();
   }, []);
 
-  // ── RESTORE SESSION FROM LOCALSTORAGE ─────────────────────────────────────
+  // ── FIREBASE AUTH STATE ───────────────────────────────────────────────────
   useEffect(() => {
-    const savedUid       = localStorage.getItem('mm_uid');
-    const savedName      = localStorage.getItem('mm_name');
-    const savedIsTeacher = localStorage.getItem('mm_teacher') === 'true';
-    const savedIsAdmin   = localStorage.getItem('mm_admin')   === 'true';
-    if (savedUid && savedName) {
-      setUid(savedUid);
-      setDisplayName(savedName);
-      setIsTeacher(savedIsTeacher);
-      setIsAdmin(savedIsAdmin);
-    }
+    const unsubscribe = onAuthStateChanged(auth, async user => {
+      if (user) {
+        setUid(user.uid);
+        setDisplayName(user.displayName || 'Student');
+        const role = await getUserRole(user.email);
+        setIsAdmin(role.isAdmin);
+        setIsTeacher(role.isTeacher);
+        setTeacherSchool(role.teacherSchool);
+      } else {
+        setUid(null);
+        setDisplayName('');
+        setIsAdmin(false);
+        setIsTeacher(false);
+        setTeacherSchool(null);
+      }
+    });
+    return () => unsubscribe();
   }, []);
 
   // ── LOAD BRACKET ONCE UID IS SET ──────────────────────────────────────────
   useEffect(() => {
-    if (!uid) return;
+    if (!uid) { setSchool(''); setProfileLoaded(false); return; }
     (async () => {
+      const profile = await getUserProfile(uid).catch(() => null);
+      setSchool(profile?.school || '');
+      setProfileLoaded(true);
       try {
         const saved = await loadBracket(uid);
         if (saved) {
@@ -1094,6 +1147,7 @@ export default function App() {
   // ── LIVE SUBSCRIPTIONS ────────────────────────────────────────────────────
   useEffect(() => {
     if (!uid) return;
+    setAppReady(false);
     const u1 = subscribeToOfficialBracket(b => {
       setOfficialBracket(b);
       if (isAdmin) setBracket(b);
@@ -1120,7 +1174,10 @@ export default function App() {
       setMammalResearchData(data);
       setMammalSelectedAnimal(prev => prev && data[prev] ? prev : (Object.keys(data)[0] || null));
     });
-    return () => { u1(); u2(); u3(); u4(); u5(); u6(); u7(); u8(); };
+    const u9 = subscribeToMammalBattleVideos(setMammalBattleVideos);
+    // Mark app as ready after subscriptions are registered (they deliver data async)
+    setAppReady(true);
+    return () => { u1(); u2(); u3(); u4(); u5(); u6(); u7(); u8(); u9(); };
   }, [uid, isAdmin]);
 
   // ── LIVE SCORES ───────────────────────────────────────────────────────────
@@ -1163,7 +1220,7 @@ export default function App() {
       try {
         await saveBracket(uid, { ...bracket, _firstFourPicks: firstFourPicks }, displayName);
         const hasPicks = ['East','West','South','Midwest'].some(r => bracket[r]?.rounds?.[0]?.some(g => g.winner));
-        if (hasPicks) await updateLeaderboardEntry(uid, displayName, score, isTeacher);
+        if (hasPicks) await updateLeaderboardEntry(uid, displayName, score, isTeacher, school);
         setLastSaved(new Date());
       } catch (e) { console.warn('Save failed:', e); }
       setSaving(false);
@@ -1182,165 +1239,42 @@ export default function App() {
       try {
         await saveMammalBracket(uid, { ...mammalBracket, _firstFourPicks: mammalFirstFourPicks }, displayName);
         const hasPicks = ['East','West','South','Midwest'].some(r => mammalBracket[r]?.rounds?.[0]?.some(g => g.winner));
-        if (hasPicks) await updateMammalLeaderboardEntry(uid, displayName, mammalScore, isTeacher);
+        if (hasPicks) await updateMammalLeaderboardEntry(uid, displayName, mammalScore, isTeacher, school);
         setMammalLastSaved(new Date());
       } catch (e) { console.warn('Mammal save failed:', e); }
     }, 3000);
     return () => clearTimeout(mammalSaveTimer.current);
   }, [mammalBracket, mammalFirstFourPicks, uid, displayName, mammalLocked, isAdmin, mammalScore, isTeacher]);
 
-  // ── NAME ENTRY HANDLERS ──────────────────────────────────────────────────────
-// Step 1: student enters username — check if they exist already
-const handleUsernameSubmit = async () => {
-  const id = studentIdInput.trim();
-  if (!id) { setNameError('Please enter your username.'); return; }
-  if (id.length < 3) { setNameError('Username must be at least 3 characters.'); return; }
-  setNameLoading(true); setNameError('');
-  try {
-    const bracketSnap = await getDoc(doc(db, 'brackets', id));
-    if (bracketSnap.exists()) {
-      // Returning user — load their saved name and bracket, skip name step
-      const savedName = bracketSnap.data().displayName || id;
-      const existing = bracketSnap.data();
-      if (existing._firstFourPicks) {
-        const { _firstFourPicks, displayName: _dn, ...b } = existing;
-        setFirstFourPicks(_firstFourPicks);
-        setBracket(applyFirstFourPicks(b, _firstFourPicks));
-      } else {
-        const { displayName: _dn, ...b } = existing;
-        setBracket(b);
-      }
-      localStorage.setItem('mm_uid', id);
-      localStorage.setItem('mm_name', savedName);
-      localStorage.setItem('mm_teacher', 'false');
-      localStorage.setItem('mm_admin', 'false');
-      setUid(id);
-      setDisplayName(savedName);
-    } else {
-      // New user — need a display name
-      setNameStep('new-name');
-    }
-  } catch (e) {
-    setNameError('Something went wrong. Please try again.');
-    console.warn('Username submit error:', e);
-  }
-  setNameLoading(false);
-};
-
-// Step 2 (new users only): student enters their display name
-const handleNewNameSubmit = async () => {
-  const name = nameInput.trim();
-  const id   = studentIdInput.trim();
-  if (!name) { setNameError('Please enter your first and last name.'); return; }
-  if (name.length < 2) { setNameError('Name must be at least 2 characters.'); return; }
-  setNameLoading(true); setNameError('');
-  try {
-    localStorage.setItem('mm_uid', id);
-    localStorage.setItem('mm_name', name);
-    localStorage.setItem('mm_teacher', 'false');
-    localStorage.setItem('mm_admin', 'false');
-    setUid(id);
-    setDisplayName(name);
-  } catch (e) {
-    setNameError('Something went wrong. Please try again.');
-    console.warn('New name submit error:', e);
-  }
-  setNameLoading(false);
-};
-
-const handleNameSubmit = handleUsernameSubmit;
-
-// ── ADMIN LOGIN ───────────────────────────────────────────────────────────────
-const handleAdminLogin = async () => {
-  if (!adminPwInput.trim()) { setAdminPwError('Enter the admin password.'); return; }
-  setAdminPwLoading(true); setAdminPwError('');
-  try {
-    const ok = await checkAdminPassword(adminPwInput.trim());
-    if (ok) {
-      setIsAdmin(true);
-      localStorage.setItem('mm_admin', 'true');
-      setShowAdminLogin(false);
-      setAdminPwInput('');
-      setTab('admin');
-    } else {
-      setAdminPwError('Incorrect password.');
-    }
-  } catch (e) { setAdminPwError('Error checking password. Try again.'); }
-  setAdminPwLoading(false);
-};
-
-const handleAdminSetup = async () => {
-  if (!newAdminPw.trim()) { setAdminPwError('Enter a password.'); return; }
-  if (newAdminPw !== newAdminPw2) { setAdminPwError('Passwords do not match.'); return; }
-  setAdminPwLoading(true); setAdminPwError('');
-  try {
-    await setAdminPassword(newAdminPw.trim());
-    setIsAdmin(true);
-    localStorage.setItem('mm_admin', 'true');
-    setSetupMode(false);
-    setShowAdminLogin(false);
-    setTab('admin');
-  } catch (e) { setAdminPwError('Failed to set password. Try again.'); }
-  setAdminPwLoading(false);
-};
-
-const handleOpenAdmin = async () => {
-  if (isAdmin) { setTab('admin'); return; }
-  const exists = await adminExists();
-  if (!exists) setSetupMode(true);
-  else setSetupMode(false);
-  setShowAdminLogin(true);
-};
-
-const handleSignOut = () => {
-  localStorage.removeItem('mm_uid');
-  localStorage.removeItem('mm_name');
-  localStorage.removeItem('mm_teacher');
-  localStorage.removeItem('mm_admin');
-  setUid(null); setDisplayName(''); setIsAdmin(false); setIsTeacher(false);
-  setBracket(buildInitialBracket()); setMammalBracket(buildInitialBracket());
-  setFirstFourPicks({}); setMammalFirstFourPicks({});
-  setStudentIdInput(''); setNameInput(''); setNameStep('username');
-  setTab('bracket');
-};
-
-  // Step 2: student enters school ID, used as unique identifier
-  const handleIdSubmit = async () => {
-    const id   = studentIdInput.trim();
-    const name = nameInput.trim();
-    if (!id) { setNameError('Please enter your school ID.'); return; }
-    if (id.length < 3) { setNameError('ID must be at least 3 characters.'); return; }
-    setNameLoading(true); setNameError('');
+  // ── GOOGLE AUTH ───────────────────────────────────────────────────────────────
+  const handleGoogleSignIn = async () => {
+    setAuthLoading(true); setAuthError('');
     try {
-      const existing = await loadBracket(id);
-      if (existing) {
-        const bracketSnap = await getDoc(doc(db, 'brackets', id));
-        const savedName = bracketSnap.exists() ? bracketSnap.data().displayName : name;
-        if (existing._firstFourPicks) {
-          const { _firstFourPicks, ...b } = existing;
-          setFirstFourPicks(_firstFourPicks);
-          setBracket(applyFirstFourPicks(b, _firstFourPicks));
-        } else setBracket(existing);
-        localStorage.setItem('mm_uid', id);
-        localStorage.setItem('mm_name', savedName);
-        localStorage.setItem('mm_teacher', 'false');
-        localStorage.setItem('mm_admin', 'false');
-        setUid(id);
-        setDisplayName(savedName);
-      } else {
-        localStorage.setItem('mm_uid', id);
-        localStorage.setItem('mm_name', name);
-        localStorage.setItem('mm_teacher', 'false');
-        localStorage.setItem('mm_admin', 'false');
-        setUid(id);
-        setDisplayName(name);
-      }
+      await signInWithPopup(auth, googleProvider);
+      // onAuthStateChanged fires and sets uid/displayName
     } catch (e) {
-      setNameError('Something went wrong. Please try again.');
-      console.warn('ID submit error:', e);
+      if (e.code !== 'auth/popup-closed-by-user') {
+        setAuthError('Sign-in failed. Please try again.');
+      }
     }
-    setNameLoading(false);
+    setAuthLoading(false);
   };
+
+  const handleSignOut = async () => {
+    setIsAdmin(false); setIsTeacher(false);
+    setBracket(buildInitialBracket()); setMammalBracket(buildInitialBracket());
+    setFirstFourPicks({}); setMammalFirstFourPicks({});
+    setAppReady(false); setSchool(''); setProfileLoaded(false);
+    setTeacherSchool(null);
+    setTab('bracket');
+    await signOut(auth);
+  };
+
+  const handleSelectSchool = async (selectedSchool) => {
+    await saveUserProfile(uid, { school: selectedSchool }).catch(() => {});
+    setSchool(selectedSchool);
+  };
+
 
   // ── PICK HANDLERS ─────────────────────────────────────────────────────────
   const clearTeamDownstream = useCallback((next, region, teamName, fromRound) => {
@@ -1654,7 +1588,7 @@ if (game.winner?.name === clicked.name) {
 
   // ── BRACKET RENDER ────────────────────────────────────────────────────────
   const renderBracket = (isMammal) => {
-    const CW = 240, SH = 89, FF_SCALE = 1.25;
+    const CW = 240, SH = 105, FF_SCALE = 1.25;
     const FF_W = Math.round(CW * FF_SCALE), FF_H = Math.round(SH * FF_SCALE);
     const CHAMP_BOX_H = 30 + Math.round(FF_H * 0.75) + 32 + 20;
     const SPINE_H = CHAMP_BOX_H + 16;
@@ -1671,13 +1605,13 @@ if (game.winner?.name === clicked.name) {
     const champColor    = isMammal ? 'rgba(134,239,172,0.5)' : 'rgba(245,158,11,0.65)';
     const champBg       = isMammal ? 'linear-gradient(135deg,rgba(134,239,172,0.15),rgba(22,163,74,0.10))' : 'linear-gradient(135deg,rgba(245,158,11,0.18),rgba(124,58,237,0.14))';
     const champEmoji    = isMammal ? '🦁' : '🏆';
-    const champGold     = isMammal ? '#86efac' : GOLD2;
+    const champGold     = isMammal ? '#86efac' : '#C4952A';
 
     const ROUND_ABS = [
-      [0,89,178,267,356,445,534,623],
-      [44.5,222.5,400.5,578.5],
-      [133.5,489.5],
-      [311.5],
+      [0,105,210,315,420,525,630,735],
+      [52.5,262.5,472.5,682.5],
+      [157.5,577.5],
+      [367.5],
     ];
 
     const ScaledGame = ({ children, isHoriz }) => {
@@ -1700,7 +1634,7 @@ if (game.winner?.name === clicked.name) {
             const pos = positions[gIdx] ?? gIdx * SH;
             return (
               <div key={gIdx} style={{ position: 'absolute', left: 0, right: 0, ...(dir === 'top' ? { top: pos } : { bottom: pos }) }}>
-                <GameSlot game={game} locked={isLocked && !isAdmin} flipped={flip} roundIdx={rIdx} liveScores={isMammal ? {} : liveScores} onPick={side => onPick(region, rIdx, gIdx, side)} onCompare={onCompareGame} />
+                <GameSlot game={game} locked={isLocked && !isAdmin} flipped={flip} roundIdx={rIdx} liveScores={isMammal ? {} : liveScores} onPick={side => onPick(region, rIdx, gIdx, side)} onCompare={onCompareGame} isMammal={isMammal} mammalResearchData={isMammal ? mammalResearchData : {}} />
               </div>
             );
           })}
@@ -1719,7 +1653,7 @@ if (game.winner?.name === clicked.name) {
 
     const LINE_COLORS = ['#60a5fa','#a78bfa','#fbbf24','#ef4444'];
     const TOTAL_W = CW * 11;
-    const GAME_MID_OFFSET = 50, GAME_MID_OFFSET_BOT = SH - GAME_MID_OFFSET;
+    const GAME_MID_OFFSET = 50, GAME_MID_OFFSET_BOT = 39;
 
     const BracketConnectors = ({ dir }) => {
       const H = TOP_H;
@@ -1766,7 +1700,7 @@ if (game.winner?.name === clicked.name) {
           <div style={{ width: CW * 3, flexShrink: 0, height: TOP_H, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'center', paddingBottom: FF_GAP }}>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
               <div style={{ fontSize: 13, fontWeight: 800, color: '#34d399', letterSpacing: 1.5, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{ff0Label}</div>
-              <ScaledGame><GameSlot game={activeBracket.finalFour?.[0]} onPick={s => onFFPick(0, s)} locked={isLocked && !isAdmin} roundIdx={4} liveScores={isMammal ? {} : liveScores} onCompare={onCompareGame} /></ScaledGame>
+              <ScaledGame><GameSlot game={activeBracket.finalFour?.[0]} onPick={s => onFFPick(0, s)} locked={isLocked && !isAdmin} roundIdx={4} liveScores={isMammal ? {} : liveScores} onCompare={onCompareGame} isMammal={isMammal} mammalResearchData={isMammal ? mammalResearchData : {}} /></ScaledGame>
             </div>
           </div>
           {[3,2,1,0].map(rIdx => <RoundCol key={rIdx} region="West" rIdx={rIdx} flip={true} dir="top" />)}
@@ -1782,16 +1716,16 @@ if (game.winner?.name === clicked.name) {
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '10px 16px', background: champBg, border: `2px solid ${champColor}`, borderRadius: 12, animation: 'champGlow 3s ease-in-out infinite', minWidth: FF_W + 24 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <span style={{ fontSize: 18 }}>{champEmoji}</span>
-                <span style={{ fontSize: 16, fontWeight: 800, color: champGold, letterSpacing: 1, fontFamily: "'Playfair Display', serif", whiteSpace: 'nowrap' }}>Championship</span>
+                <span style={{ fontSize: 16, fontWeight: 800, color: champGold, letterSpacing: 1, fontFamily: "'Libre Bodoni', serif", whiteSpace: 'nowrap' }}>Championship</span>
                 <span style={{ fontSize: 18 }}>{champEmoji}</span>
               </div>
               <ScaledGame isHoriz>
-                <GameSlot game={activeBracket.championship} onPick={onChampPick} locked={isLocked && !isAdmin} isChampionship isHorizontal onScoreChange={isMammal ? undefined : handleChampScore} roundIdx={-1} liveScores={isMammal ? {} : liveScores} onCompare={onCompareGame} />
+                <GameSlot game={activeBracket.championship} onPick={onChampPick} locked={isLocked && !isAdmin} isChampionship isHorizontal onScoreChange={isMammal ? undefined : handleChampScore} roundIdx={-1} liveScores={isMammal ? {} : liveScores} onCompare={onCompareGame} isMammal={isMammal} mammalResearchData={isMammal ? mammalResearchData : {}} />
               </ScaledGame>
               {activeBracket.championship?.winner && (
                 <div style={{ textAlign: 'center', padding: '4px 14px', background: isMammal ? 'rgba(134,239,172,0.15)' : 'rgba(245,158,11,0.18)', borderRadius: 6, border: `1px solid ${isMammal ? 'rgba(134,239,172,0.4)' : 'rgba(245,158,11,0.5)'}` }}>
                   <div style={{ fontSize: 10, color: champGold, letterSpacing: 1.5 }}>CHAMPION</div>
-                  <div style={{ fontSize: 15, fontWeight: 700, color: '#fff', fontFamily: "'Playfair Display', serif" }}>{activeBracket.championship.winner.name}</div>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: '#fff', fontFamily: "'Libre Bodoni', serif" }}>{activeBracket.championship.winner.name}</div>
                 </div>
               )}
             </div>
@@ -1808,7 +1742,7 @@ if (game.winner?.name === clicked.name) {
           {[0,1,2,3].map(rIdx => <RoundCol key={rIdx} region="South" rIdx={rIdx} flip={false} dir="bot" />)}
           <div style={{ width: CW * 3, flexShrink: 0, height: TOP_H, display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'center', paddingTop: FF_GAP }}>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-              <ScaledGame><GameSlot game={activeBracket.finalFour?.[1]} onPick={s => onFFPick(1, s)} locked={isLocked && !isAdmin} roundIdx={4} liveScores={isMammal ? {} : liveScores} onCompare={onCompareGame} /></ScaledGame>
+              <ScaledGame><GameSlot game={activeBracket.finalFour?.[1]} onPick={s => onFFPick(1, s)} locked={isLocked && !isAdmin} roundIdx={4} liveScores={isMammal ? {} : liveScores} onCompare={onCompareGame} isMammal={isMammal} mammalResearchData={isMammal ? mammalResearchData : {}} /></ScaledGame>
               <div style={{ fontSize: 13, fontWeight: 800, color: '#34d399', letterSpacing: 1.5, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{ff1Label}</div>
             </div>
           </div>
@@ -1879,12 +1813,12 @@ if (game.winner?.name === clicked.name) {
     const rank = isMammal ? mammalMyRank : myRank;
     const board = isMammal ? mammalLeaderboard : leaderboard;
     const isLocked = isMammal ? mammalLocked : locked;
-    const color = isMammal ? '#86efac' : ACCENT2;
+    const color = isMammal ? GREEN : NAVY;
     return (
       <div style={{ ...S.card, display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 14, ...(isMammal ? { borderColor: 'rgba(134,239,172,0.25)' } : {}) }}>
         <div>
           <div style={{ fontSize: 11, color: '#777', letterSpacing: 1, textTransform: 'uppercase' }}>{isMammal ? 'Mammal Score' : 'Your Score'}</div>
-          <div style={{ fontSize: 38, fontWeight: 700, color, fontFamily: "'Playfair Display', serif", lineHeight: 1 }}>{s} <span style={{ fontSize: 14, color: '#888' }}>/ 1,920 pts</span></div>
+          <div style={{ fontSize: 38, fontWeight: 700, color, fontFamily: "'Libre Bodoni', serif", lineHeight: 1 }}>{s} <span style={{ fontSize: 14, color: '#888' }}>/ 1,920 pts</span></div>
         </div>
         <div style={{ textAlign: 'center' }}>
           <div style={{ fontSize: 13, color: isLocked ? '#e74c3c' : '#22c55e', marginBottom: 6 }}>{isLocked ? 'Brackets Locked' : 'Picks Open'}</div>
@@ -1898,11 +1832,11 @@ if (game.winner?.name === clicked.name) {
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
           <div style={{ textAlign: 'right' }}>
             <div style={{ fontSize: 11, color: '#777' }}>School Rank</div>
-            <div style={{ fontSize: 34, fontWeight: 700, color, fontFamily: "'Playfair Display', serif", lineHeight: 1 }}>{rank > 0 ? `#${rank}` : '-'}</div>
+            <div style={{ fontSize: 34, fontWeight: 700, color, fontFamily: "'Libre Bodoni', serif", lineHeight: 1 }}>{rank > 0 ? `#${rank}` : '-'}</div>
             <div style={{ fontSize: 11, color: '#888' }}>of {board.length || '-'} entries</div>
           </div>
-          <button style={{ ...S.btn('rgba(255,255,255,0.07)', '#888'), padding: '5px 14px', fontSize: 11 }} onClick={() => handleClearPicks(isMammal)}>Clear Picks</button>
-          {saving && !isMammal ? <span style={{ fontSize: 11, color: '#777' }}>Saving...</span> : (isMammal ? mammalLastSaved : lastSaved) ? <span style={{ fontSize: 11, color: '#166534' }}>Saved ✓</span> : null}
+          <button style={{ ...S.btn('#C8BFB0', '#1A1208'), padding: '5px 14px', fontSize: 11 }} onClick={() => handleClearPicks(isMammal)}>Clear Picks</button>
+          {saving && !isMammal ? <span style={{ fontSize: 11, color: '#7A7068' }}>Saving...</span> : (isMammal ? mammalLastSaved : lastSaved) ? <span style={{ fontSize: 11, color: MINT_FG }}>Saved</span> : null}
         </div>
       </div>
     );
@@ -1912,103 +1846,66 @@ if (game.winner?.name === clicked.name) {
   if (legalPage === 'privacy') return <PrivacyPolicyPage onBack={() => setLegalPage(null)} />;
   if (legalPage === 'terms')   return <TermsOfServicePage onBack={() => setLegalPage(null)} />;
 
-  // ── ADMIN PASSWORD MODAL ──────────────────────────────────────────────────
-  if (showAdminLogin) return (
+  // ── LOADING SCREEN ────────────────────────────────────────────────────────
+  if (uid && (!appReady || !profileLoaded)) return (
     <div style={{ ...S.app, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
-      <div style={{ ...S.card, maxWidth: 380, width: '100%', padding: '36px 40px', textAlign: 'center' }}>
-        <div style={{ fontSize: 32, marginBottom: 12 }}>🔐</div>
-        <h2 style={{ fontFamily: "'Playfair Display', serif", color: '#e74c3c', marginBottom: 6 }}>{setupMode ? 'Set Admin Password' : 'Admin Access'}</h2>
-        {setupMode ? (
-          <>
-            <p style={{ color: '#888', fontSize: 13, marginBottom: 20, lineHeight: 1.6 }}>No admin password exists yet. Create one now — you'll use this to access the admin panel.</p>
-            <input type="password" placeholder="New password" value={newAdminPw} onChange={e => setNewAdminPw(e.target.value)} style={{ ...S.input, marginBottom: 10 }} />
-            <input type="password" placeholder="Confirm password" value={newAdminPw2} onChange={e => setNewAdminPw2(e.target.value)} style={{ ...S.input, marginBottom: 16 }} onKeyDown={e => e.key === 'Enter' && handleAdminSetup()} />
-          </>
-        ) : (
-          <>
-            <p style={{ color: '#888', fontSize: 13, marginBottom: 20 }}>Enter the admin password to continue.</p>
-            <input type="password" placeholder="Admin password" value={adminPwInput} onChange={e => setAdminPwInput(e.target.value)} style={{ ...S.input, marginBottom: 16 }} onKeyDown={e => e.key === 'Enter' && handleAdminLogin()} autoFocus />
-          </>
-        )}
-        {adminPwError && <div style={{ color: '#f87171', fontSize: 13, marginBottom: 12 }}>{adminPwError}</div>}
-        <div style={{ display: 'flex', gap: 10 }}>
-          <button style={{ ...S.btn('rgba(255,255,255,0.07)', '#888'), flex: 1 }} onClick={() => { setShowAdminLogin(false); setAdminPwInput(''); setNewAdminPw(''); setNewAdminPw2(''); setAdminPwError(''); }}>Cancel</button>
-          <button style={{ ...S.btn('#e74c3c'), flex: 1 }} onClick={setupMode ? handleAdminSetup : handleAdminLogin} disabled={adminPwLoading}>{adminPwLoading ? '...' : setupMode ? 'Set Password' : 'Enter'}</button>
+      <div style={{ textAlign: 'center' }}>
+        <Trophy size={48} color={NAVY} style={{ marginBottom: 16 }} />
+        <div style={{ fontSize: 16, color: NAVY, fontWeight: 700 }}>Loading your bracket...</div>
+      </div>
+    </div>
+  );
+
+  // ── ONBOARDING SCREEN ─────────────────────────────────────────────────────
+  const SCHOOLS = ['Hart', 'Van Hoosen', 'Reuther', 'West'];
+  if (uid && appReady && profileLoaded && !school && !isAdmin) return (
+    <div style={{ ...S.app, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', gap: 32, padding: '0 16px' }}>
+      <div style={{ textAlign: 'center' }}>
+        <h1 style={{ fontFamily: "'Libre Bodoni', serif", fontSize: 36, fontWeight: 700, color: NAVY, marginBottom: 8 }}>
+          Welcome, {displayName.split(' ')[0]}!
+        </h1>
+        <p style={{ color: '#7A7068', fontSize: 16 }}>One quick thing before we start.</p>
+      </div>
+      <div style={{ ...S.card, maxWidth: 400, width: '100%', padding: '36px 40px', textAlign: 'center' }}>
+        <p style={{ color: '#1A1208', fontSize: 16, fontWeight: 600, marginBottom: 8 }}>Which middle school do you go to?</p>
+        <p style={{ color: '#7A7068', fontSize: 13, marginBottom: 24 }}>Your school will show on the leaderboard.</p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {SCHOOLS.map(s => (
+            <button key={s} onClick={() => handleSelectSchool(s)}
+              style={{ ...S.btn(NAVY), fontSize: 15, padding: '14px', width: '100%' }}>
+              {s} Middle School
+            </button>
+          ))}
         </div>
       </div>
     </div>
   );
 
-
-  // ── NAME ENTRY SCREEN ─────────────────────────────────────────────────────
+  // ── SIGN-IN SCREEN ────────────────────────────────────────────────────────
   if (!uid) return (
     <>
       <div style={{ ...S.app, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 36, minHeight: '100vh' }}>
         <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: 88, marginBottom: 12 }}>🏀</div>
-          <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 48, color: ACCENT2, letterSpacing: 2, lineHeight: 1.1 }}>MARCH MADNESS<br />{tournamentYear}</h1>
-          <p style={{ color: '#777', fontSize: 16, marginTop: 10 }}>School-Wide Bracket Challenge</p>
+          <h1 style={{ fontFamily: "'Libre Bodoni', serif", fontSize: 48, fontWeight: 700, color: NAVY, letterSpacing: 2, lineHeight: 1.1 }}>MARCH MADNESS<br />{tournamentYear}</h1>
+          <p style={{ color: '#7A7068', fontSize: 16, marginTop: 10 }}>Rochester Community Schools · Bracket Challenge</p>
         </div>
-        <div style={{ ...S.card, textAlign: 'center', maxWidth: 400, padding: '36px 40px', width: '100%' }}>
-
-          {/* Step 1: Enter username (all users) */}
-          {nameStep === 'username' && (
-            <>
-              <p style={{ color: '#aaa', fontSize: 15, fontWeight: 700, marginBottom: 6 }}>Enter your username</p>
-              <p style={{ color: '#666', fontSize: 13, marginBottom: 8, lineHeight: 1.6 }}>
-                Returning? Enter your username to pick up where you left off.
-              </p>
-              <p style={{ color: '#555', fontSize: 12, marginBottom: 20 }}>
-                New here? Pick any username you'll remember — example: <span style={{ color: ACCENT2, fontFamily: 'monospace', fontSize: 13 }}>HoopsFan22</span>
-              </p>
-              <input
-                placeholder="Your username"
-                value={studentIdInput}
-                onChange={e => { setStudentIdInput(e.target.value); setNameError(''); }}
-                onKeyDown={e => e.key === 'Enter' && handleUsernameSubmit()}
-                style={{ ...S.input, marginBottom: 16, fontSize: 16, textAlign: 'center', letterSpacing: 1 }}
-                autoFocus
-              />
-              {nameError && <div style={{ color: '#f87171', fontSize: 13, marginBottom: 12 }}>{nameError}</div>}
-              <button style={{ ...S.btn(), width: '100%', fontSize: 16, padding: '12px 22px' }} onClick={handleUsernameSubmit} disabled={nameLoading}>
-                {nameLoading ? 'Checking...' : 'Continue'}
-              </button>
-            </>
-          )}
-
-          {/* Step 2: New users only — enter display name */}
-          {nameStep === 'new-name' && (
-            <>
-              <div style={{ marginBottom: 20, padding: '10px 14px', background: 'rgba(22,163,74,0.08)', borderRadius: 8, border: '1px solid rgba(22,163,74,0.2)', fontSize: 13, color: ACCENT2 }}>
-                Username <span style={{ fontWeight: 700, fontFamily: 'monospace' }}>{studentIdInput}</span> is available!
-              </div>
-              <p style={{ color: '#aaa', fontSize: 15, fontWeight: 700, marginBottom: 6 }}>What's your name?</p>
-              <p style={{ color: '#666', fontSize: 13, marginBottom: 20, lineHeight: 1.6 }}>
-                Enter your first and last name. This is how you'll appear on the leaderboard. You won't need to enter this again.
-              </p>
-              <input
-                placeholder="First and last name"
-                value={nameInput}
-                onChange={e => { setNameInput(e.target.value); setNameError(''); }}
-                onKeyDown={e => e.key === 'Enter' && handleNewNameSubmit()}
-                style={{ ...S.input, marginBottom: 16, fontSize: 16, textAlign: 'center' }}
-                autoFocus
-              />
-              {nameError && <div style={{ color: '#f87171', fontSize: 13, marginBottom: 12 }}>{nameError}</div>}
-              <button style={{ ...S.btn(), width: '100%', fontSize: 16, padding: '12px 22px' }} onClick={handleNewNameSubmit} disabled={nameLoading}>
-                {nameLoading ? 'Setting up...' : "Let's Go!"}
-              </button>
-              <button onClick={() => { setNameStep('username'); setNameError(''); }} style={{ background: 'none', border: 'none', color: '#555', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', marginTop: 12 }}>
-                Back
-              </button>
-            </>
-          )}
-
+        <div style={{ ...S.card, textAlign: 'center', maxWidth: 380, padding: '36px 40px', width: '100%' }}>
+          {authError && <div style={{ color: '#c0392b', fontSize: 13, marginBottom: 12 }}>{authError}</div>}
+          <button
+            onClick={handleGoogleSignIn}
+            disabled={authLoading}
+            style={{ ...S.btn(NAVY), width: '100%', fontSize: 16, padding: '14px 22px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+            <LogIn size={20} />
+            {authLoading ? 'Signing in...' : 'Sign in with school Google'}
+          </button>
+          <p style={{ color: '#7A7068', fontSize: 12, marginTop: 16, lineHeight: 1.6 }}>
+            Use your school account (@rcs-k12.us)
+          </p>
         </div>
       </div>
-      <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, padding: '12px 20px', display: 'flex', justifyContent: 'center', gap: 20, borderTop: '1px solid rgba(255,255,255,0.06)', background: 'rgba(10,26,14,0.95)' }}>
-        <button onClick={() => setLegalPage('privacy')} style={{ background: 'none', border: 'none', color: '#555', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>Privacy Policy</button>
-        <button onClick={() => setLegalPage('terms')} style={{ background: 'none', border: 'none', color: '#555', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>Terms of Service</button>
+      <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, padding: '12px 20px', display: 'flex', justifyContent: 'center', gap: 20, borderTop: '1px solid #C8BFB0', background: '#E8E2D8' }}>
+        <button onClick={() => setLegalPage('privacy')} style={{ background: 'none', border: 'none', color: '#7A7068', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>Privacy Policy</button>
+        <button onClick={() => setLegalPage('terms')} style={{ background: 'none', border: 'none', color: '#7A7068', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>Terms of Service</button>
       </div>
     </>
   );
@@ -2018,12 +1915,14 @@ if (game.winner?.name === clicked.name) {
     { id: 'bracket',     label: 'Bracket'     },
     { id: 'research',    label: 'Research'    },
     { id: 'leaderboard', label: 'Leaderboard' },
+    ...(isTeacher || isAdmin ? [{ id: 'teacher', label: 'Teacher' }] : []),
+    ...(isAdmin ? [{ id: 'admin', label: 'Admin' }] : []),
   ];
 
   const TournamentSelector = () => (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 20, background: 'rgba(255,255,255,0.04)', borderRadius: 12, padding: 4, width: 'fit-content', border: '1px solid rgba(255,255,255,0.08)' }}>
-      <button onClick={() => { setActiveTournament('basketball'); setComparePicking(false); }} style={{ padding: '8px 20px', borderRadius: 9, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, fontWeight: 700, background: activeTournament === 'basketball' ? ACCENT : 'transparent', color: activeTournament === 'basketball' ? '#fff' : '#888', transition: 'all .15s' }}>🏀 Basketball</button>
-      <button onClick={() => { setActiveTournament('mammals'); setComparePicking(false); }} style={{ padding: '8px 20px', borderRadius: 9, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, fontWeight: 700, background: activeTournament === 'mammals' ? '#16a34a' : 'transparent', color: activeTournament === 'mammals' ? '#fff' : '#888', transition: 'all .15s' }}>🦁 Mammal Madness</button>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 20, background: 'rgba(9,24,40,0.06)', borderRadius: 12, padding: 4, width: 'fit-content', border: '1px solid #C8BFB0' }}>
+      <button onClick={() => { setActiveTournament('basketball'); setComparePicking(false); }} style={{ padding: '8px 20px', borderRadius: 9, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, fontWeight: 700, background: activeTournament === 'basketball' ? NAVY : 'transparent', color: activeTournament === 'basketball' ? '#fff' : '#7A7068', transition: 'all .15s' }}>Basketball</button>
+      <button onClick={() => { setActiveTournament('mammals'); setComparePicking(false); }} style={{ padding: '8px 20px', borderRadius: 9, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, fontWeight: 700, background: activeTournament === 'mammals' ? GREEN : 'transparent', color: activeTournament === 'mammals' ? '#fff' : '#7A7068', transition: 'all .15s' }}>Mammal Madness</button>
     </div>
   );
 
@@ -2031,13 +1930,34 @@ if (game.winner?.name === clicked.name) {
     <ErrorBoundary>
       <div style={S.app}>
         <style>{`
-          .bscroll { scrollbar-width: thin; scrollbar-color: rgba(22,163,74,0.5) rgba(255,255,255,0.04); }
+          .bscroll { scrollbar-width: thin; scrollbar-color: rgba(9,24,40,0.4) rgba(200,191,176,0.3); }
           .bscroll::-webkit-scrollbar { height: 10px; }
-          .bscroll::-webkit-scrollbar-track { background: rgba(255,255,255,0.04); border-radius: 5px; }
-          .bscroll::-webkit-scrollbar-thumb { background: rgba(22,163,74,0.5); border-radius: 5px; }
-          .bscroll::-webkit-scrollbar-thumb:hover { background: rgba(22,163,74,0.8); }
-          @keyframes champGlow { 0%,100%{box-shadow:0 0 24px rgba(245,158,11,0.3)} 50%{box-shadow:0 0 40px rgba(245,158,11,0.6)} }
+          .bscroll::-webkit-scrollbar-track { background: rgba(200,191,176,0.3); border-radius: 5px; }
+          .bscroll::-webkit-scrollbar-thumb { background: rgba(9,24,40,0.4); border-radius: 5px; }
+          .bscroll::-webkit-scrollbar-thumb:hover { background: rgba(9,24,40,0.7); }
+          @keyframes champGlow { 0%,100%{box-shadow:0 0 24px rgba(196,149,42,0.3)} 50%{box-shadow:0 0 40px rgba(196,149,42,0.6)} }
           @keyframes livePulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+          .compare-zone { position:relative; height:34px; cursor:pointer; overflow:hidden; user-select:none; }
+          .cz-fill-top { position:absolute; top:0; left:0; right:0; height:0; background:var(--cz-top,#040C15); transition:height .24s ease-out; }
+          .cz-fill-bot { position:absolute; bottom:0; left:0; right:0; height:0; background:var(--cz-bot,#1E4A88); transition:height .24s ease-out; }
+          .cz-divider  { position:absolute; top:50%; left:0; right:0; height:1px; background:#C8BFB0; transform:translateY(-50%); pointer-events:none; }
+          .cz-vs       { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:10px; color:#7A7068; font-weight:600; letter-spacing:2px; text-transform:uppercase; z-index:1; transition:opacity .1s; pointer-events:none; }
+          .cz-corner   { position:absolute; width:5px; height:5px; border:2px solid rgba(255,255,255,0.75); opacity:0; transition:opacity .14s ease .2s; z-index:3; pointer-events:none; }
+          .cz-tl { top:2px; left:4px; border-right:none; border-bottom:none; }
+          .cz-tr { top:2px; right:4px; border-left:none; border-bottom:none; }
+          .cz-bl { bottom:2px; left:4px; border-right:none; border-top:none; }
+          .cz-br { bottom:2px; right:4px; border-left:none; border-top:none; }
+          .cz-conn   { position:absolute; top:50%; height:1px; background:rgba(255,255,255,0.5); width:0; transform:translateY(-50%); transition:width .2s ease .2s; z-index:3; pointer-events:none; }
+          .cz-conn-l { left:12px; }
+          .cz-conn-r { right:12px; }
+          .cz-label  { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:#fff; font-weight:800; font-size:13px; letter-spacing:3.5px; text-transform:uppercase; text-shadow:1px 1px 0 rgba(0,0,0,.9),2px 2px 0 rgba(0,0,0,.7),3px 3px 0 rgba(0,0,0,.45),4px 4px 0 rgba(0,0,0,.25),5px 5px 12px rgba(0,0,0,.5); opacity:0; transform:translateY(4px); transition:opacity .14s ease .34s,transform .14s ease .34s; z-index:4; pointer-events:none; }
+          .compare-zone:hover .cz-fill-top { height:52%; }
+          .compare-zone:hover .cz-fill-bot { height:52%; }
+          .compare-zone:hover .cz-vs       { opacity:0; }
+          .compare-zone:hover .cz-corner   { opacity:1; }
+          .compare-zone:hover .cz-conn-l   { width:22%; }
+          .compare-zone:hover .cz-conn-r   { width:22%; }
+          .compare-zone:hover .cz-label    { opacity:1; transform:translateY(0); }
         `}</style>
 
         <OfflineBar />
@@ -2046,19 +1966,18 @@ if (game.winner?.name === clicked.name) {
         {compareModal && <CompareModal {...compareModal} onClose={() => { setCompareModal(null); setComparePicking(false); }} />}
 
         <header style={S.header}>
-          <div style={S.logo}>🏀 MARCH MADNESS {tournamentYear}</div>
+          <div style={S.logo}>MARCH MADNESS {tournamentYear}</div>
           <nav style={{ display: 'flex', gap: 4 }}>
             {tabs.map(t => <button key={t.id} style={S.navBtn(tab === t.id)} onClick={() => setTab(t.id)}>{t.label}</button>)}
-            <button style={S.navBtn(tab === 'admin' && isAdmin)} onClick={handleOpenAdmin}>⚙️ Admin</button>
           </nav>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <Avatar name={displayName} size={28} />
             <span style={{ fontSize: 13, color: '#888' }}>{formatName(displayName)}</span>
-            {isTeacher && <span style={{ fontSize: 10, background: 'rgba(245,158,11,0.15)', color: GOLD, border: '1px solid rgba(245,158,11,0.3)', borderRadius: 4, padding: '2px 6px', fontWeight: 700 }}>TEACHER</span>}
-            {isAdmin && <span style={{ fontSize: 10, background: 'rgba(239,68,68,0.15)', color: '#f87171', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 4, padding: '2px 6px', fontWeight: 700 }}>ADMIN</span>}
-            {saving && <span style={{ fontSize: 11, color: '#555' }}>Saving...</span>}
-            {!saving && lastSaved && <span style={{ fontSize: 11, color: '#166534' }}>Saved ✓</span>}
-            <button onClick={handleSignOut} style={{ background: 'none', border: 'none', color: '#888', cursor: 'pointer', fontSize: 12 }}>Exit</button>
+            {isTeacher && <span style={{ fontSize: 10, background: 'rgba(196,149,42,0.2)', color: '#C4952A', border: '1px solid rgba(196,149,42,0.4)', borderRadius: 4, padding: '2px 6px', fontWeight: 700 }}>TEACHER</span>}
+            {isAdmin && <span style={{ fontSize: 10, background: 'rgba(192,57,43,0.2)', color: '#e74c3c', border: '1px solid rgba(192,57,43,0.4)', borderRadius: 4, padding: '2px 6px', fontWeight: 700 }}>ADMIN</span>}
+            {saving && <span style={{ fontSize: 11, color: '#B8CBE8' }}>Saving...</span>}
+            {!saving && lastSaved && <span style={{ fontSize: 11, color: MINT_BG, display: 'inline-flex', alignItems: 'center', gap: 3 }}><Check size={11} />Saved</span>}
+            <button onClick={handleSignOut} style={{ background: 'none', border: 'none', color: '#B8CBE8', cursor: 'pointer', fontSize: 12, fontFamily: 'inherit' }}>Exit</button>
           </div>
         </header>
 
@@ -2101,7 +2020,7 @@ if (game.winner?.name === clicked.name) {
               <TournamentSelector />
               {activeTournament === 'basketball' && (
                 <>
-                  <h2 style={{ fontFamily: "'Playfair Display', serif", color: ACCENT2, marginBottom: 6 }}>Team Research Hub</h2>
+                  <h2 style={{ fontFamily: "'Libre Bodoni', serif", color: MINT_FG, marginBottom: 6 }}>Team Research Hub</h2>
                   {generating && (
                     <div style={{ ...S.card, marginBottom: 16, borderColor: 'rgba(99,102,241,0.4)' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}><span style={{ color: '#6366f1', fontSize: 14, fontWeight: 700 }}>Generating research...</span><span style={{ color: '#888', fontSize: 13 }}>{genProgress.done} / {genProgress.total}</span></div>
@@ -2125,7 +2044,7 @@ if (game.winner?.name === clicked.name) {
                         {(bbTeamsByRegion[bbActiveRegion] || []).length === 0
                           ? <div style={{ color: '#666', fontSize: 13, fontStyle: 'italic' }}>No teams in this region yet.</div>
                           : (bbTeamsByRegion[bbActiveRegion] || []).map(t => (
-                              <button key={t.name} style={{ ...S.btn(selectedTeam === t.name ? ACCENT : 'rgba(255,255,255,0.05)', selectedTeam === t.name ? '#fff' : '#aaa'), padding: '7px 16px', fontSize: 13 }} onClick={() => { setSelectedTeam(t.name); setComparePicking(false); }}>
+                              <button key={t.name} style={{ ...S.btn(selectedTeam === t.name ? NAVY : 'rgba(9,24,40,0.06)', selectedTeam === t.name ? '#fff' : '#7A7068'), padding: '7px 16px', fontSize: 13 }} onClick={() => { setSelectedTeam(t.name); setComparePicking(false); }}>
                                 #{t.seed} {t.name}
                               </button>
                             ))
@@ -2171,7 +2090,7 @@ if (game.winner?.name === clicked.name) {
               )}
               {activeTournament === 'mammals' && (
                 <>
-                  <h2 style={{ fontFamily: "'Playfair Display', serif", color: '#86efac', marginBottom: 6 }}>🦁 Animal Research Hub</h2>
+                  <h2 style={{ fontFamily: "'Libre Bodoni', serif", color: '#86efac', marginBottom: 6 }}>🦁 Animal Research Hub</h2>
                   {mammalGenerating && (
                     <div style={{ ...S.card, marginBottom: 16, borderColor: 'rgba(134,239,172,0.3)' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}><span style={{ color: '#86efac', fontSize: 14, fontWeight: 700 }}>Generating animal facts...</span><span style={{ color: '#888', fontSize: 13 }}>{mammalGenProgress.done} / {mammalGenProgress.total}</span></div>
@@ -2245,48 +2164,72 @@ if (game.winner?.name === clicked.name) {
           {tab === 'leaderboard' && (
             <div style={{ padding: 24, maxWidth: 660, margin: '0 auto' }}>
               <TournamentSelector />
-              {activeTournament === 'basketball' && (
-                <>
-                  <h2 style={{ fontFamily: "'Playfair Display', serif", color: ACCENT2, marginBottom: 20 }}>Leaderboard</h2>
-                  <div style={S.card}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#888', padding: '0 12px 10px', letterSpacing: 1, textTransform: 'uppercase' }}><span>Rank</span><span style={{ flex: 1, marginLeft: 54 }}>Name</span><span>Points</span></div>
-                    {leaderboard.length === 0 ? <div style={{ color: '#888', textAlign: 'center', padding: 24 }}>No entries yet — be the first!</div>
-                      : leaderboard.map((e, i) => (
-                        <div key={e.uid} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '11px 12px', background: e.uid === uid ? 'rgba(22,163,74,0.08)' : 'transparent', borderRadius: 8, marginBottom: 3, border: e.uid === uid ? '1px solid rgba(22,163,74,0.25)' : '1px solid transparent' }}>
-                          <span style={{ fontSize: 17, fontWeight: 700, color: i === 0 ? ACCENT2 : i === 1 ? '#aaa' : i === 2 ? '#cd7f32' : '#888', minWidth: 30, fontFamily: "'Playfair Display', serif" }}>#{i+1}</span>
-                          <Avatar name={e.displayName} size={26} />
-                          <span style={{ flex: 1, fontWeight: e.uid === uid ? 700 : 400, color: e.uid === uid ? ACCENT2 : '#bbb', fontSize: 14 }}>
-                            {formatName(e.displayName)}{e.uid === uid ? ' (You)' : ''}
-                            {e.isTeacher && <span style={{ marginLeft: 6, fontSize: 10, background: 'rgba(245,158,11,0.15)', color: GOLD, border: '1px solid rgba(245,158,11,0.3)', borderRadius: 4, padding: '1px 5px', fontWeight: 700 }}>TEACHER</span>}
-                          </span>
-                          <button onClick={() => handleViewBracket(e.uid, e.displayName, false)} disabled={loadingBracket === e.uid} style={{ ...S.btn('rgba(22,163,74,0.12)', '#86efac'), padding: '3px 10px', fontSize: 11, border: '1px solid rgba(22,163,74,0.25)', flexShrink: 0 }}>{loadingBracket === e.uid ? '...' : 'View'}</button>
-                          <span style={{ fontSize: 20, fontWeight: 700, color: ACCENT2, fontFamily: "'Playfair Display', serif" }}>{e.score}</span>
-                        </div>
+              {activeTournament === 'basketball' && (() => {
+                const filtered = schoolFilter === 'all' ? leaderboard : leaderboard.filter(e => e.school === schoolFilter);
+                return (
+                  <>
+                    <h2 style={{ fontFamily: "'Libre Bodoni', serif", color: MINT_FG, marginBottom: 16 }}>Leaderboard</h2>
+                    <div style={{ display: 'flex', gap: 6, marginBottom: 16, flexWrap: 'wrap' }}>
+                      {['all','Hart','Van Hoosen','Reuther','West'].map(f => (
+                        <button key={f} onClick={() => setSchoolFilter(f)}
+                          style={{ padding: '5px 14px', borderRadius: 20, border: '1px solid #C8BFB0', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 600, background: schoolFilter === f ? NAVY : '#F4EFE6', color: schoolFilter === f ? '#fff' : '#7A7068', transition: 'all .15s' }}>
+                          {f === 'all' ? 'All Schools' : f}
+                        </button>
                       ))}
-                  </div>
-                </>
-              )}
-              {activeTournament === 'mammals' && (
-                <>
-                  <h2 style={{ fontFamily: "'Playfair Display', serif", color: '#86efac', marginBottom: 20 }}>🦁 Mammal Madness Leaderboard</h2>
-                  <div style={{ ...S.card, borderColor: 'rgba(134,239,172,0.2)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#888', padding: '0 12px 10px', letterSpacing: 1, textTransform: 'uppercase' }}><span>Rank</span><span style={{ flex: 1, marginLeft: 54 }}>Name</span><span>Points</span></div>
-                    {mammalLeaderboard.length === 0 ? <div style={{ color: '#888', textAlign: 'center', padding: 24 }}>No mammal entries yet!</div>
-                      : mammalLeaderboard.map((e, i) => (
-                        <div key={e.uid} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '11px 12px', background: e.uid === uid ? 'rgba(134,239,172,0.08)' : 'transparent', borderRadius: 8, marginBottom: 3, border: e.uid === uid ? '1px solid rgba(134,239,172,0.25)' : '1px solid transparent' }}>
-                          <span style={{ fontSize: 17, fontWeight: 700, color: i === 0 ? '#86efac' : i === 1 ? '#aaa' : i === 2 ? '#cd7f32' : '#888', minWidth: 30, fontFamily: "'Playfair Display', serif" }}>#{i+1}</span>
-                          <Avatar name={e.displayName} size={26} />
-                          <span style={{ flex: 1, fontWeight: e.uid === uid ? 700 : 400, color: e.uid === uid ? '#86efac' : '#bbb', fontSize: 14 }}>
-                            {formatName(e.displayName)}{e.uid === uid ? ' (You)' : ''}
-                            {e.isTeacher && <span style={{ marginLeft: 6, fontSize: 10, background: 'rgba(245,158,11,0.15)', color: GOLD, border: '1px solid rgba(245,158,11,0.3)', borderRadius: 4, padding: '1px 5px', fontWeight: 700 }}>TEACHER</span>}
-                          </span>
-                          <button onClick={() => handleViewBracket(e.uid, e.displayName, true)} disabled={loadingBracket === e.uid + '-mm'} style={{ ...S.btn('rgba(134,239,172,0.12)', '#86efac'), padding: '3px 10px', fontSize: 11, border: '1px solid rgba(134,239,172,0.25)', flexShrink: 0 }}>{loadingBracket === e.uid + '-mm' ? '...' : 'View'}</button>
-                          <span style={{ fontSize: 20, fontWeight: 700, color: '#86efac', fontFamily: "'Playfair Display', serif" }}>{e.score}</span>
-                        </div>
+                    </div>
+                    <div style={S.card}>
+                      <div style={{ display: 'flex', fontSize: 10, color: '#7A7068', padding: '0 12px 10px', letterSpacing: 1, textTransform: 'uppercase' }}><span style={{ minWidth: 36 }}>Rank</span><span style={{ flex: 1, marginLeft: 8 }}>Name</span><span>Points</span></div>
+                      {filtered.length === 0 ? <div style={{ color: '#7A7068', textAlign: 'center', padding: 24 }}>No entries yet — be the first!</div>
+                        : filtered.map((e, i) => (
+                          <div key={e.uid} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: e.uid === uid ? 'rgba(30,107,71,0.08)' : i % 2 === 0 ? 'rgba(9,24,40,0.03)' : 'transparent', borderRadius: 8, marginBottom: 2, border: e.uid === uid ? '1px solid rgba(30,107,71,0.25)' : '1px solid transparent' }}>
+                            <span style={{ fontSize: 16, fontWeight: 700, color: i === 0 ? MINT_FG : i === 1 ? '#7A7068' : i === 2 ? '#cd7f32' : '#C8BFB0', minWidth: 32, fontFamily: "'Libre Bodoni', serif" }}>#{i+1}</span>
+                            <Avatar name={e.displayName} size={26} />
+                            <span style={{ flex: 1, fontWeight: e.uid === uid ? 700 : 500, color: e.uid === uid ? MINT_FG : '#1A1208', fontSize: 14 }}>
+                              {formatName(e.displayName)}{e.uid === uid ? ' (You)' : ''}
+                              {e.school && <span style={{ marginLeft: 6, fontSize: 10, background: 'rgba(9,24,40,0.08)', color: '#1C3558', border: '1px solid rgba(9,24,40,0.15)', borderRadius: 4, padding: '1px 5px', fontWeight: 600 }}>{e.school}</span>}
+                              {e.isTeacher && <span style={{ marginLeft: 6, fontSize: 10, background: 'rgba(196,149,42,0.15)', color: '#C4952A', border: '1px solid rgba(196,149,42,0.3)', borderRadius: 4, padding: '1px 5px', fontWeight: 700 }}>TEACHER</span>}
+                            </span>
+                            <button onClick={() => handleViewBracket(e.uid, e.displayName, false)} disabled={loadingBracket === e.uid} style={{ ...S.btn('rgba(30,107,71,0.10)', MINT_FG), padding: '3px 10px', fontSize: 11, border: `1px solid rgba(30,107,71,0.25)`, flexShrink: 0 }}>{loadingBracket === e.uid ? '...' : 'View'}</button>
+                            <span style={{ fontSize: 20, fontWeight: 700, color: MINT_FG, fontFamily: "'Libre Bodoni', serif", minWidth: 40, textAlign: 'right' }}>{e.score}</span>
+                          </div>
+                        ))}
+                    </div>
+                  </>
+                );
+              })()}
+              {activeTournament === 'mammals' && (() => {
+                const filtered = schoolFilter === 'all' ? mammalLeaderboard : mammalLeaderboard.filter(e => e.school === schoolFilter);
+                return (
+                  <>
+                    <h2 style={{ fontFamily: "'Libre Bodoni', serif", color: '#1A4332', marginBottom: 16 }}>Mammal Madness Leaderboard</h2>
+                    <div style={{ display: 'flex', gap: 6, marginBottom: 16, flexWrap: 'wrap' }}>
+                      {['all','Hart','Van Hoosen','Reuther','West'].map(f => (
+                        <button key={f} onClick={() => setSchoolFilter(f)}
+                          style={{ padding: '5px 14px', borderRadius: 20, border: '1px solid #C8BFB0', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 600, background: schoolFilter === f ? GREEN : '#F4EFE6', color: schoolFilter === f ? '#fff' : '#7A7068', transition: 'all .15s' }}>
+                          {f === 'all' ? 'All Schools' : f}
+                        </button>
                       ))}
-                  </div>
-                </>
-              )}
+                    </div>
+                    <div style={{ ...S.card, borderColor: '#AACFBF' }}>
+                      <div style={{ display: 'flex', fontSize: 10, color: '#7A7068', padding: '0 12px 10px', letterSpacing: 1, textTransform: 'uppercase' }}><span style={{ minWidth: 36 }}>Rank</span><span style={{ flex: 1, marginLeft: 8 }}>Name</span><span>Points</span></div>
+                      {filtered.length === 0 ? <div style={{ color: '#7A7068', textAlign: 'center', padding: 24 }}>No mammal entries yet!</div>
+                        : filtered.map((e, i) => (
+                          <div key={e.uid} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: e.uid === uid ? 'rgba(26,67,50,0.08)' : i % 2 === 0 ? 'rgba(26,67,50,0.03)' : 'transparent', borderRadius: 8, marginBottom: 2, border: e.uid === uid ? '1px solid rgba(26,67,50,0.25)' : '1px solid transparent' }}>
+                            <span style={{ fontSize: 16, fontWeight: 700, color: i === 0 ? MINT_FG : i === 1 ? '#7A7068' : i === 2 ? '#cd7f32' : '#C8BFB0', minWidth: 32, fontFamily: "'Libre Bodoni', serif" }}>#{i+1}</span>
+                            <Avatar name={e.displayName} size={26} />
+                            <span style={{ flex: 1, fontWeight: e.uid === uid ? 700 : 500, color: e.uid === uid ? MINT_FG : '#1A1208', fontSize: 14 }}>
+                              {formatName(e.displayName)}{e.uid === uid ? ' (You)' : ''}
+                              {e.school && <span style={{ marginLeft: 6, fontSize: 10, background: 'rgba(26,67,50,0.08)', color: '#1A4332', border: '1px solid rgba(26,67,50,0.20)', borderRadius: 4, padding: '1px 5px', fontWeight: 600 }}>{e.school}</span>}
+                              {e.isTeacher && <span style={{ marginLeft: 6, fontSize: 10, background: 'rgba(196,149,42,0.15)', color: '#C4952A', border: '1px solid rgba(196,149,42,0.3)', borderRadius: 4, padding: '1px 5px', fontWeight: 700 }}>TEACHER</span>}
+                            </span>
+                            <button onClick={() => handleViewBracket(e.uid, e.displayName, true)} disabled={loadingBracket === e.uid + '-mm'} style={{ ...S.btn('rgba(26,67,50,0.10)', MINT_FG), padding: '3px 10px', fontSize: 11, border: '1px solid rgba(26,67,50,0.25)', flexShrink: 0 }}>{loadingBracket === e.uid + '-mm' ? '...' : 'View'}</button>
+                            <span style={{ fontSize: 20, fontWeight: 700, color: MINT_FG, fontFamily: "'Libre Bodoni', serif", minWidth: 40, textAlign: 'right' }}>{e.score}</span>
+                          </div>
+                        ))}
+                    </div>
+                  </>
+                );
+              })()}
             </div>
           )}
 
@@ -2295,31 +2238,31 @@ if (game.winner?.name === clicked.name) {
             <div style={{ padding: 24, maxWidth: 960, margin: '0 auto' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
                 <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#e74c3c', boxShadow: '0 0 6px #e74c3c' }} />
-                <h2 style={{ fontFamily: "'Playfair Display', serif", color: '#e74c3c', margin: 0 }}>Admin Panel</h2>
+                <h2 style={{ fontFamily: "'Libre Bodoni', serif", color: '#c0392b', margin: 0 }}>Admin Panel</h2>
               </div>
               <div style={{ display: 'flex', gap: 4, marginBottom: 24, borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-                {[['dashboard','Dashboard'],['teams','🏀 Basketball'],['mammals','🦁 Mammal Madness'],['users','👥 Users'],['help','Help']].map(([id, label]) => (
+                {[['dashboard','Dashboard'],['teams','Basketball'],['mammals','Mammal Madness'],['users','Users'],['help','Help']].map(([id, label]) => (
                   <button key={id} style={{ ...S.navBtn(adminSubTab === id), borderBottom: adminSubTab === id ? '2px solid #e74c3c' : '2px solid transparent', borderRadius: '6px 6px 0 0', padding: '8px 18px' }} onClick={() => setAdminSubTab(id)}>{label}</button>
                 ))}
               </div>
 
               {adminSubTab === 'dashboard' && (
                 <>
-                  <div style={{ ...S.card, borderColor: 'rgba(22,163,74,0.3)', marginBottom: 16 }}>
-                    <h3 style={{ color: ACCENT2, marginBottom: 8, fontSize: 15 }}>Tournament Year</h3>
-                    <p style={{ color: '#999', fontSize: 13, marginBottom: 12 }}>Updates the year shown on the entry screen and header for all users.</p>
+                  <div style={{ ...S.card, borderColor: 'rgba(9,24,40,0.2)', marginBottom: 16 }}>
+                    <h3 style={{ color: NAVY, marginBottom: 8, fontSize: 15 }}>Tournament Year</h3>
+                    <p style={{ color: '#7A7068', fontSize: 13, marginBottom: 12 }}>Updates the year shown on the entry screen and header for all users.</p>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                       <input type="number" value={yearDraft} onChange={e => setYearDraft(e.target.value)} style={{ ...S.input, width: 110, padding: '8px 12px', fontSize: 16 }} />
-                      <button style={{ ...S.btn(ACCENT, '#fff'), padding: '8px 20px' }} onClick={handleSaveYear} disabled={yearSaving}>{yearSaving ? 'Saving...' : 'Update Year'}</button>
-                      <span style={{ fontSize: 12, color: '#777' }}>Currently: <strong style={{ color: ACCENT2 }}>{tournamentYear}</strong></span>
+                      <button style={{ ...S.btn(NAVY, '#fff'), padding: '8px 20px' }} onClick={handleSaveYear} disabled={yearSaving}>{yearSaving ? 'Saving...' : 'Update Year'}</button>
+                      <span style={{ fontSize: 12, color: '#7A7068' }}>Currently: <strong style={{ color: NAVY }}>{tournamentYear}</strong></span>
                     </div>
                   </div>
-                  <div style={{ ...S.card, borderColor: 'rgba(22,163,74,0.3)', marginBottom: 16 }}>
-                    <h3 style={{ color: ACCENT2, marginBottom: 8, fontSize: 15 }}>Admin Password</h3>
-                    <p style={{ color: '#999', fontSize: 13, marginBottom: 12 }}>Change the password used to access this admin panel.</p>
+                  <div style={{ ...S.card, borderColor: 'rgba(9,24,40,0.2)', marginBottom: 16 }}>
+                    <h3 style={{ color: NAVY, marginBottom: 8, fontSize: 15 }}>Admin Password</h3>
+                    <p style={{ color: '#7A7068', fontSize: 13, marginBottom: 12 }}>Change the password used to access this admin panel.</p>
                     <div style={{ display: 'flex', gap: 10 }}>
                       <input type="password" placeholder="New password" id="new-admin-pw" style={{ ...S.input, flex: 1, padding: '8px 12px' }} />
-                      <button style={{ ...S.btn(ACCENT, '#fff'), padding: '8px 20px', flexShrink: 0 }} onClick={async () => {
+                      <button style={{ ...S.btn(NAVY, '#fff'), padding: '8px 20px', flexShrink: 0 }} onClick={async () => {
                         const val = document.getElementById('new-admin-pw').value.trim();
                         if (!val) return;
                         await setAdminPassword(val);
@@ -2328,19 +2271,38 @@ if (game.winner?.name === clicked.name) {
                       }}>Update</button>
                     </div>
                   </div>
-                  <div style={{ ...S.card, borderColor: 'rgba(231,76,60,0.2)', marginBottom: 16 }}>
-                    <p style={{ color: '#999', fontSize: 14, lineHeight: 1.7, margin: 0 }}>
-                      Use the <strong style={{ color: ACCENT2 }}>Bracket tab</strong> to enter official game results — your picks become the answer key and update all scores live.<br /><br />
-                      Use <strong style={{ color: ACCENT2 }}>Admin → 🏀 Basketball</strong> every March after Selection Sunday to enter teams.
+                  <div style={{ ...S.card, borderColor: 'rgba(9,24,40,0.15)', marginBottom: 16 }}>
+                    <p style={{ color: '#7A7068', fontSize: 14, lineHeight: 1.7, margin: 0 }}>
+                      Use the <strong style={{ color: NAVY }}>Bracket tab</strong> to enter official game results — your picks become the answer key and update all scores live.<br /><br />
+                      Use <strong style={{ color: NAVY }}>Admin → Basketball</strong> every March after Selection Sunday to enter teams.
                     </p>
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 14 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 14, marginBottom: 16 }}>
                     {[['Total Entries', leaderboard.length], ['Avg Score', leaderboard.length ? Math.round(leaderboard.reduce((a,e) => a+(e.score||0),0)/leaderboard.length)+' pts' : '-'], ['Status', locked ? 'Locked' : 'Open']].map(([l,v]) => (
                       <div key={l} style={{ ...S.card, textAlign: 'center' }}>
-                        <div style={{ fontSize: 26, fontWeight: 700, color: ACCENT2, fontFamily: "'Playfair Display', serif" }}>{v}</div>
-                        <div style={{ fontSize: 11, color: '#777', marginTop: 4 }}>{l}</div>
+                        <div style={{ fontSize: 26, fontWeight: 700, color: NAVY, fontFamily: "'Libre Bodoni', serif" }}>{v}</div>
+                        <div style={{ fontSize: 11, color: '#7A7068', marginTop: 4 }}>{l}</div>
                       </div>
                     ))}
+                  </div>
+                  <div style={{ ...S.card, borderColor: 'rgba(192,57,43,0.25)' }}>
+                    <h3 style={{ color: '#c0392b', marginBottom: 6, fontSize: 15 }}>New Year Reset</h3>
+                    <p style={{ color: '#7A7068', fontSize: 13, marginBottom: 16, lineHeight: 1.6 }}>
+                      Deletes all brackets and leaderboard entries for both tournaments. Does not delete rosters, research data, or tournament config. Use at the start of each new school year.
+                    </p>
+                    <button
+                      style={{ ...S.btn('#c0392b'), fontSize: 13, padding: '8px 20px' }}
+                      onClick={() => setConfirmDialog({
+                        message: 'Delete ALL brackets and leaderboard entries for both tournaments? This cannot be undone.',
+                        onConfirm: async () => {
+                          setConfirmDialog(null);
+                          await deleteAllBrackets();
+                          setLeaderboard([]);
+                          setMammalLeaderboard([]);
+                        }
+                      })}>
+                      Clear All Data (New Year Reset)
+                    </button>
                   </div>
                 </>
               )}
@@ -2400,7 +2362,7 @@ if (game.winner?.name === clicked.name) {
 
               {adminSubTab === 'users' && (
                 <div>
-                  <h3 style={{ color: ACCENT2, marginBottom: 4 }}>User Entries</h3>
+                  <h3 style={{ color: MINT_FG, marginBottom: 4 }}>User Entries</h3>
                   <p style={{ color: '#777', fontSize: 13, marginBottom: 20 }}>All users who have submitted a bracket. Removing a user deletes their bracket and score.</p>
                   {leaderboard.length === 0 ? <div style={{ ...S.card, textAlign: 'center', padding: 40, color: '#666' }}>No users yet</div> : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -2437,7 +2399,7 @@ if (game.winner?.name === clicked.name) {
               {adminSubTab === 'help' && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                   <div style={S.card}>
-                    <h3 style={{ color: ACCENT2, marginBottom: 14 }}>How Admin Access Works</h3>
+                    <h3 style={{ color: MINT_FG, marginBottom: 14 }}>How Admin Access Works</h3>
                     <p style={{ color: '#888', fontSize: 14, lineHeight: 1.75 }}>
                       There is no longer a Google login requirement. Anyone can visit the app and enter their name to participate.<br /><br />
                       Admin access is protected by the password you set in Dashboard → Admin Password. To give someone else admin access, share the password with them — they can click "Admin" in the nav and enter it.<br /><br />
@@ -2445,13 +2407,13 @@ if (game.winner?.name === clicked.name) {
                     </p>
                   </div>
                   <div style={{ ...S.card, borderColor: 'rgba(245,158,11,0.25)' }}>
-                    <h3 style={{ color: GOLD2, marginBottom: 14 }}>Marking Teachers</h3>
+                    <h3 style={{ color: '#C4952A', marginBottom: 14 }}>Marking Teachers</h3>
                     <p style={{ color: '#888', fontSize: 14, lineHeight: 1.75 }}>
                       Go to Admin → Users tab. Find the teacher's name on the leaderboard, then use the "Mark as Teacher" field at the bottom. They'll get a Teacher badge on the leaderboard.
                     </p>
                   </div>
                   <div style={{ ...S.card, borderColor: 'rgba(22,163,74,0.2)' }}>
-                    <h3 style={{ color: ACCENT2, marginBottom: 14 }}>New Season Checklist</h3>
+                    <h3 style={{ color: MINT_FG, marginBottom: 14 }}>New Season Checklist</h3>
                     <p style={{ color: '#888', fontSize: 14, lineHeight: 1.75 }}>
                       1. Update the tournament year in Dashboard.<br />
                       2. Clear Basketball Roster & Research in Admin → 🏀 Basketball → Danger Zone.<br />
