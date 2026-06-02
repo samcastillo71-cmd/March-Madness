@@ -2491,24 +2491,53 @@ if (game.winner?.name === clicked.name) {
                     ? <div style={{ ...S.card, textAlign: 'center', padding: 40, color: '#7A7068' }}>No students from {teacherSchool || school} found.</div>
                     : (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr auto', gap: 12, padding: '8px 16px', fontSize: 11, color: '#7A7068', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1 }}>
-                          <span>Name</span><span>School</span><span>BB Score</span><span>Mammal</span><span>Actions</span>
+                        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr auto auto', gap: 12, padding: '8px 16px', fontSize: 11, color: '#7A7068', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1 }}>
+                          <span>Name</span><span>School</span><span>BB Score</span><span>Mammal</span><span>Edit School</span><span>Remove</span>
                         </div>
                         {teacherRosterStudents.map(student => {
                           const bbEntry = leaderboard.find(e => e.uid === student.uid);
                           const mmEntry = mammalLeaderboard.find(e => e.uid === student.uid);
+                          const studentName = bbEntry?.displayName || mmEntry?.displayName || 'Unknown';
+                          const callTeacherAction = async (action, extra = {}) => {
+                            const idToken = await auth.currentUser.getIdToken();
+                            const res = await fetch('/api/teacher-action', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ idToken, action, targetUid: student.uid, ...extra }),
+                            });
+                            if (!res.ok) {
+                              const { error } = await res.json().catch(() => ({}));
+                              throw new Error(error || 'Action failed');
+                            }
+                          };
                           return (
-                            <div key={student.uid} style={{ ...S.card, padding: '10px 16px', display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr auto', gap: 12, alignItems: 'center' }}>
-                              <span style={{ fontWeight: 600, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{bbEntry?.displayName || mmEntry?.displayName || 'Unknown'}</span>
+                            <div key={student.uid} style={{ ...S.card, padding: '10px 16px', display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr auto auto', gap: 12, alignItems: 'center' }}>
+                              <span style={{ fontWeight: 600, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{studentName}</span>
                               <span style={{ fontSize: 13, color: '#7A7068' }}>{student.school}</span>
                               <span style={{ fontWeight: 700 }}>{bbEntry?.score ?? '—'}</span>
                               <span style={{ fontWeight: 700 }}>{mmEntry?.score ?? '—'}</span>
+                              <select
+                                defaultValue={student.school}
+                                onChange={async e => {
+                                  const newSchool = e.target.value;
+                                  if (!newSchool || newSchool === student.school) return;
+                                  try {
+                                    await callTeacherAction('editSchool', { school: newSchool });
+                                    setTeacherRosterStudents(prev => prev.map(s => s.uid === student.uid ? { ...s, school: newSchool } : s));
+                                  } catch (err) {
+                                    alert(`Could not update school: ${err.message}`);
+                                    e.target.value = student.school;
+                                  }
+                                }}
+                                style={{ ...S.input, width: 'auto', padding: '4px 8px', fontSize: 12 }}
+                              >
+                                {['Hart','Van Hoosen','Reuther','West'].map(s => <option key={s} value={s}>{s}</option>)}
+                              </select>
                               <button onClick={() => {
-                                const name = bbEntry?.displayName || mmEntry?.displayName || student.uid;
-                                if (!window.confirm(`Remove ${name}? This deletes their bracket and score.`)) return;
-                                deleteBracketAndScore(student.uid, false).catch(() => {});
-                                deleteBracketAndScore(student.uid, true).catch(() => {});
-                                setTeacherRosterStudents(prev => prev.filter(s => s.uid !== student.uid));
+                                if (!window.confirm(`Remove ${studentName}? This deletes their bracket and score.`)) return;
+                                callTeacherAction('removeStudent')
+                                  .then(() => setTeacherRosterStudents(prev => prev.filter(s => s.uid !== student.uid)))
+                                  .catch(err => alert(`Could not remove student: ${err.message}`));
                               }} style={{ ...S.btn('#c0392b'), padding: '4px 10px', fontSize: 11 }}>Remove</button>
                             </div>
                           );
