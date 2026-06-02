@@ -1,0 +1,35 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /users/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+    match /brackets/{uid} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == uid;
+    }
+    match /brackets_mammals/{uid} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == uid;
+    }
+    match /leaderboard/{uid} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == uid;
+    }
+    match /leaderboard_mammals/{uid} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == uid;
+    }
+    match /tournament/{doc} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+        && request.auth.token.email in ['sam.castillo71@gmail.com', 'scastillo@rcs-k12.us'];
+    }
+    match /admin/{doc} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+        && request.auth.token.email in ['sam.castillo71@gmail.com', 'scastillo@rcs-k12.us'];
+    }
+  }
+}
