@@ -2,6 +2,67 @@
 
 ---
 
+## Handoff: 2026-06-02 — POST-PHASE 2 HARDENING + UI POLISH, FULLY DEPLOYED
+
+### Current State
+**All systems live at `march-madness-ruby.vercel.app`.** This session hardened security, fixed teacher permissions, added infrastructure (Firestore rules, favicon, service account), and applied a full UI polish pass validated by `ui-ux-pro-max` and `frontend-design` skills.
+
+### What Was Done This Session
+
+| Item | Status |
+|---|---|
+| Firestore Security Rules deployed (via Firebase CLI) | ✅ |
+| Rules v2: `isAdmin()` helper, admin emails bypass all user-keyed collections | ✅ |
+| Teacher actions API (`/api/teacher-action.js`) — Admin SDK, school-scoped | ✅ |
+| Teacher roster: Remove + Edit School now route through API (not blocked by rules) | ✅ |
+| `firebase-admin` v13 installed, `FIREBASE_SERVICE_ACCOUNT` in Vercel production | ✅ |
+| Privacy Policy: cream theme + accurate Google Sign-In auth language | ✅ |
+| Terms of Service: cream theme + accurate auth language | ✅ |
+| SVG favicon: navy rounded square, cream bracket diagram, gold champion dot | ✅ |
+| Vercel.json: `handle: "filesystem"` before SPA rewrite (favicon 404 fix) | ✅ |
+| UI polish: `button:hover` brightness, `button:focus-visible` ring | ✅ |
+| UI polish: bracket tile `mm-tile` hover (left-shift + bg, 44px touch target) | ✅ |
+| UI polish: leaderboard `mm-lb-row` hover lift | ✅ |
+| UI polish: podium cards `mm-podium` spring hover | ✅ |
+| UI polish: shimmer skeleton replaces static loading screen | ✅ |
+| UI polish: `prefers-reduced-motion` guards on all new animations | ✅ |
+
+### Architecture Notes
+
+**Teacher Actions API** (`api/teacher-action.js`):
+- POST `{ idToken, action, targetUid, school? }`
+- Actions: `removeStudent` | `editSchool`
+- Verifies Firebase ID token server-side using Admin SDK
+- Checks caller email against `admin/teachers` Firestore doc
+- Teachers: scoped to their school only (reads `users/{targetUid}.school` to verify)
+- Admin emails: bypass school check entirely
+- Env var: `FIREBASE_SERVICE_ACCOUNT` (full JSON, set in Vercel production)
+- **Note:** Teachers can remove and edit-school students at their school. Admins can do anything. Students cannot act on other users' data.
+
+**Firestore Security Rules** (`firestore.rules`):
+- `isAdmin()` helper: checks `request.auth.token.email` against the two admin emails
+- User-keyed collections: `own uid OR isAdmin()`
+- `tournament/` and `admin/`: `isAdmin()` only
+- Deploy: `firebase deploy --only firestore:rules` (Firebase CLI installed, logged in)
+
+**Known Limitation:**
+Teachers' "Edit School" and "Remove" in the roster use the API endpoint, not the Firestore client directly. This is correct — Firestore rules can't check teacher role from the auth token (no custom claims). Admin emails can still do these operations directly via the Firestore client (rules allow by email).
+
+### Build Status
+- `npm run build` — PASSES clean (pre-existing chunk size warning only)
+- Deployed: `march-madness-ruby.vercel.app`
+- Git: clean, all committed and pushed, 7 commits this session
+
+### What Still Needs Manual Smoke Test (authenticated)
+Sign in as yourself and verify:
+- Onboarding bento grid (new account) or skip straight to bracket
+- Bracket tab: completion bar, tiles spaced correctly, confetti on champion pick
+- Leaderboard: top-3 podium, sticky your-rank bar
+- Teacher tab (sign in as a teacher): roster loads, Remove/Edit School work
+- Admin tab: People sub-tab (superAdmins + teachers), Mammal video IDs
+
+---
+
 ## Handoff: 2026-06-02 — PHASE 2 COMPLETE, FULLY DEPLOYED AND COMMITTED
 
 ### Current State
