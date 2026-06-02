@@ -958,6 +958,7 @@ export default function App() {
   const [schoolFilter, setSchoolFilter] = useState('all');
   const [mammalBattleVideos, setMammalBattleVideos] = useState({});
   const [selectedSchoolCard, setSelectedSchoolCard] = useState(null);
+  const [flashedScores, setFlashedScores] = useState({});
 
   // ── ADMIN ─────────────────────────────────────────────────────────────────
   const [isAdmin,      setIsAdmin]      = useState(false);
@@ -1165,7 +1166,21 @@ export default function App() {
       if (cfg.year) { setTournamentYear(cfg.year); setYearDraft(String(cfg.year)); }
       if (cfg.bbRegionNames) setBbRegionNames(cfg.bbRegionNames);
     });
-    const u3 = subscribeToLeaderboard(setLeaderboard);
+    const u3 = subscribeToLeaderboard(entries => {
+      setLeaderboard(prev => {
+        const prevMap = Object.fromEntries(prev.map(e => [e.uid, e.score]));
+        const flashed = {};
+        entries.forEach(e => {
+          if (prevMap[e.uid] !== undefined && prevMap[e.uid] !== e.score) {
+            flashed[e.uid] = Date.now();
+          }
+        });
+        if (Object.keys(flashed).length > 0) {
+          setFlashedScores(f => ({ ...f, ...flashed }));
+        }
+        return entries;
+      });
+    });
     const u4 = subscribeToResearchData(data => {
       setResearchData(data);
       setSelectedTeam(prev => prev && data[prev] ? prev : (Object.keys(data)[0] || null));
@@ -2059,6 +2074,8 @@ if (game.winner?.name === clicked.name) {
           .school-card-check { opacity:0; transform:scale(0.5); transition: opacity 200ms, transform 200ms; }
           .school-card-check.visible { opacity:1; transform:scale(1); }
           .line-clamp-4 { display:-webkit-box; -webkit-line-clamp:4; -webkit-box-orient:vertical; overflow:hidden; }
+          @keyframes scoreFlash { 0%{background:rgba(30,107,71,0.30)} 100%{background:transparent} }
+          .score-flash { animation: scoreFlash 800ms ease-out forwards; border-radius: 4px; }
           @keyframes stampIn { 0%{opacity:0;transform:rotate(-15deg) scale(1.4)} 60%{opacity:1;transform:rotate(-15deg) scale(0.95)} 100%{opacity:0.65;transform:rotate(-15deg) scale(1)} }
           .locked-stamp { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none; z-index:10; }
           .locked-stamp span { font-family:'Libre Bodoni',serif; font-size:13px; font-weight:900; color:#dc2626; border:2px solid #dc2626; padding:2px 8px; border-radius:3px; letter-spacing:3px; text-transform:uppercase; opacity:0.65; transform:rotate(-15deg); }
@@ -2295,71 +2312,87 @@ if (game.winner?.name === clicked.name) {
 
           {/* ══ LEADERBOARD TAB ══ */}
           {tab === 'leaderboard' && (
-            <div style={{ padding: 24, maxWidth: 660, margin: '0 auto' }}>
+            <div style={{ padding: 24, maxWidth: 800, margin: '0 auto' }}>
               <TournamentSelector />
-              {activeTournament === 'basketball' && (() => {
-                const filtered = schoolFilter === 'all' ? leaderboard : leaderboard.filter(e => e.school === schoolFilter);
+              {(() => {
+                const lb = activeTournament === 'basketball' ? leaderboard : mammalLeaderboard;
+                const isMammalLb = activeTournament === 'mammals';
+                const accentColor = isMammalLb ? GREEN : NAVY;
+                const top3 = lb.slice(0, 3);
+                const filtered = lb.filter(e => schoolFilter === 'all' || e.school === schoolFilter);
+                const myEntry = lb.find(e => e.uid === uid);
+                const myRank = myEntry ? lb.indexOf(myEntry) + 1 : null;
+                const isMyRankVisible = myRank !== null && myRank <= 13;
+                const PODIUM_COLORS = ['#C4952A','#A8A8A8','#CD7F32'];
                 return (
                   <>
-                    <h2 style={{ fontFamily: "'Libre Bodoni', serif", color: MINT_FG, marginBottom: 16 }}>Leaderboard</h2>
-                    <div style={{ display: 'flex', gap: 6, marginBottom: 16, flexWrap: 'wrap' }}>
+                    {/* School filter pills */}
+                    <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
                       {['all','Hart','Van Hoosen','Reuther','West'].map(f => (
                         <button key={f} onClick={() => setSchoolFilter(f)}
-                          style={{ padding: '5px 14px', borderRadius: 20, border: '1px solid #C8BFB0', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 600, background: schoolFilter === f ? NAVY : '#F4EFE6', color: schoolFilter === f ? '#fff' : '#7A7068', transition: 'all .15s' }}>
+                          style={{ ...S.btn(schoolFilter === f ? accentColor : 'rgba(9,24,40,0.06)', schoolFilter === f ? '#fff' : '#7A7068'), padding: '6px 14px', fontSize: 12 }}>
                           {f === 'all' ? 'All Schools' : f}
                         </button>
                       ))}
                     </div>
-                    <div style={S.card}>
-                      <div style={{ display: 'flex', fontSize: 10, color: '#7A7068', padding: '0 12px 10px', letterSpacing: 1, textTransform: 'uppercase' }}><span style={{ minWidth: 36 }}>Rank</span><span style={{ flex: 1, marginLeft: 8 }}>Name</span><span>Points</span></div>
-                      {filtered.length === 0 ? <div style={{ color: '#7A7068', textAlign: 'center', padding: 24 }}>No entries yet — be the first!</div>
-                        : filtered.map((e, i) => (
-                          <div key={e.uid} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: e.uid === uid ? 'rgba(30,107,71,0.08)' : i % 2 === 0 ? 'rgba(9,24,40,0.03)' : 'transparent', borderRadius: 8, marginBottom: 2, border: e.uid === uid ? '1px solid rgba(30,107,71,0.25)' : '1px solid transparent' }}>
-                            <span style={{ fontSize: 16, fontWeight: 700, color: i === 0 ? MINT_FG : i === 1 ? '#7A7068' : i === 2 ? '#cd7f32' : '#C8BFB0', minWidth: 32, fontFamily: "'Libre Bodoni', serif" }}>#{i+1}</span>
-                            <Avatar name={e.displayName} size={26} />
-                            <span style={{ flex: 1, fontWeight: e.uid === uid ? 700 : 500, color: e.uid === uid ? MINT_FG : '#1A1208', fontSize: 14 }}>
-                              {formatName(e.displayName)}{e.uid === uid ? ' (You)' : ''}
-                              {e.school && <span style={{ marginLeft: 6, fontSize: 10, background: 'rgba(9,24,40,0.08)', color: '#1C3558', border: '1px solid rgba(9,24,40,0.15)', borderRadius: 4, padding: '1px 5px', fontWeight: 600 }}>{e.school}</span>}
-                              {e.isTeacher && <span style={{ marginLeft: 6, fontSize: 10, background: 'rgba(196,149,42,0.15)', color: '#C4952A', border: '1px solid rgba(196,149,42,0.3)', borderRadius: 4, padding: '1px 5px', fontWeight: 700 }}>TEACHER</span>}
-                            </span>
-                            <button onClick={() => handleViewBracket(e.uid, e.displayName, false)} disabled={loadingBracket === e.uid} style={{ ...S.btn('rgba(30,107,71,0.10)', MINT_FG), padding: '3px 10px', fontSize: 11, border: `1px solid rgba(30,107,71,0.25)`, flexShrink: 0 }}>{loadingBracket === e.uid ? '...' : 'View'}</button>
-                            <span style={{ fontSize: 20, fontWeight: 700, color: MINT_FG, fontFamily: "'Libre Bodoni', serif", minWidth: 40, textAlign: 'right' }}>{e.score}</span>
+
+                    {/* Top-3 Podium */}
+                    {top3.length > 0 && schoolFilter === 'all' && (
+                      <div style={{ display: 'flex', gap: 12, marginBottom: 24, justifyContent: 'center' }}>
+                        {top3.map((entry, i) => (
+                          <div key={entry.uid} style={{
+                            ...S.card,
+                            flex: i === 0 ? '1.2' : '1',
+                            border: `2px solid ${PODIUM_COLORS[i]}`,
+                            boxShadow: `4px 6px 14px rgba(9,24,40,0.10), inset -1px -1px 4px rgba(255,255,255,0.8), 0 0 0 1px ${PODIUM_COLORS[i]}40`,
+                            textAlign: 'center',
+                            padding: '20px 12px',
+                          }}>
+                            <div style={{ marginBottom: 8 }}>
+                              {i === 0 ? <Trophy size={28} color={PODIUM_COLORS[0]} /> : <span style={{ color: PODIUM_COLORS[i], fontWeight: 900, fontSize: i === 0 ? 28 : 20 }}>#{i+1}</span>}
+                            </div>
+                            <Avatar name={entry.displayName} size={i === 0 ? 36 : 28} />
+                            <div style={{ fontWeight: 700, fontSize: 14, color: '#1A1208', marginBottom: 2, marginTop: 6 }}>{formatName(entry.displayName)}</div>
+                            {entry.school && <div style={{ fontSize: 11, color: '#7A7068', marginBottom: 6 }}>{entry.school}</div>}
+                            <div style={{ fontSize: i === 0 ? 26 : 20, fontWeight: 900, color: PODIUM_COLORS[i], fontFamily: "'Libre Bodoni', serif" }}>{entry.score}</div>
+                            <div style={{ fontSize: 10, color: '#7A7068', textTransform: 'uppercase', letterSpacing: 1 }}>pts</div>
                           </div>
                         ))}
+                      </div>
+                    )}
+
+                    {/* Full ranked list */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {filtered.length === 0
+                        ? <div style={{ ...S.card, textAlign: 'center', padding: 40, color: '#7A7068' }}>No entries yet — be the first!</div>
+                        : filtered.map((entry) => {
+                          const isMe = entry.uid === uid;
+                          const isFlashed = !!flashedScores[entry.uid];
+                          return (
+                            <div key={entry.uid} className={isFlashed ? 'score-flash' : ''}
+                              style={{ ...S.card, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12, border: isMe ? `2px solid ${accentColor}` : '2px solid rgba(9,24,40,0.20)' }}>
+                              <span style={{ fontSize: 14, fontWeight: 900, color: '#7A7068', minWidth: 28 }}>#{entry.rank}</span>
+                              <Avatar name={entry.displayName} size={28} />
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontWeight: 700, fontSize: 14, color: isMe ? accentColor : '#1A1208', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                  {formatName(entry.displayName)}{isMe ? ' (You)' : ''}
+                                </div>
+                                {entry.school && <div style={{ fontSize: 11, color: '#7A7068' }}>{entry.school}</div>}
+                              </div>
+                              <button onClick={() => handleViewBracket(entry.uid, entry.displayName, isMammalLb)} disabled={loadingBracket === entry.uid + (isMammalLb ? '-mm' : '')} style={{ ...S.btn('rgba(9,24,40,0.06)', '#7A7068'), padding: '4px 10px', fontSize: 11, flexShrink: 0 }}>{loadingBracket === entry.uid + (isMammalLb ? '-mm' : '') ? '...' : 'View'}</button>
+                              <span style={{ fontSize: 20, fontWeight: 900, color: accentColor, fontFamily: "'Libre Bodoni', serif", minWidth: 40, textAlign: 'right' }}>{entry.score}</span>
+                            </div>
+                          );
+                        })}
                     </div>
-                  </>
-                );
-              })()}
-              {activeTournament === 'mammals' && (() => {
-                const filtered = schoolFilter === 'all' ? mammalLeaderboard : mammalLeaderboard.filter(e => e.school === schoolFilter);
-                return (
-                  <>
-                    <h2 style={{ fontFamily: "'Libre Bodoni', serif", color: '#1A4332', marginBottom: 16 }}>Mammal Madness Leaderboard</h2>
-                    <div style={{ display: 'flex', gap: 6, marginBottom: 16, flexWrap: 'wrap' }}>
-                      {['all','Hart','Van Hoosen','Reuther','West'].map(f => (
-                        <button key={f} onClick={() => setSchoolFilter(f)}
-                          style={{ padding: '5px 14px', borderRadius: 20, border: '1px solid #C8BFB0', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 600, background: schoolFilter === f ? GREEN : '#F4EFE6', color: schoolFilter === f ? '#fff' : '#7A7068', transition: 'all .15s' }}>
-                          {f === 'all' ? 'All Schools' : f}
-                        </button>
-                      ))}
-                    </div>
-                    <div style={{ ...S.card, borderColor: '#AACFBF' }}>
-                      <div style={{ display: 'flex', fontSize: 10, color: '#7A7068', padding: '0 12px 10px', letterSpacing: 1, textTransform: 'uppercase' }}><span style={{ minWidth: 36 }}>Rank</span><span style={{ flex: 1, marginLeft: 8 }}>Name</span><span>Points</span></div>
-                      {filtered.length === 0 ? <div style={{ color: '#7A7068', textAlign: 'center', padding: 24 }}>No mammal entries yet!</div>
-                        : filtered.map((e, i) => (
-                          <div key={e.uid} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: e.uid === uid ? 'rgba(26,67,50,0.08)' : i % 2 === 0 ? 'rgba(26,67,50,0.03)' : 'transparent', borderRadius: 8, marginBottom: 2, border: e.uid === uid ? '1px solid rgba(26,67,50,0.25)' : '1px solid transparent' }}>
-                            <span style={{ fontSize: 16, fontWeight: 700, color: i === 0 ? MINT_FG : i === 1 ? '#7A7068' : i === 2 ? '#cd7f32' : '#C8BFB0', minWidth: 32, fontFamily: "'Libre Bodoni', serif" }}>#{i+1}</span>
-                            <Avatar name={e.displayName} size={26} />
-                            <span style={{ flex: 1, fontWeight: e.uid === uid ? 700 : 500, color: e.uid === uid ? MINT_FG : '#1A1208', fontSize: 14 }}>
-                              {formatName(e.displayName)}{e.uid === uid ? ' (You)' : ''}
-                              {e.school && <span style={{ marginLeft: 6, fontSize: 10, background: 'rgba(26,67,50,0.08)', color: '#1A4332', border: '1px solid rgba(26,67,50,0.20)', borderRadius: 4, padding: '1px 5px', fontWeight: 600 }}>{e.school}</span>}
-                              {e.isTeacher && <span style={{ marginLeft: 6, fontSize: 10, background: 'rgba(196,149,42,0.15)', color: '#C4952A', border: '1px solid rgba(196,149,42,0.3)', borderRadius: 4, padding: '1px 5px', fontWeight: 700 }}>TEACHER</span>}
-                            </span>
-                            <button onClick={() => handleViewBracket(e.uid, e.displayName, true)} disabled={loadingBracket === e.uid + '-mm'} style={{ ...S.btn('rgba(26,67,50,0.10)', MINT_FG), padding: '3px 10px', fontSize: 11, border: '1px solid rgba(26,67,50,0.25)', flexShrink: 0 }}>{loadingBracket === e.uid + '-mm' ? '...' : 'View'}</button>
-                            <span style={{ fontSize: 20, fontWeight: 700, color: MINT_FG, fontFamily: "'Libre Bodoni', serif", minWidth: 40, textAlign: 'right' }}>{e.score}</span>
-                          </div>
-                        ))}
-                    </div>
+
+                    {/* Sticky your-rank bar */}
+                    {myEntry && !isMyRankVisible && (
+                      <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: accentColor, color: '#fff', padding: '12px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 100, boxShadow: '0 -4px 20px rgba(9,24,40,0.25)' }}>
+                        <span style={{ fontSize: 13, fontWeight: 600 }}>Your rank: #{myRank}</span>
+                        <span style={{ fontSize: 18, fontWeight: 900 }}>{myEntry.score} pts</span>
+                      </div>
+                    )}
                   </>
                 );
               })()}
