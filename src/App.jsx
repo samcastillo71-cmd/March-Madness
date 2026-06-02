@@ -2058,6 +2058,7 @@ if (game.winner?.name === clicked.name) {
           .school-card:hover { transform: translateY(-3px); box-shadow: 6px 10px 20px rgba(9,24,40,0.15), inset -1px -1px 4px rgba(255,255,255,0.8) !important; }
           .school-card-check { opacity:0; transform:scale(0.5); transition: opacity 200ms, transform 200ms; }
           .school-card-check.visible { opacity:1; transform:scale(1); }
+          .line-clamp-4 { display:-webkit-box; -webkit-line-clamp:4; -webkit-box-orient:vertical; overflow:hidden; }
           @keyframes stampIn { 0%{opacity:0;transform:rotate(-15deg) scale(1.4)} 60%{opacity:1;transform:rotate(-15deg) scale(0.95)} 100%{opacity:0.65;transform:rotate(-15deg) scale(1)} }
           .locked-stamp { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none; z-index:10; }
           .locked-stamp span { font-family:'Libre Bodoni',serif; font-size:13px; font-weight:900; color:#dc2626; border:2px solid #dc2626; padding:2px 8px; border-radius:3px; letter-spacing:3px; text-transform:uppercase; opacity:0.65; transform:rotate(-15deg); }
@@ -2134,7 +2135,11 @@ if (game.winner?.name === clicked.name) {
                   )}
                   {genError && <div style={{ marginBottom: 16, padding: '10px 14px', borderRadius: 8, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', fontSize: 13, color: '#f87171' }}>⚠️ {genError}</div>}
                   {allTeamNames.length === 0 ? (
-                    <div style={{ ...S.card, textAlign: 'center', padding: 48, color: '#777' }}><div style={{ fontSize: 40, marginBottom: 16 }}>📊</div><div style={{ fontSize: 16, marginBottom: 8 }}>No research data yet</div><div style={{ fontSize: 13 }}>{isAdmin ? 'Go to Admin → 🏀 Basketball → Generate Research' : 'Check back after the admin generates research'}</div></div>
+                    <div style={{ ...S.card, textAlign: 'center', padding: 48 }}>
+                      <Search size={40} color="#C8BFB0" style={{ marginBottom: 16 }} />
+                      <div style={{ fontSize: 16, color: '#7A7068', marginBottom: 8 }}>No research data yet</div>
+                      <div style={{ fontSize: 13, color: '#7A7068' }}>{isAdmin ? 'Go to Admin → Basketball → Generate Research' : 'Research data will appear once the admin generates it.'}</div>
+                    </div>
                   ) : (
                     <>
                       <div style={{ display: 'flex', gap: 4, overflowX: 'auto', marginBottom: 0, paddingBottom: 4, borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
@@ -2194,6 +2199,30 @@ if (game.winner?.name === clicked.name) {
               )}
               {activeTournament === 'mammals' && (
                 <>
+                  {Object.keys(mammalBattleVideos).filter(k => mammalBattleVideos[k]).length > 0 && (
+                    <div style={{ marginBottom: 32 }}>
+                      <h3 style={{ fontFamily: "'Libre Bodoni', serif", color: GREEN, marginBottom: 16, fontSize: 20 }}>Mammal Battle Videos</h3>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                        {Object.entries(mammalBattleVideos)
+                          .filter(([, val]) => val)
+                          .map(([round, videoId]) => (
+                            <div key={round} style={{ ...S.card }}>
+                              <div style={{ fontSize: 13, color: '#7A7068', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>{round}</div>
+                              <div style={{ position: 'relative', paddingBottom: '56.25%', height: 0, borderRadius: 12, overflow: 'hidden', background: '#000' }}>
+                                <iframe
+                                  style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', border: 'none' }}
+                                  src={`https://www.youtube.com/embed/${videoId}?rel=0`}
+                                  title={`Mammal Battle ${round}`}
+                                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                  allowFullScreen
+                                  loading="lazy"
+                                />
+                              </div>
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+                  )}
                   <h2 style={{ fontFamily: "'Libre Bodoni', serif", color: '#86efac', marginBottom: 6 }}>🦁 Animal Research Hub</h2>
                   {mammalGenerating && (
                     <div style={{ ...S.card, marginBottom: 16, borderColor: 'rgba(134,239,172,0.3)' }}>
