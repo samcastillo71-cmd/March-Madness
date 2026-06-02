@@ -1,5 +1,6 @@
 // src/App.jsx
 import { useState, useEffect, useCallback, useRef, useMemo, memo } from 'react';
+import confetti from 'canvas-confetti';
 import { Component } from 'react';
 import { doc, setDoc, getDoc, deleteDoc, getDocs, collection, serverTimestamp } from 'firebase/firestore';
 import { signInWithPopup, onAuthStateChanged, signOut } from 'firebase/auth';
@@ -302,6 +303,11 @@ const GameSlot = memo(function GameSlot({ game, onPick, locked, isChampionship, 
           <input placeholder="Score 1" value={game.scoreTop || ''} onChange={e => onScoreChange?.('scoreTop', e.target.value)} style={scoreInput} />
           <span style={{ color: '#7A7068', fontSize: 11, alignSelf: 'center' }}>-</span>
           <input placeholder="Score 2" value={game.scoreBottom || ''} onChange={e => onScoreChange?.('scoreBottom', e.target.value)} style={scoreInput} />
+        </div>
+      )}
+      {locked && (
+        <div className="locked-stamp">
+          <span><Lock size={10} style={{ marginRight: 3, display: 'inline-block', verticalAlign: 'middle' }} />LOCKED</span>
         </div>
       )}
     </div>
@@ -1271,6 +1277,19 @@ export default function App() {
     await signOut(auth);
   };
 
+  const triggerChampionConfetti = useCallback(() => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    confetti({
+      particleCount: 120,
+      spread: 80,
+      origin: { y: 0.5 },
+      colors: ['#091828', '#1E6B47', '#C4952A', '#B8CBE8', '#C2EDD5'],
+      gravity: 1.1,
+      scalar: 1.1,
+      ticks: 200,
+    });
+  }, []);
+
   const handleSelectSchool = async (selectedSchool) => {
     await saveUserProfile(uid, { school: selectedSchool }).catch(() => {});
     setSchool(selectedSchool);
@@ -1589,7 +1608,7 @@ if (game.winner?.name === clicked.name) {
 
   // ── BRACKET RENDER ────────────────────────────────────────────────────────
   const renderBracket = (isMammal) => {
-    const CW = 240, SH = 105, FF_SCALE = 1.25;
+    const CW = 240, SH = 120, FF_SCALE = 1.25;
     const FF_W = Math.round(CW * FF_SCALE), FF_H = Math.round(SH * FF_SCALE);
     const CHAMP_BOX_H = 30 + Math.round(FF_H * 0.75) + 32 + 20;
     const SPINE_H = CHAMP_BOX_H + 16;
@@ -1601,7 +1620,9 @@ if (game.winner?.name === clicked.name) {
     const regionNames   = isMammal ? mammalRegionNames : bbRegionNames;
     const onPick        = isMammal ? handleMammalPick : handlePick;
     const onFFPick      = isMammal ? handleMammalFFPick : handleFFPick;
-    const onChampPick   = isMammal ? handleMammalChampPick : handleChampPick;
+    const onChampPick   = isMammal
+      ? (side) => { handleMammalChampPick(side); triggerChampionConfetti(); }
+      : (side) => { handleChampPick(side); triggerChampionConfetti(); };
     const isLocked      = isMammal ? mammalLocked : locked;
     const champColor    = isMammal ? 'rgba(134,239,172,0.5)' : 'rgba(245,158,11,0.65)';
     const champBg       = isMammal ? 'linear-gradient(135deg,rgba(134,239,172,0.15),rgba(22,163,74,0.10))' : 'linear-gradient(135deg,rgba(245,158,11,0.18),rgba(124,58,237,0.14))';
@@ -1609,11 +1630,26 @@ if (game.winner?.name === clicked.name) {
     const champGold     = isMammal ? '#86efac' : '#C4952A';
 
     const ROUND_ABS = [
-      [0,105,210,315,420,525,630,735],
-      [52.5,262.5,472.5,682.5],
-      [157.5,577.5],
-      [367.5],
+      [0,120,240,360,480,600,720,840],
+      [60,300,540,780],
+      [180,660],
+      [420],
     ];
+
+    // Completion bar
+    const countPicks = (b) => {
+      if (!b) return 0;
+      let n = 0;
+      ['East','West','South','Midwest'].forEach(region => {
+        (b[region]?.rounds || []).forEach(round => round.forEach(g => { if (g.winner) n++; }));
+      });
+      (b.finalFour || []).forEach(ff => { if (ff.winner) n++; });
+      if (b.championship?.winner) n++;
+      return n;
+    };
+    const totalPicks = isAdmin ? 0 : countPicks(activeBracket);
+    const pickPct = Math.min(100, (totalPicks / 63) * 100);
+    const isComplete = totalPicks >= 63;
 
     const ScaledGame = ({ children, isHoriz }) => {
       const wrapH = isHoriz ? Math.round(FF_H * 0.72) : FF_H;
@@ -1693,6 +1729,24 @@ if (game.winner?.name === clicked.name) {
     const ff1Label = `Final Four — ${regionNames.South || 'South'} vs. ${regionNames.Midwest || 'Midwest'}`;
 
     return (
+      <>
+      {!isAdmin && (
+        <div style={{ marginBottom: 12, maxWidth: TOTAL_W }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+            <span style={{ fontSize: 12, color: '#7A7068', fontWeight: 600 }}>
+              {isComplete ? 'Complete! 🎉' : `${totalPicks}/63 picks made`}
+            </span>
+            <div style={{ display: 'flex', gap: 4 }}>
+              {['R64','R32','S16','E8','FF','Champ'].map(label => (
+                <span key={label} style={{ fontSize: 10, color: '#7A7068', padding: '1px 5px', borderRadius: 3, background: 'rgba(9,24,40,0.07)' }}>{label}</span>
+              ))}
+            </div>
+          </div>
+          <div style={{ height: 8, background: 'rgba(9,24,40,0.10)', borderRadius: 4, overflow: 'hidden' }}>
+            <div style={{ height: '100%', width: `${pickPct}%`, background: isComplete ? MINT_FG : NAVY, borderRadius: 4, transition: 'width 0.4s ease-out' }} />
+          </div>
+        </div>
+      )}
       <div style={{ width: TOTAL_W }}>
         {/* TOP HALF */}
         <div style={{ display: 'flex', alignItems: 'flex-end', position: 'relative', height: TOP_H }}>
@@ -1750,6 +1804,7 @@ if (game.winner?.name === clicked.name) {
           {[3,2,1,0].map(rIdx => <RoundCol key={rIdx} region="Midwest" rIdx={rIdx} flip={true} dir="bot" />)}
         </div>
       </div>
+      </>
     );
   };
 
@@ -2003,6 +2058,9 @@ if (game.winner?.name === clicked.name) {
           .school-card:hover { transform: translateY(-3px); box-shadow: 6px 10px 20px rgba(9,24,40,0.15), inset -1px -1px 4px rgba(255,255,255,0.8) !important; }
           .school-card-check { opacity:0; transform:scale(0.5); transition: opacity 200ms, transform 200ms; }
           .school-card-check.visible { opacity:1; transform:scale(1); }
+          @keyframes stampIn { 0%{opacity:0;transform:rotate(-15deg) scale(1.4)} 60%{opacity:1;transform:rotate(-15deg) scale(0.95)} 100%{opacity:0.65;transform:rotate(-15deg) scale(1)} }
+          .locked-stamp { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none; z-index:10; }
+          .locked-stamp span { font-family:'Libre Bodoni',serif; font-size:13px; font-weight:900; color:#dc2626; border:2px solid #dc2626; padding:2px 8px; border-radius:3px; letter-spacing:3px; text-transform:uppercase; opacity:0.65; transform:rotate(-15deg); }
           @media (prefers-reduced-motion: reduce) { button:active { transform: none; } .spring-pick { animation: none; } .signin-underline::after { animation:none; width:100%; } @keyframes bgDrift {} .school-card { transition:none; } .school-card:hover { transform:none; } }
         `}</style>
 
