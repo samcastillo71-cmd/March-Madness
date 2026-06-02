@@ -47,10 +47,10 @@ const S = {
   app:    { minHeight: '100vh', background: '#E8E2D8', color: '#1A1208', fontFamily: "'Public Sans', sans-serif" },
   header: { background: 'rgba(9,24,40,0.97)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(28,53,88,0.6)', padding: '0 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 60, position: 'sticky', top: 0, zIndex: 200 },
   logo:   { fontFamily: "'Libre Bodoni', serif", fontSize: 19, fontWeight: 700, color: '#B8CBE8', letterSpacing: 1 },
-  card:   { background: '#F4EFE6', border: '1px solid #C8BFB0', borderRadius: 12, padding: 20 },
-  btn:    (bg = NAVY, fg = '#fff') => ({ padding: '10px 22px', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, fontWeight: 700, background: bg, color: fg, letterSpacing: 0.3 }),
-  navBtn: a => ({ padding: '7px 15px', borderRadius: 6, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 600, background: a ? NAVY : 'transparent', color: a ? '#fff' : '#B8CBE8', transition: 'all .15s' }),
-  input:  { background: 'rgba(255,255,255,0.7)', border: '1px solid #C8BFB0', borderRadius: 8, color: '#1A1208', padding: '10px 14px', fontSize: 14, fontFamily: 'inherit', outline: 'none', width: '100%' },
+  card:   { background: '#F4EFE6', border: '2px solid rgba(9,24,40,0.20)', borderRadius: 18, padding: 20, boxShadow: '4px 6px 14px rgba(9,24,40,0.10), inset -1px -1px 4px rgba(255,255,255,0.8)' },
+  btn:    (bg = NAVY, fg = '#fff') => ({ padding: '10px 22px', borderRadius: 12, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, fontWeight: 700, background: bg, color: fg, letterSpacing: 0.3, boxShadow: '3px 4px 10px rgba(9,24,40,0.15)', transition: 'transform 200ms ease-out, box-shadow 200ms ease-out' }),
+  navBtn: a => ({ padding: '7px 15px', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 600, background: a ? NAVY : 'transparent', color: a ? '#fff' : '#B8CBE8', transition: 'all .15s' }),
+  input:  { background: 'rgba(255,255,255,0.7)', border: '1px solid #C8BFB0', borderRadius: 10, color: '#1A1208', padding: '10px 14px', fontSize: 14, fontFamily: 'inherit', outline: 'none', width: '100%' },
   tag:    (color) => ({ fontSize: 10, color, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4, fontWeight: 700 }),
 };
 
@@ -239,7 +239,7 @@ const GameSlot = memo(function GameSlot({ game, onPick, locked, isChampionship, 
     );
     return (
       <div onClick={() => !locked && !isFF && onPick?.(side)}
-        style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '3px 8px', height: 36, boxSizing: 'border-box', flexDirection: flipped ? 'row-reverse' : 'row', background: isW ? MINT_BG : '#F4EFE6', cursor: locked || isFF ? 'default' : 'pointer', borderRadius: 4, opacity: isL ? 0.4 : 1, transition: 'background .12s' }}>
+        style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '3px 8px', height: 36, boxSizing: 'border-box', flexDirection: flipped ? 'row-reverse' : 'row', background: isW ? MINT_BG : '#F4EFE6', cursor: locked || isFF ? 'default' : 'pointer', borderRadius: 4, opacity: isL ? 0.4 : 1, transition: 'background .12s', borderLeft: isW ? `3px solid ${MINT_FG}` : 'none' }}>
         <TeamLogo espnId={team.espnId} name={team.name} size={20} />
         <span style={{ fontSize: 10, color: isW ? MINT_FG : '#7A7068', fontWeight: 700, minWidth: 14, textDecoration: isL ? 'line-through' : 'none' }}>{team.seed}</span>
         <span style={{ fontSize: team.name?.length > 18 ? 11 : team.name?.length > 13 ? 13 : 14, fontWeight: isW ? 700 : 500, color: isW ? MINT_FG : isL ? '#C8BFB0' : '#1A1208', textDecoration: isL ? 'line-through' : 'none', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: hasLive ? 80 : 140, flex: 1 }}>
@@ -274,7 +274,7 @@ const GameSlot = memo(function GameSlot({ game, onPick, locked, isChampionship, 
 
   const canCompare = onCompare && top && bottom && !top.isFFPlaceholder && !bottom.isFFPlaceholder;
   return (
-    <div style={{ border: `1px solid ${slotBorder}`, borderRadius: 6, overflow: 'hidden', background: slotBg, minWidth: 178 }}>
+    <div style={{ border: `2px solid ${slotBorder}`, borderRadius: 10, overflow: 'hidden', background: slotBg, minWidth: 178, boxShadow: '4px 6px 14px rgba(9,24,40,0.08), inset -1px -1px 3px rgba(255,255,255,0.6)', position: 'relative' }}>
       <Team team={top} side="top" />
       {canCompare ? (
         <div
@@ -1958,6 +1958,10 @@ if (game.winner?.name === clicked.name) {
           .compare-zone:hover .cz-conn-l   { width:22%; }
           .compare-zone:hover .cz-conn-r   { width:22%; }
           .compare-zone:hover .cz-label    { opacity:1; transform:translateY(0); }
+          button:active { transform: scale(0.96); }
+          .spring-pick { animation: springBounce 250ms cubic-bezier(0.34,1.56,0.64,1) forwards; }
+          @keyframes springBounce { 0%{transform:scale(1)} 40%{transform:scale(0.97)} 70%{transform:scale(1.02)} 100%{transform:scale(1)} }
+          @media (prefers-reduced-motion: reduce) { button:active { transform: none; } .spring-pick { animation: none; } }
         `}</style>
 
         <OfflineBar />
