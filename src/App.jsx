@@ -1884,9 +1884,18 @@ if (game.winner?.name === clicked.name) {
   // ── SIGN-IN SCREEN ────────────────────────────────────────────────────────
   if (!uid) return (
     <>
-      <div style={{ ...S.app, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 36, minHeight: '100vh' }}>
+      <div style={{
+        ...S.app,
+        display: 'flex', flexDirection: 'column', alignItems: 'center',
+        justifyContent: 'center', gap: 36, minHeight: '100vh',
+        backgroundImage: 'radial-gradient(rgba(9,24,40,0.04) 1.5px, transparent 1.5px)',
+        backgroundSize: '24px 24px',
+        animation: 'bgDrift 20s linear infinite',
+      }}>
         <div style={{ textAlign: 'center' }}>
-          <h1 style={{ fontFamily: "'Libre Bodoni', serif", fontSize: 48, fontWeight: 700, color: NAVY, letterSpacing: 2, lineHeight: 1.1 }}>MARCH MADNESS<br />{tournamentYear}</h1>
+          <h1 className="signin-underline" style={{ fontFamily: "'Libre Bodoni', serif", fontSize: 48, fontWeight: 700, color: NAVY, letterSpacing: 2, lineHeight: 1.1 }}>
+            MARCH MADNESS<br />{tournamentYear}
+          </h1>
           <p style={{ color: '#7A7068', fontSize: 16, marginTop: 10 }}>Rochester Community Schools · Bracket Challenge</p>
         </div>
         <div style={{ ...S.card, textAlign: 'center', maxWidth: 380, padding: '36px 40px', width: '100%' }}>
@@ -1961,7 +1970,16 @@ if (game.winner?.name === clicked.name) {
           button:active { transform: scale(0.96); }
           .spring-pick { animation: springBounce 250ms cubic-bezier(0.34,1.56,0.64,1) forwards; }
           @keyframes springBounce { 0%{transform:scale(1)} 40%{transform:scale(0.97)} 70%{transform:scale(1.02)} 100%{transform:scale(1)} }
-          @media (prefers-reduced-motion: reduce) { button:active { transform: none; } .spring-pick { animation: none; } }
+          @keyframes underlineGrow { from{width:0} to{width:100%} }
+          @keyframes bgDrift { 0%{background-position:0 0} 100%{background-position:60px 60px} }
+          .signin-underline { position:relative; display:inline-block; }
+          .signin-underline::after { content:''; display:block; height:3px; background:linear-gradient(90deg,#091828,#1C3558); border-radius:2px; width:0; animation:underlineGrow 600ms ease-out forwards; animation-delay:200ms; }
+          @keyframes schoolCardBounce { 0%{transform:scale(1)} 40%{transform:scale(0.96)} 70%{transform:scale(1.02)} 100%{transform:scale(1)} }
+          .school-card { transition: transform 200ms ease-out, box-shadow 200ms ease-out, background 200ms; }
+          .school-card:hover { transform: translateY(-3px); box-shadow: 6px 10px 20px rgba(9,24,40,0.15), inset -1px -1px 4px rgba(255,255,255,0.8) !important; }
+          .school-card-check { opacity:0; transform:scale(0.5); transition: opacity 200ms, transform 200ms; }
+          .school-card-check.visible { opacity:1; transform:scale(1); }
+          @media (prefers-reduced-motion: reduce) { button:active { transform: none; } .spring-pick { animation: none; } .signin-underline::after { animation:none; width:100%; } @keyframes bgDrift {} .school-card { transition:none; } .school-card:hover { transform:none; } }
         `}</style>
 
         <OfflineBar />
