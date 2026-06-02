@@ -93,32 +93,6 @@ export function subscribeToLeaderboard(callback, n = 200) {
   });
 }
 
-// ── ADMIN PASSWORD ────────────────────────────────────────────────────────────
-// Password is stored as a plain string in Firestore under admin/auth.
-// This is acceptable for a school hobby app — no PII is gated behind it,
-// only the ability to enter results and manage the bracket.
-
-export async function getAdminPasswordHash() {
-  const snap = await getDoc(doc(db, 'admin', 'auth'));
-  if (!snap.exists()) return null;
-  return snap.data().password || null;
-}
-
-export async function setAdminPassword(password) {
-  await setDoc(doc(db, 'admin', 'auth'), { password, updatedAt: serverTimestamp() });
-}
-
-export async function checkAdminPassword(password) {
-  const snap = await getDoc(doc(db, 'admin', 'auth'));
-  if (!snap.exists()) return false;
-  return snap.data().password === password;
-}
-
-export async function adminExists() {
-  const snap = await getDoc(doc(db, 'admin', 'auth'));
-  return snap.exists() && !!snap.data().password;
-}
-
 // ── TEAM RESEARCH DATA ────────────────────────────────────────────────────────
 
 export async function loadResearchData() {
