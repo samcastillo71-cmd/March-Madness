@@ -837,41 +837,45 @@ function MammalEntryPanel({ onAnimalsSaved, onRequestGenerateMammalResearch, onR
 
 // ── PRIVACY POLICY ────────────────────────────────────────────────────────────
 function PrivacyPolicyPage({ onBack }) {
+  const bodyColor = '#3A3028';
+  const strongColor = '#1A1208';
   return (
-    <div style={{ minHeight: '100vh', background: '#0a1a0e', color: '#e8f5ee', fontFamily: "'Source Sans 3', sans-serif", padding: '40px 20px' }}>
+    <div style={{ minHeight: '100vh', background: '#E8E2D8', color: '#1A1208', fontFamily: "'Public Sans', sans-serif", padding: '40px 20px' }}>
       <div style={{ maxWidth: 760, margin: '0 auto' }}>
-        <button onClick={onBack} style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '7px 16px', color: '#aaa', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', marginBottom: 32 }}>← Back</button>
+        <button onClick={onBack} style={{ background: '#F4EFE6', border: '2px solid rgba(9,24,40,0.20)', borderRadius: 10, padding: '7px 16px', color: '#3A3028', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', marginBottom: 32, boxShadow: '3px 4px 10px rgba(9,24,40,0.10)' }}>← Back</button>
         <h1 style={{ fontFamily: "'Libre Bodoni', serif", color: MINT_FG, marginBottom: 4, fontSize: 32 }}>Privacy Policy</h1>
-        <div style={{ marginBottom: 32, padding: '14px 16px', background: 'rgba(255,255,255,0.03)', borderRadius: 8, border: '1px solid rgba(255,255,255,0.08)', fontSize: 13, color: '#888' }}>
-          <div><strong style={{ color: '#aaa' }}>Application:</strong> Hart Middle School March Madness Bracket Challenge</div>
-          <div><strong style={{ color: '#aaa' }}>Operated by:</strong> Science Teacher, Hart Middle School, Rochester Community Schools</div>
-          <div><strong style={{ color: '#aaa' }}>Last Updated:</strong> March 2026</div>
+        <div style={{ marginBottom: 32, padding: '14px 16px', background: '#F4EFE6', borderRadius: 12, border: '2px solid rgba(9,24,40,0.12)', fontSize: 13, color: '#7A7068' }}>
+          <div><strong style={{ color: '#1A1208' }}>Application:</strong> Hart Middle School March Madness Bracket Challenge</div>
+          <div><strong style={{ color: '#1A1208' }}>Operated by:</strong> Science Teacher, Hart Middle School, Rochester Community Schools</div>
+          <div><strong style={{ color: '#1A1208' }}>Last Updated:</strong> June 2026</div>
         </div>
         {[
           ['1. Introduction', 'This Privacy Policy describes how the Hart Middle School March Madness Bracket Challenge ("the Application") collects, uses, and protects information about its users. This Application is an educational tool developed and operated by a Science Teacher at Hart Middle School, Rochester Community Schools. It is not a commercial product and is not affiliated with any outside organization.'],
-          ['2. Authentication', 'This Application does not require any account creation, login, or authentication. Users access the app by entering a display name of their choice. No passwords, email addresses, or credentials of any kind are collected or stored. The Application does not integrate with Google Sign-In or any other third-party authentication service.'],
+          ['2. Authentication', 'Users sign in with their school Google account (@rcs-k12.us) via Google Sign-In. The Application receives the user\'s Google display name and school email address at sign-in. Passwords are never seen or stored by the Application — authentication is handled entirely by Google. The school email is used solely to determine the user\'s role (student, teacher, or administrator) within the Application.'],
           ['3. Information Collected', null],
-          ['4. Use of Information', 'Information collected is used solely to save the user\'s bracket picks between sessions, display the user\'s name on the leaderboard, and calculate and display the user\'s score. The Application does not use collected information for advertising, profiling, or any purpose unrelated to the bracket competition.'],
+          ['4. Use of Information', 'Information collected is used solely to save the user\'s bracket picks between sessions, display the user\'s name on the leaderboard, calculate and display the user\'s score, and assign the user to their school. The Application does not use collected information for advertising, profiling, or any purpose unrelated to the bracket competition.'],
           ['5. Data Storage and Security', 'All user data is stored in Google Firebase, a cloud infrastructure service provided by Google LLC, subject to Google\'s enterprise security standards. No external parties have access to user data stored within the Application. The application operator does not share data with any third party, vendor, or external service. All data is encrypted in transit using TLS.'],
           ['6. Data Retention', 'User data is retained only for the duration of the tournament period. At the conclusion of each tournament season, all data is reviewed and cleared by the school administrator. Administrators can delete any user\'s data at any time upon request.'],
-          ['7. Children\'s Privacy', 'This Application is designed for use under direct teacher supervision within a school setting. The Application collects no personal information beyond a self-chosen display name. No information is sold, shared, or disclosed to third parties. No behavioral advertising or tracking is conducted. School administrators retain the ability to review and delete all data upon request.'],
-          ['8. AI-Generated Content', 'This Application uses artificial intelligence (Claude, provided by Anthropic, PBC) to generate educational content. Student data is never used as input to the AI content generation system.'],
+          ['7. Children\'s Privacy', 'This Application is designed for use under direct teacher supervision within a school setting. No information is sold, shared, or disclosed to third parties. No behavioral advertising or tracking is conducted. School administrators retain the ability to review and delete all data upon request.'],
+          ['8. AI-Generated Content', 'This Application uses artificial intelligence (Claude, provided by Anthropic, PBC) to generate educational content about tournament participants. Student data is never used as input to the AI content generation system.'],
           ['9. Contact Information', 'Rochester Community Schools'],
         ].map(([title, body]) => (
           <div key={title} style={{ marginBottom: 28 }}>
-            <h2 style={{ color: MINT_FG, fontSize: 16, marginBottom: 10, fontFamily: "'Libre Bodoni', serif", borderBottom: '1px solid rgba(22,163,74,0.2)', paddingBottom: 6 }}>{title}</h2>
+            <h2 style={{ color: MINT_FG, fontSize: 16, marginBottom: 10, fontFamily: "'Libre Bodoni', serif", borderBottom: `1px solid rgba(30,107,71,0.2)`, paddingBottom: 6 }}>{title}</h2>
             {title === '3. Information Collected' && (
               <div>
-                <p style={{ color: '#ccc', fontSize: 13, lineHeight: 1.8, marginBottom: 8 }}>The Application collects only the following:</p>
-                <ul style={{ color: '#ccc', fontSize: 13, lineHeight: 2, paddingLeft: 20 }}>
-                  <li><strong style={{ color: '#fff' }}>Display Name</strong> — a name chosen by the user at the time they first visit the app. This can be any name the user chooses; the Application does not verify identity.</li>
-                  <li><strong style={{ color: '#fff' }}>Bracket Picks</strong> — the tournament predictions entered by the user.</li>
-                  <li><strong style={{ color: '#fff' }}>Score</strong> — a numerical score calculated automatically based on the user's picks and tournament results.</li>
+                <p style={{ color: bodyColor, fontSize: 13, lineHeight: 1.8, marginBottom: 8 }}>The Application collects only the following:</p>
+                <ul style={{ color: bodyColor, fontSize: 13, lineHeight: 2, paddingLeft: 20 }}>
+                  <li><strong style={{ color: strongColor }}>Display Name</strong> — the user's name as provided by their school Google account.</li>
+                  <li><strong style={{ color: strongColor }}>School Email</strong> — the user's @rcs-k12.us email address, used only to determine their role (student, teacher, or administrator). Never shared or used for any other purpose.</li>
+                  <li><strong style={{ color: strongColor }}>School</strong> — the school selected by the user during onboarding (Hart, Van Hoosen, Reuther, or West), shown on the leaderboard.</li>
+                  <li><strong style={{ color: strongColor }}>Bracket Picks</strong> — the tournament predictions entered by the user.</li>
+                  <li><strong style={{ color: strongColor }}>Score</strong> — a numerical score calculated automatically based on the user's picks and tournament results.</li>
                 </ul>
-                <p style={{ color: '#ccc', fontSize: 13, lineHeight: 1.8, marginTop: 8 }}>The Application does <strong style={{ color: '#fff' }}>not</strong> collect email addresses, passwords, device identifiers, location data, browsing history, or any information from sources outside the Application.</p>
+                <p style={{ color: bodyColor, fontSize: 13, lineHeight: 1.8, marginTop: 8 }}>The Application does <strong style={{ color: strongColor }}>not</strong> collect passwords, device identifiers, location data, browsing history, or any information from sources outside the Application or the user's school Google account.</p>
               </div>
             )}
-            {body && <p style={{ color: '#ccc', fontSize: 13, lineHeight: 1.8 }}>{body}</p>}
+            {body && <p style={{ color: bodyColor, fontSize: 13, lineHeight: 1.8 }}>{body}</p>}
           </div>
         ))}
       </div>
@@ -882,28 +886,28 @@ function PrivacyPolicyPage({ onBack }) {
 // ── TERMS OF SERVICE ──────────────────────────────────────────────────────────
 function TermsOfServicePage({ onBack }) {
   return (
-    <div style={{ minHeight: '100vh', background: '#0a1a0e', color: '#e8f5ee', fontFamily: "'Source Sans 3', sans-serif", padding: '40px 20px' }}>
+    <div style={{ minHeight: '100vh', background: '#E8E2D8', color: '#1A1208', fontFamily: "'Public Sans', sans-serif", padding: '40px 20px' }}>
       <div style={{ maxWidth: 760, margin: '0 auto' }}>
-        <button onClick={onBack} style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '7px 16px', color: '#aaa', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', marginBottom: 32 }}>← Back</button>
+        <button onClick={onBack} style={{ background: '#F4EFE6', border: '2px solid rgba(9,24,40,0.20)', borderRadius: 10, padding: '7px 16px', color: '#3A3028', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', marginBottom: 32, boxShadow: '3px 4px 10px rgba(9,24,40,0.10)' }}>← Back</button>
         <h1 style={{ fontFamily: "'Libre Bodoni', serif", color: MINT_FG, marginBottom: 4, fontSize: 32 }}>Terms of Service</h1>
-        <div style={{ marginBottom: 32, padding: '14px 16px', background: 'rgba(255,255,255,0.03)', borderRadius: 8, border: '1px solid rgba(255,255,255,0.08)', fontSize: 13, color: '#888' }}>
-          <div><strong style={{ color: '#aaa' }}>Application:</strong> Hart Middle School March Madness Bracket Challenge</div>
-          <div><strong style={{ color: '#aaa' }}>Operated by:</strong> Science Teacher, Hart Middle School, Rochester Community Schools</div>
-          <div><strong style={{ color: '#aaa' }}>Last Updated:</strong> March 2026</div>
+        <div style={{ marginBottom: 32, padding: '14px 16px', background: '#F4EFE6', borderRadius: 12, border: '2px solid rgba(9,24,40,0.12)', fontSize: 13, color: '#7A7068' }}>
+          <div><strong style={{ color: '#1A1208' }}>Application:</strong> Hart Middle School March Madness Bracket Challenge</div>
+          <div><strong style={{ color: '#1A1208' }}>Operated by:</strong> Science Teacher, Hart Middle School, Rochester Community Schools</div>
+          <div><strong style={{ color: '#1A1208' }}>Last Updated:</strong> June 2026</div>
         </div>
         {[
           ['1. Agreement to Terms', 'By accessing or using the Hart Middle School March Madness Bracket Challenge ("the Application"), you agree to be bound by these Terms. If you do not agree, you may not use the Application. These Terms apply to all users including students, teachers, and school staff of Rochester Community Schools.'],
           ['2. Description', 'The Application is an educational web application facilitating school-based bracket prediction competitions tied to the NCAA Men\'s Basketball Tournament and the March Mammal Madness competition organized by Arizona State University. It is not a commercial product and is provided solely for educational purposes.'],
-          ['3. Access', 'Access to the Application is open to currently enrolled students, teachers, and staff at Hart Middle School, as well as such other individuals as may be expressly authorized by the school administrator. The Application does not require a login or account. Users identify themselves by entering a display name.'],
+          ['3. Access', 'Access to the Application requires a school Google account (@rcs-k12.us). Sign-in is handled via Google Sign-In. Access is open to currently enrolled students, teachers, and staff at Rochester Community Schools schools, as well as such other individuals as may be expressly authorized by the school administrator.'],
           ['4. Acceptable Use', 'Users may complete bracket predictions, review educational content, and view the leaderboard. Users may not attempt to manipulate scores or results, use the Application for purposes other than the bracket competition, or engage in any conduct that violates Rochester Community Schools\' Acceptable Use Policy.'],
-          ['5. Leaderboard and Scoring', 'Scores are calculated automatically based on results entered by the school administrator. The leaderboard, including participant names and scores, is visible to all users of the Application. By participating, users consent to their display name and score being visible to other users.'],
+          ['5. Leaderboard and Scoring', 'Scores are calculated automatically based on results entered by the school administrator. The leaderboard, including participant names, school, and scores, is visible to all users of the Application. By participating, users consent to their display name, school, and score being visible to other users.'],
           ['6. Disclaimer of Warranties', 'THE APPLICATION IS PROVIDED ON AN "AS IS" AND "AS AVAILABLE" BASIS WITHOUT WARRANTIES OF ANY KIND. THE APPLICATION OPERATOR DOES NOT WARRANT THAT THE APPLICATION WILL BE UNINTERRUPTED OR ERROR-FREE.'],
           ['7. Governing Law', 'These Terms shall be governed by the laws of the State of Michigan and applicable federal education law including FERPA and COPPA.'],
           ['8. Contact Information', 'Rochester Community Schools'],
         ].map(([title, body]) => (
           <div key={title} style={{ marginBottom: 28 }}>
-            <h2 style={{ color: MINT_FG, fontSize: 16, marginBottom: 10, fontFamily: "'Libre Bodoni', serif", borderBottom: '1px solid rgba(22,163,74,0.2)', paddingBottom: 6 }}>{title}</h2>
-            <p style={{ color: '#ccc', fontSize: 13, lineHeight: 1.8 }}>{body}</p>
+            <h2 style={{ color: MINT_FG, fontSize: 16, marginBottom: 10, fontFamily: "'Libre Bodoni', serif", borderBottom: `1px solid rgba(30,107,71,0.2)`, paddingBottom: 6 }}>{title}</h2>
+            <p style={{ color: '#3A3028', fontSize: 13, lineHeight: 1.8 }}>{body}</p>
           </div>
         ))}
       </div>
