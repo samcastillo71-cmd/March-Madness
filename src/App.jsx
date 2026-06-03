@@ -649,6 +649,21 @@ function makePlaceholderRoster() {
   };
 }
 
+// Sample rows shown in the UI so the user can see the expected format.
+// These are real 2024 tournament teams — replace with current year's teams each March.
+const CSV_SAMPLE_ROWS = [
+  { region: 'East',    seed: 1,  name: 'Connecticut',   espnId: '41',   ff: 'no'  },
+  { region: 'East',    seed: 2,  name: 'Iowa State',    espnId: '66',   ff: 'no'  },
+  { region: 'East',    seed: 11, name: 'Duquesne',      espnId: '213',  ff: 'no'  },
+  { region: 'East',    seed: 11, name: 'UAB',           espnId: '5596', ff: 'yes' },
+  { region: 'West',    seed: 1,  name: 'North Carolina', espnId: '153', ff: 'no'  },
+  { region: 'West',    seed: 2,  name: 'Arizona',       espnId: '12',   ff: 'no'  },
+  { region: 'South',   seed: 1,  name: 'Houston',       espnId: '248',  ff: 'no'  },
+  { region: 'South',   seed: 2,  name: 'Marquette',     espnId: '269',  ff: 'no'  },
+  { region: 'Midwest', seed: 1,  name: 'Purdue',        espnId: '2509', ff: 'no'  },
+  { region: 'Midwest', seed: 2,  name: 'Tennessee',     espnId: '2633', ff: 'no'  },
+];
+
 const CSV_TEMPLATE_HEADER = 'Region,Seed,Team Name,ESPN ID,First Four\n';
 const CSV_TEMPLATE_ROWS   = ['East','West','South','Midwest'].flatMap(r =>
   Array.from({ length: 16 }, (_, i) => `${r},${i + 1},Team Name Here,ESPN_ID_Here,no`)
@@ -810,7 +825,7 @@ function TeamEntryPanel({ onTeamsSaved, onRequestGenerateResearch, regionNames, 
 
         {showCsv && (
           <div style={{ marginTop: 12 }}>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 10, flexWrap: 'wrap' }}>
               <span style={{ fontSize: 12, color: '#7A7068' }}>
                 1. Download the template, fill it in Excel or Google Sheets, then paste it back here.
               </span>
@@ -818,8 +833,36 @@ function TeamEntryPanel({ onTeamsSaved, onRequestGenerateResearch, regionNames, 
                 Download Template CSV
               </button>
             </div>
-            <div style={{ fontSize: 11, color: '#888', marginBottom: 6, fontFamily: 'monospace', background: 'rgba(0,0,0,0.04)', padding: '6px 10px', borderRadius: 6 }}>
-              Format: Region, Seed, Team Name, ESPN ID, First Four (yes/no)
+
+            {/* Sample data table */}
+            <div style={{ marginBottom: 12, borderRadius: 8, border: '1px solid rgba(9,24,40,0.12)', overflow: 'hidden' }}>
+              <div style={{ background: 'rgba(9,24,40,0.06)', padding: '6px 12px', fontSize: 11, color: '#7A7068', fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase' }}>
+                Sample format (2024 tournament — replace with current year)
+              </div>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                <thead>
+                  <tr style={{ background: 'rgba(9,24,40,0.04)' }}>
+                    {['Region','Seed','Team Name','ESPN ID','First Four'].map(h => (
+                      <th key={h} style={{ padding: '5px 10px', textAlign: 'left', color: '#7A7068', fontWeight: 700, fontSize: 11, borderBottom: '1px solid rgba(9,24,40,0.1)' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {CSV_SAMPLE_ROWS.map((row, i) => (
+                    <tr key={i} style={{ borderBottom: '1px solid rgba(9,24,40,0.06)', background: i % 2 === 0 ? 'transparent' : 'rgba(9,24,40,0.02)' }}>
+                      <td style={{ padding: '4px 10px', color: RC[row.region] || '#1A1208', fontWeight: 700 }}>{row.region}</td>
+                      <td style={{ padding: '4px 10px', color: '#1A1208', fontFamily: 'monospace' }}>{row.seed}</td>
+                      <td style={{ padding: '4px 10px', color: '#1A1208' }}>{row.name}</td>
+                      <td style={{ padding: '4px 10px', color: '#1A1208', fontFamily: 'monospace' }}>{row.espnId}</td>
+                      <td style={{ padding: '4px 10px', color: row.ff === 'yes' ? '#6366f1' : '#7A7068', fontWeight: row.ff === 'yes' ? 700 : 400 }}>{row.ff}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <div style={{ padding: '6px 12px', fontSize: 11, color: '#7A7068', background: 'rgba(9,24,40,0.02)', borderTop: '1px solid rgba(9,24,40,0.08)' }}>
+                First Four (FF) teams share a seed number — mark both as <code style={{ fontFamily: 'monospace', background: 'rgba(0,0,0,0.06)', padding: '1px 4px', borderRadius: 3 }}>yes</code> to flag them.
+                ESPN ID: find it in the URL at espn.com/mens-college-basketball/team/_/id/<strong>41</strong>/connecticut
+              </div>
             </div>
             <textarea
               value={csvText}
