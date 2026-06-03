@@ -2,6 +2,71 @@
 
 ---
 
+## Handoff: 2026-06-03 — ESPN IMPORT + CSV IMPORT + TEAM COLORS, FULLY DEPLOYED
+
+### Current State
+**All systems live at `march-madness-ruby.vercel.app`.** This session added two team roster import methods and wired team colors into the bracket compare button. Everything is committed, pushed, and deployed.
+
+### What Was Done This Session
+
+| Item | Status |
+|---|---|
+| `api/import-bracket.js` — new serverless function, fetches ESPN tournament bracket server-side (no CORS), parses regions/seeds/ESPN IDs, batch-fetches team colors | ✅ |
+| Admin Teams panel: "Auto-Import from ESPN" button — one click after Selection Sunday, populates all 64 teams | ✅ |
+| Admin Teams panel: "Import from Spreadsheet" section — download CSV template, fill in Excel/Google Sheets, paste back and parse | ✅ |
+| Sample data table in CSV section — 10 rows of real 2024 tournament data showing exact format (region, seed, name, ESPN ID, First Four) | ✅ |
+| CSV parser: validates regions, seeds, flags bad rows with specific error messages | ✅ |
+| Team colors stored in roster objects (`color`, `alternateColor` fields from ESPN teams API) | ✅ |
+| GameSlot compare zone: uses `team.color` for basketball compare fills instead of fixed navy; falls back to navy if no color stored | ✅ |
+| Committed and pushed — 2 commits this session (d33bcd6, 14fa5c7) | ✅ |
+
+### Architecture Notes
+
+**ESPN Import (`api/import-bracket.js`)**:
+- GET endpoint (no auth needed — admin-only button in UI)
+- Tries ESPN tournaments API → follows `$ref` to bracket data → parses multiple response shapes (groups, games, rounds)
+- Normalizes region names: East/West/South/Midwest
+- Batch-fetches colors from `site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/teams/{id}` in groups of 8
+- Returns `{ success, roster: { East, West, South, Midwest }, teamCount }`
+- **Only works after Selection Sunday (mid-March).** Returns a clear error message otherwise — CSV import is the year-round fallback.
+
+**CSV Import Format**:
+```
+Region,Seed,Team Name,ESPN ID,First Four
+East,1,Duke,150,no
+East,11,Duquesne,213,no
+East,11,UAB,5596,yes
+```
+- First Four pairs: same seed number, both marked `yes`
+- Region must be exactly `East`, `West`, `South`, or `Midwest`
+- ESPN ID is the number from the URL: espn.com/mens-college-basketball/team/_/id/**150**/duke
+
+**Team Colors in Compare Zone**:
+- Colors stored directly on team objects in the roster (`color: "003087"`)
+- Flow through `buildInitialBracketFromTeams` automatically (spreads `...t`)
+- `GameSlot` reads `top?.color` and `bottom?.color` — no extra props needed
+- Format: 6-char hex WITHOUT the `#` (ESPN's format) → prepend `#` in the component
+
+### Build Status
+- `npm run build` — PASSES clean (pre-existing chunk size warning only)
+- Deployed: `march-madness-ruby.vercel.app`
+- Git: clean, all committed and pushed
+
+### What Still Needs Manual Smoke Test
+Same as before — Sam needs to sign in and verify bracket/teacher/admin tabs work. No new smoke test items from this session (import is admin-only and only meaningful in March).
+
+### NEXT SESSION: UI Audit
+Start the next session with a full UI audit using these skills (invoke all before touching any code):
+
+1. `design-taste-frontend` — the primary audit skill. Has a full Redesign Protocol (Section 11) for existing projects: audit brand tokens, IA, patterns to preserve vs. retire, dial values for the current design. Run this first.
+2. `high-end-visual-design` — Awwwards-tier visual standards checklist. Use for the "impeccable" bar — runs against the Pre-Output Checklist (Section 8) to flag what doesn't meet agency-level quality.
+3. `ui-ux-pro-max` — comprehensive UX audit layer. Catch interaction, accessibility, and usability issues that the visual skills miss.
+4. `redesign-existing-projects` — name says it: specific protocol for auditing and improving existing projects.
+
+**Key context for the UI audit session**: The app uses inline styles only (no CSS files, no Tailwind). All theme constants are at the top of `src/App.jsx`. The canonical palette is locked in CLAUDE.md and must not change. The audit should identify improvements within the existing stack — no framework changes.
+
+---
+
 ## Handoff: 2026-06-02 — POST-PHASE 2 HARDENING + UI POLISH, FULLY DEPLOYED
 
 ### Current State
