@@ -2,6 +2,59 @@
 
 ---
 
+## Handoff: 2026-06-03 — UI AUDIT PASS 1: CONTRAST, EMOJIS, NAV, POLISH
+
+### Current State
+**PR open at `ui-audit-polish` branch.** All changes are committed and pushed. Build passes clean. Production (`march-madness-ruby.vercel.app`) is still on `main` — merge the PR to deploy.
+
+### What Was Done This Session
+
+| Item | Status |
+|---|---|
+| Full UI audit using `design-taste-frontend`, `high-end-visual-design`, `ui-ux-pro-max`, `redesign-existing-projects` skills | ✅ |
+| Critical WCAG fix: `ResearchCard` text (`#ccc`/`#bbb`/`#999`) on cream background — all values now dark palette tokens | ✅ |
+| Critical WCAG fix: `MammalResearchCard` facts, fun facts, size/lifespan/speed — same contrast fix | ✅ |
+| Inner cell backgrounds/borders in both research cards — switched from invisible white-on-white to navy-tinted | ✅ |
+| Active nav tab fix — active background was NAVY on equally-dark header (invisible); changed to `#1C3558` | ✅ |
+| All emojis removed — Championship spine uses `Trophy` icon, errors use `AlertTriangle`, animal empty state uses `Search` | ✅ |
+| `loading="lazy"` on `TeamLogo` `<img>` — defers up to 128 ESPN requests on bracket mount | ✅ |
+| `font-variant-numeric: tabular-nums` on all score displays (score bar, rank, leaderboard, podium, teacher tab) | ✅ |
+| Em-dash in Final Four labels replaced with colon | ✅ |
+| `text-wrap: balance` on sign-in and onboarding `h1` | ✅ |
+| Committed, pushed, PR #2 open | ✅ |
+
+### Architecture Notes
+
+**No behavior changes.** This is a pure visual/polish pass — no logic, no Firestore, no API changes. All icons used (`Trophy`, `AlertTriangle`, `Search`) were already imported from `lucide-react`.
+
+**Canonical palette unchanged.** All new text colors (`#1A1208`, `#3A3028`, `#7A7068`) are existing palette tokens from CLAUDE.md. No new colors introduced.
+
+**Research card context:** Both `ResearchCard` (basketball) and `MammalResearchCard` were built against a dark-theme assumption, then the app switched to warm cream. The inner cells used `rgba(255,255,255,0.03–0.04)` backgrounds and `#ccc`/`#bbb` text — invisible on cream. Now use `rgba(9,24,40,0.03–0.04)` backgrounds and dark text.
+
+### Build Status
+- `npm run build` — PASSES clean (pre-existing chunk size warning only)
+- Branch: `ui-audit-polish`, PR #2
+- Production: still on `main` — merge PR to deploy
+
+### What Still Needs Smoke Testing
+Sam should merge PR and verify:
+- Research cards (both basketball and mammal) show readable dark text on cream cards
+- Active nav tab is visibly distinct on the dark header
+- No emoji visible anywhere in the app
+- Championship spine shows Trophy icons
+
+### NEXT SESSION: UI Audit Pass 2 (Images + Remaining Items)
+The audit identified one deferred item the user wants to address separately:
+
+- **Images in research cards**: the basketball `ResearchCard` banner uses a blurred ESPN logo as a low-contrast background image (opacity 0.4 on a dark gradient). The mammal card uses Wikipedia thumbnail similarly. Discuss whether to improve these or introduce real hero imagery for the cards.
+
+Other potential next UI work (from the audit, lower priority):
+- `alert()` in admin panels → inline error messages (admin-only, low impact)
+- Icon library: currently Lucide (functional but default AI choice). Phosphor would differentiate but is a non-trivial swap.
+- Mobile header overflow: logo + nav + user info at narrow widths — no responsive collapse exists yet.
+
+---
+
 ## Handoff: 2026-06-03 — ESPN IMPORT + CSV IMPORT + TEAM COLORS, FULLY DEPLOYED
 
 ### Current State
