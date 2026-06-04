@@ -2,6 +2,57 @@
 
 ---
 
+## Handoff: 2026-06-04 — UI AUDIT PASS 2: BANNER FIXES, BRACKET SPACING, RESEARCH TAB POLISH
+
+### Current State
+**All changes committed on `ui-audit-polish` branch (commit 9ec2547). NOT pushed, NOT deployed.** Build passes clean. PR #2 is still open — this session's commit is on top of it. Push and merge when ready to deploy.
+
+### What Was Done This Session
+
+| Item | Status |
+|---|---|
+| Bracket tile gap: SH 120→136, ROUND_ABS recalculated — 10px gap between tiles | ✅ |
+| Basketball ResearchCard banner: swap blurry ESPN crop URL for crisp square logo, right-side positioned at 85% opacity with text-protective gradient | ✅ |
+| MammalResearchCard banner: wiki photo moved to right half (42% opacity), phylopic silhouette boosted to 48%, gradient updated | ✅ |
+| `100vh` → `100dvh` across all 7 full-height containers | ✅ |
+| `aria-label="Main navigation"` on `<nav>` | ✅ |
+| Research tab compare: promoted to persistent header button on both hubs; old buried ghost button removed | ✅ |
+| Research tab: all dark-mode color tokens purged from compare picker panels, progress bars, mammal animal buttons | ✅ |
+| Mammal hub h2: `#86efac` (low-contrast) → `GREEN` (`#1A4332`) | ✅ |
+| Mammal animal picker buttons: `#16a34a` → `GREEN`, `#aaa` → `#7A7068` | ✅ |
+| Battle videos: single-column stack → `auto-fill minmax(440px, 1fr)` 2-per-row grid | ✅ |
+| Visual separator (2px hairline + 28px padding) between picker zone and research card on both tabs | ✅ |
+
+### Architecture Notes
+
+**Bracket spacing math:** Tile render height is ~126px (44px top team + 34px compare zone + 44px bottom team + 4px border). With SH=136, gap = 136−126 = 10px. All ROUND_ABS values, TOP_H, FF_H, FF_GAP, CHAMP_BOX_H derive from SH automatically. GAME_MID_OFFSET unchanged at 50.
+
+**Compare flow (research tab):** Compare button lives in the hub h2 flex row. Disabled (opacity 0.35) until a team/animal is selected. Clicking toggles `comparePicking` — header label flips to "Cancel Compare". The old two-step buried ghost button is gone. `comparePicking` resets on tournament switch (TournamentSelector already calls `setComparePicking(false)`).
+
+**ESPN banner URL:** Changed from the combiner crop URL (`w=900&h=225&scale=crop`) to the plain square PNG (`/ncaa/500/{espnId}.png`). Logo is 108×108px, right-side positioned, `objectFit: contain`, with `drop-shadow` and a left-heavy gradient overlay.
+
+### Build Status
+- `npm run build` — PASSES clean (pre-existing chunk size warning only)
+- Branch: `ui-audit-polish`, commit `9ec2547`
+- NOT pushed. NOT deployed. Run `git push` then merge PR #2.
+
+### NEXT SESSION: Research Tab Items 4 + 6 (deferred this session)
+
+The audit identified two further research tab improvements that were not implemented:
+
+**Item 4 — Seed-matchup picker:**
+Replace the wrapping blob of 16 team/animal buttons with 8 paired rows organized by bracket matchup (1v16, 8v9, 5v12, 4v13, 6v11, 3v14, 7v10, 2v15). Each row shows both competitors side by side with a "vs" separator. Need to read `bbTeamsByRegion` / `mammalAnimalsByRegion` structure and handle First Four (two teams at same seed) before implementing. Check `bracketData.js` for `R64_SEED_MATCHUPS`.
+
+**Item 6 — ResearchCard stats layout:**
+Current 2-column grid has 7 items (orphaned last cell). Numeric stats (Rank, KenPom, Offense, Defense, Pace) and text fields (Coach, Conference) have different visual weight and shouldn't share the same box treatment. Separate into: compact numeric stat chips + text fields in their own row.
+
+### Other Deferred Items (lower priority)
+- `alert()` → inline errors in admin panels (8 occurrences: lines ~783, 784, 988, 989, 1734, 2751, 2763, 2977, 2980)
+- Mobile header collapse (not urgent — students use Chromebooks)
+- Icon library: Lucide → Phosphor (non-trivial swap, low urgency)
+
+---
+
 ## Handoff: 2026-06-03 — UI AUDIT PASS 1: CONTRAST, EMOJIS, NAV, POLISH
 
 ### Current State
