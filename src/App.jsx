@@ -45,7 +45,7 @@ const ROUND_BORDER_COLORS = [
 ];
 
 const S = {
-  app:    { minHeight: '100vh', background: '#E8E2D8', color: '#1A1208', fontFamily: "'Public Sans', sans-serif" },
+  app:    { minHeight: '100dvh', background: '#E8E2D8', color: '#1A1208', fontFamily: "'Public Sans', sans-serif" },
   header: { background: 'rgba(9,24,40,0.97)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(28,53,88,0.6)', padding: '0 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 60, position: 'sticky', top: 0, zIndex: 200 },
   logo:   { fontFamily: "'Libre Bodoni', serif", fontSize: 19, fontWeight: 700, color: '#B8CBE8', letterSpacing: 1 },
   card:   { background: '#F4EFE6', border: '2px solid rgba(9,24,40,0.20)', borderRadius: 18, padding: 20, boxShadow: '4px 6px 14px rgba(9,24,40,0.10), inset -1px -1px 4px rgba(255,255,255,0.8)' },
@@ -135,7 +135,7 @@ class ErrorBoundary extends Component {
   static getDerivedStateFromError(error) { return { error }; }
   render() {
     if (this.state.error) return (
-      <div style={{ minHeight: '100vh', background: '#E8E2D8', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 40 }}>
+      <div style={{ minHeight: '100dvh', background: '#E8E2D8', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 40 }}>
         <div style={{ textAlign: 'center', maxWidth: 420 }}>
           <Trophy size={48} color="#091828" style={{ marginBottom: 16 }} />
           <h2 style={{ color: '#c0392b', fontFamily: "'Libre Bodoni', serif", marginBottom: 8 }}>Something went wrong</h2>
@@ -350,15 +350,15 @@ function ResearchCard({ teamName, card, isAdmin, onFieldSave }) {
   const [bannerErr, setBannerErr] = useState(false);
   if (!card) return <div style={{ ...S.card, display: 'flex', alignItems: 'center', justifyContent: 'center', height: 200, color: '#888' }}>No data yet</div>;
   const espnId = card.espnId || '';
-  const bannerUrl = espnId ? `https://a.espncdn.com/combiner/i?img=/i/teamlogos/ncaa/500/${espnId}.png&w=900&h=225&scale=crop&location=origin&transparent=false&background=0x1a3a2a` : '';
+  const bannerUrl = espnId ? `https://a.espncdn.com/i/teamlogos/ncaa/500/${espnId}.png` : '';
   const field = (path, value, opts = {}) => isAdmin
     ? <EditableField value={value} onSave={v => onFieldSave(teamName, path, v)} label={path} {...opts} />
     : <span style={{ color: opts.color || '#1A1208', fontSize: opts.large ? 38 : 13 }}>{value || '-'}</span>;
   return (
     <div style={{ marginBottom: 28 }}>
       <div style={{ position: 'relative', height: 140, borderRadius: '12px 12px 0 0', overflow: 'hidden', background: 'linear-gradient(135deg,#0d2818,#1a3a2a)' }}>
-        {bannerUrl && !bannerErr && <img src={bannerUrl} alt={teamName} onError={() => setBannerErr(true)} style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.4 }} />}
-        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg,rgba(0,0,0,0.7) 0%,rgba(0,0,0,0.2) 100%)' }} />
+        {bannerUrl && !bannerErr && <img src={bannerUrl} alt={teamName} onError={() => setBannerErr(true)} style={{ position: 'absolute', right: 16, top: '50%', transform: 'translateY(-50%)', height: 108, width: 108, objectFit: 'contain', opacity: 0.85, filter: 'drop-shadow(0 2px 10px rgba(0,0,0,0.55))' }} />}
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg,rgba(0,0,0,0.84) 42%,rgba(0,0,0,0.22) 100%)' }} />
         <div style={{ position: 'absolute', bottom: 16, left: 20 }}>
           <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 2 }}>{card.conference || ''}</div>
           <h2 style={{ fontFamily: "'Libre Bodoni', serif", color: '#fff', margin: 0, fontSize: 24, textShadow: '0 2px 8px rgba(0,0,0,0.8)' }}>{teamName}</h2>
@@ -430,9 +430,9 @@ function MammalResearchCard({ animalName, card, isAdmin, onFieldSave, onGenerate
   return (
     <div style={{ marginBottom: 20 }}>
       <div style={{ position: 'relative', height: 160, borderRadius: '12px 12px 0 0', overflow: 'hidden', background: `linear-gradient(135deg,${bgDark} 0%,${bgLight} 100%)` }}>
-        {phyloPicUrl && !imgErrors['phylopic'] && <img src={phyloPicUrl} alt={`${animalName} silhouette`} onError={() => handleImgError('phylopic')} style={{ position: 'absolute', right: 40, top: '50%', transform: 'translateY(-50%)', height: 120, opacity: 0.35, filter: 'brightness(0)', objectFit: 'contain' }} />}
-        {wikiImageUrl && !imgErrors['wiki-header'] && <img src={wikiImageUrl} alt={animalName} onError={() => handleImgError('wiki-header')} style={{ position: 'absolute', left: 0, top: 0, width: '45%', height: '100%', objectFit: 'cover', opacity: 0.25 }} />}
-        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg,rgba(0,0,0,0.5) 0%,transparent 60%)' }} />
+        {wikiImageUrl && !imgErrors['wiki-header'] && <img src={wikiImageUrl} alt={animalName} onError={() => handleImgError('wiki-header')} style={{ position: 'absolute', right: 0, top: 0, width: '50%', height: '100%', objectFit: 'cover', opacity: 0.42 }} />}
+        {phyloPicUrl && !imgErrors['phylopic'] && <img src={phyloPicUrl} alt={`${animalName} silhouette`} onError={() => handleImgError('phylopic')} style={{ position: 'absolute', right: 20, top: '50%', transform: 'translateY(-50%)', height: 115, opacity: 0.48, filter: 'brightness(0)', objectFit: 'contain' }} />}
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg,rgba(0,0,0,0.76) 40%,rgba(0,0,0,0.18) 100%)' }} />
         <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '16px 20px', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
           <div>
             <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.6)', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 4 }}>{region} Region · Seed #{card?.seed || ''}</div>
@@ -1031,7 +1031,7 @@ function PrivacyPolicyPage({ onBack }) {
   const bodyColor = '#3A3028';
   const strongColor = '#1A1208';
   return (
-    <div style={{ minHeight: '100vh', background: '#E8E2D8', color: '#1A1208', fontFamily: "'Public Sans', sans-serif", padding: '40px 20px' }}>
+    <div style={{ minHeight: '100dvh', background: '#E8E2D8', color: '#1A1208', fontFamily: "'Public Sans', sans-serif", padding: '40px 20px' }}>
       <div style={{ maxWidth: 760, margin: '0 auto' }}>
         <button onClick={onBack} style={{ background: '#F4EFE6', border: '2px solid rgba(9,24,40,0.20)', borderRadius: 10, padding: '7px 16px', color: '#3A3028', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', marginBottom: 32, boxShadow: '3px 4px 10px rgba(9,24,40,0.10)' }}>← Back</button>
         <h1 style={{ fontFamily: "'Libre Bodoni', serif", color: MINT_FG, marginBottom: 4, fontSize: 32 }}>Privacy Policy</h1>
@@ -1077,7 +1077,7 @@ function PrivacyPolicyPage({ onBack }) {
 // ── TERMS OF SERVICE ──────────────────────────────────────────────────────────
 function TermsOfServicePage({ onBack }) {
   return (
-    <div style={{ minHeight: '100vh', background: '#E8E2D8', color: '#1A1208', fontFamily: "'Public Sans', sans-serif", padding: '40px 20px' }}>
+    <div style={{ minHeight: '100dvh', background: '#E8E2D8', color: '#1A1208', fontFamily: "'Public Sans', sans-serif", padding: '40px 20px' }}>
       <div style={{ maxWidth: 760, margin: '0 auto' }}>
         <button onClick={onBack} style={{ background: '#F4EFE6', border: '2px solid rgba(9,24,40,0.20)', borderRadius: 10, padding: '7px 16px', color: '#3A3028', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', marginBottom: 32, boxShadow: '3px 4px 10px rgba(9,24,40,0.10)' }}>← Back</button>
         <h1 style={{ fontFamily: "'Libre Bodoni', serif", color: MINT_FG, marginBottom: 4, fontSize: 32 }}>Terms of Service</h1>
@@ -1854,7 +1854,7 @@ if (game.winner?.name === clicked.name) {
 
   // ── BRACKET RENDER ────────────────────────────────────────────────────────
   const renderBracket = (isMammal) => {
-    const CW = 240, SH = 120, FF_SCALE = 1.25;
+    const CW = 240, SH = 136, FF_SCALE = 1.25;
     const FF_W = Math.round(CW * FF_SCALE), FF_H = Math.round(SH * FF_SCALE);
     const CHAMP_BOX_H = 30 + Math.round(FF_H * 0.75) + 32 + 20;
     const SPINE_H = CHAMP_BOX_H + 16;
@@ -1875,10 +1875,10 @@ if (game.winner?.name === clicked.name) {
     const champGold     = isMammal ? '#86efac' : '#C4952A';
 
     const ROUND_ABS = [
-      [0,120,240,360,480,600,720,840],
-      [60,300,540,780],
-      [180,660],
-      [420],
+      [0,136,272,408,544,680,816,952],
+      [68,340,612,884],
+      [204,748],
+      [476],
     ];
 
     // Completion bar
@@ -2149,7 +2149,7 @@ if (game.winner?.name === clicked.name) {
 
   // ── LOADING SCREEN ────────────────────────────────────────────────────────
   if (uid && (!appReady || !profileLoaded)) return (
-    <div style={{ ...S.app, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
+    <div style={{ ...S.app, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100dvh' }}>
       <div style={{ width: 260, display: 'flex', flexDirection: 'column', gap: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 4 }}>
           <div className="mm-skeleton" style={{ width: 40, height: 40, borderRadius: '50%', flexShrink: 0 }} />
@@ -2168,7 +2168,7 @@ if (game.winner?.name === clicked.name) {
   // ── ONBOARDING SCREEN ─────────────────────────────────────────────────────
   const SCHOOLS = ['Hart', 'Van Hoosen', 'Reuther', 'West'];
   if (uid && appReady && profileLoaded && !school && !isAdmin) return (
-    <div style={{ ...S.app, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', gap: 32, padding: '0 16px' }}>
+    <div style={{ ...S.app, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100dvh', gap: 32, padding: '0 16px' }}>
       <div style={{ textAlign: 'center' }}>
         <h1 style={{ fontFamily: "'Libre Bodoni', serif", fontSize: 36, fontWeight: 700, color: NAVY, marginBottom: 8, textWrap: 'balance' }}>
           Welcome, {displayName.split(' ')[0]}!
@@ -2219,7 +2219,7 @@ if (game.winner?.name === clicked.name) {
       <div style={{
         ...S.app,
         display: 'flex', flexDirection: 'column', alignItems: 'center',
-        justifyContent: 'center', gap: 36, minHeight: '100vh',
+        justifyContent: 'center', gap: 36, minHeight: '100dvh',
         backgroundImage: 'radial-gradient(rgba(9,24,40,0.04) 1.5px, transparent 1.5px)',
         backgroundSize: '24px 24px',
         animation: 'bgDrift 20s linear infinite',
@@ -2352,7 +2352,7 @@ if (game.winner?.name === clicked.name) {
 
         <header style={S.header}>
           <div style={S.logo}>MARCH MADNESS {tournamentYear}</div>
-          <nav style={{ display: 'flex', gap: 4 }}>
+          <nav aria-label="Main navigation" style={{ display: 'flex', gap: 4 }}>
             {tabs.map(t => <button key={t.id} style={S.navBtn(tab === t.id)} onClick={() => setTab(t.id)}>{t.label}</button>)}
           </nav>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -2405,12 +2405,22 @@ if (game.winner?.name === clicked.name) {
               <TournamentSelector />
               {activeTournament === 'basketball' && (
                 <>
-                  <h2 style={{ fontFamily: "'Libre Bodoni', serif", color: MINT_FG, marginBottom: 6 }}>Team Research Hub</h2>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                    <h2 style={{ fontFamily: "'Libre Bodoni', serif", color: MINT_FG, margin: 0 }}>Team Research Hub</h2>
+                    {allTeamNames.length > 0 && (
+                      <button
+                        onClick={() => setComparePicking(p => !p)}
+                        disabled={!selectedTeam}
+                        style={{ ...S.btn(comparePicking ? 'rgba(9,24,40,0.10)' : NAVY, comparePicking ? '#1A1208' : '#fff'), padding: '7px 18px', fontSize: 13, opacity: selectedTeam ? 1 : 0.35 }}>
+                        {comparePicking ? 'Cancel Compare' : 'Compare Teams'}
+                      </button>
+                    )}
+                  </div>
                   {generating && (
-                    <div style={{ ...S.card, marginBottom: 16, borderColor: 'rgba(99,102,241,0.4)' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}><span style={{ color: '#6366f1', fontSize: 14, fontWeight: 700 }}>Generating research...</span><span style={{ color: '#888', fontSize: 13 }}>{genProgress.done} / {genProgress.total}</span></div>
-                      <div style={{ height: 6, background: 'rgba(255,255,255,0.06)', borderRadius: 3, overflow: 'hidden' }}><div style={{ height: '100%', background: '#6366f1', borderRadius: 3, width: `${genProgress.total ? (genProgress.done / genProgress.total) * 100 : 0}%`, transition: 'width 0.3s' }} /></div>
-                      {genProgress.current && <div style={{ fontSize: 12, color: '#999', marginTop: 6 }}>Currently: {genProgress.current}</div>}
+                    <div style={{ ...S.card, marginBottom: 16 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}><span style={{ color: NAVY, fontSize: 14, fontWeight: 700 }}>Generating research...</span><span style={{ color: '#7A7068', fontSize: 13 }}>{genProgress.done} / {genProgress.total}</span></div>
+                      <div style={{ height: 6, background: 'rgba(9,24,40,0.08)', borderRadius: 3, overflow: 'hidden' }}><div style={{ height: '100%', background: NAVY, borderRadius: 3, width: `${genProgress.total ? (genProgress.done / genProgress.total) * 100 : 0}%`, transition: 'width 0.3s' }} /></div>
+                      {genProgress.current && <div style={{ fontSize: 12, color: '#7A7068', marginTop: 6 }}>Currently: {genProgress.current}</div>}
                     </div>
                   )}
                   {genError && <div style={{ marginBottom: 16, padding: '10px 14px', borderRadius: 8, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', fontSize: 13, color: '#f87171', display: 'flex', alignItems: 'center', gap: 6 }}><AlertTriangle size={13} />{genError}</div>}
@@ -2439,22 +2449,14 @@ if (game.winner?.name === clicked.name) {
                             ))
                         }
                       </div>
-                      {selectedTeam && !comparePicking && (
-                        <div style={{ marginBottom: 12 }}>
-                          <button style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', color: '#888', padding: '5px 16px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12 }} onClick={() => setComparePicking(true)}>
-                            Compare with another team
-                          </button>
-                        </div>
-                      )}
                       {comparePicking && (
-                        <div style={{ background: 'rgba(99,102,241,0.07)', border: '1px solid rgba(99,102,241,0.25)', borderRadius: 10, padding: '14px 16px', marginBottom: 16 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                            <span style={{ fontSize: 13, color: '#a5b4fc' }}>Select a team to compare with <strong style={{ color: '#4ade80' }}>{selectedTeam}</strong></span>
-                            <button style={{ background: 'rgba(255,255,255,0.07)', border: 'none', color: '#888', padding: '4px 12px', borderRadius: 6, cursor: 'pointer', fontFamily: 'inherit', fontSize: 11 }} onClick={() => setComparePicking(false)}>Cancel</button>
+                        <div style={{ background: 'rgba(9,24,40,0.04)', border: '1px solid rgba(9,24,40,0.14)', borderRadius: 10, padding: '14px 16px', marginBottom: 16 }}>
+                          <div style={{ marginBottom: 10 }}>
+                            <span style={{ fontSize: 13, color: '#3A3028' }}>Pick a team to compare with <strong style={{ color: MINT_FG }}>{selectedTeam}</strong></span>
                           </div>
                           <div style={{ display: 'flex', gap: 4, overflowX: 'auto', marginBottom: 10, paddingBottom: 2 }}>
                             {['East','West','South','Midwest'].map(r => (
-                              <button key={r} style={{ background: bbActiveRegion === r ? 'rgba(22,163,74,0.2)' : 'rgba(255,255,255,0.04)', border: `1px solid ${bbActiveRegion === r ? 'rgba(22,163,74,0.4)' : 'rgba(255,255,255,0.08)'}`, color: bbActiveRegion === r ? '#4ade80' : '#888', padding: '5px 14px', borderRadius: 6, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, flexShrink: 0 }} onClick={() => setBbActiveRegion(r)}>
+                              <button key={r} style={{ ...S.navBtn(bbActiveRegion === r), borderBottom: bbActiveRegion === r ? `2px solid ${RC[r]}` : '2px solid transparent', borderRadius: '6px 6px 0 0', padding: '6px 14px', fontSize: 12, flexShrink: 0 }} onClick={() => setBbActiveRegion(r)}>
                                 {bbRegionNames[r] || r}
                               </button>
                             ))}
@@ -2463,7 +2465,7 @@ if (game.winner?.name === clicked.name) {
                             {(bbTeamsByRegion[bbActiveRegion] || []).filter(t => t.name !== selectedTeam).map(t => {
                               const teamAObj = Object.values(bbTeamsByRegion).flat().find(x => x.name === selectedTeam) || { name: selectedTeam, seed: '?' };
                               return (
-                                <button key={t.name} style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', color: '#aaa', padding: '5px 12px', borderRadius: 6, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12 }}
+                                <button key={t.name} style={{ ...S.btn('rgba(9,24,40,0.06)', '#3A3028'), padding: '5px 12px', fontSize: 12 }}
                                   onClick={() => { setCompareModal({ teamA: teamAObj, teamB: t, cardA: researchData[selectedTeam] ?? null, cardB: researchData[t.name] ?? null, isMammal: false }); setComparePicking(false); }}>
                                   #{t.seed} {t.name}
                                 </button>
@@ -2472,7 +2474,11 @@ if (game.winner?.name === clicked.name) {
                           </div>
                         </div>
                       )}
-                      {selectedTeam && <ResearchCard teamName={selectedTeam} card={researchData[selectedTeam]} isAdmin={isAdmin} onFieldSave={handleResearchFieldSave} />}
+                      {selectedTeam && (
+                        <div style={{ borderTop: '2px solid rgba(9,24,40,0.10)', paddingTop: 28, marginTop: 8 }}>
+                          <ResearchCard teamName={selectedTeam} card={researchData[selectedTeam]} isAdmin={isAdmin} onFieldSave={handleResearchFieldSave} />
+                        </div>
+                      )}
                     </>
                   )}
                 </>
@@ -2482,7 +2488,7 @@ if (game.winner?.name === clicked.name) {
                   {Object.keys(mammalBattleVideos).filter(k => mammalBattleVideos[k]).length > 0 && (
                     <div style={{ marginBottom: 32 }}>
                       <h3 style={{ fontFamily: "'Libre Bodoni', serif", color: GREEN, marginBottom: 16, fontSize: 20 }}>Mammal Battle Videos</h3>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(440px, 1fr))', gap: 16 }}>
                         {Object.entries(mammalBattleVideos)
                           .filter(([, val]) => val)
                           .map(([round, videoId]) => (
@@ -2503,11 +2509,21 @@ if (game.winner?.name === clicked.name) {
                       </div>
                     </div>
                   )}
-                  <h2 style={{ fontFamily: "'Libre Bodoni', serif", color: '#86efac', marginBottom: 6 }}>Animal Research Hub</h2>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                    <h2 style={{ fontFamily: "'Libre Bodoni', serif", color: GREEN, margin: 0 }}>Animal Research Hub</h2>
+                    {allAnimalNames.length > 0 && (
+                      <button
+                        onClick={() => setComparePicking(p => !p)}
+                        disabled={!mammalSelectedAnimal}
+                        style={{ ...S.btn(comparePicking ? 'rgba(26,67,50,0.12)' : GREEN, comparePicking ? '#1A1208' : '#fff'), padding: '7px 18px', fontSize: 13, opacity: mammalSelectedAnimal ? 1 : 0.35 }}>
+                        {comparePicking ? 'Cancel Compare' : 'Compare Animals'}
+                      </button>
+                    )}
+                  </div>
                   {mammalGenerating && (
-                    <div style={{ ...S.card, marginBottom: 16, borderColor: 'rgba(134,239,172,0.3)' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}><span style={{ color: '#86efac', fontSize: 14, fontWeight: 700 }}>Generating animal facts...</span><span style={{ color: '#888', fontSize: 13 }}>{mammalGenProgress.done} / {mammalGenProgress.total}</span></div>
-                      <div style={{ height: 6, background: 'rgba(255,255,255,0.06)', borderRadius: 3, overflow: 'hidden' }}><div style={{ height: '100%', background: '#86efac', borderRadius: 3, width: `${mammalGenProgress.total ? (mammalGenProgress.done / mammalGenProgress.total) * 100 : 0}%`, transition: 'width 0.3s' }} /></div>
+                    <div style={{ ...S.card, marginBottom: 16 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}><span style={{ color: GREEN, fontSize: 14, fontWeight: 700 }}>Generating animal facts...</span><span style={{ color: '#7A7068', fontSize: 13 }}>{mammalGenProgress.done} / {mammalGenProgress.total}</span></div>
+                      <div style={{ height: 6, background: 'rgba(9,24,40,0.08)', borderRadius: 3, overflow: 'hidden' }}><div style={{ height: '100%', background: GREEN, borderRadius: 3, width: `${mammalGenProgress.total ? (mammalGenProgress.done / mammalGenProgress.total) * 100 : 0}%`, transition: 'width 0.3s' }} /></div>
                     </div>
                   )}
                   {mammalGenError && <div style={{ marginBottom: 16, padding: '10px 14px', borderRadius: 8, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', fontSize: 13, color: '#f87171', display: 'flex', alignItems: 'center', gap: 6 }}><AlertTriangle size={13} />{mammalGenError}</div>}
@@ -2526,28 +2542,20 @@ if (game.winner?.name === clicked.name) {
                         {(mammalAnimalsByRegion[mammalActiveRegion] || []).length === 0
                           ? <div style={{ color: '#666', fontSize: 13, fontStyle: 'italic' }}>No animals in this region yet.</div>
                           : (mammalAnimalsByRegion[mammalActiveRegion] || []).map(a => (
-                              <button key={a.name} style={{ ...S.btn(mammalSelectedAnimal === a.name ? '#16a34a' : 'rgba(255,255,255,0.05)', mammalSelectedAnimal === a.name ? '#fff' : '#aaa'), padding: '7px 16px', fontSize: 13 }} onClick={() => { setMammalSelectedAnimal(a.name); setComparePicking(false); }}>
+                              <button key={a.name} style={{ ...S.btn(mammalSelectedAnimal === a.name ? GREEN : 'rgba(9,24,40,0.06)', mammalSelectedAnimal === a.name ? '#fff' : '#7A7068'), padding: '7px 16px', fontSize: 13 }} onClick={() => { setMammalSelectedAnimal(a.name); setComparePicking(false); }}>
                                 #{a.seed} {a.name}
                               </button>
                             ))
                         }
                       </div>
-                      {mammalSelectedAnimal && !comparePicking && (
-                        <div style={{ marginBottom: 12 }}>
-                          <button style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', color: '#888', padding: '5px 16px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12 }} onClick={() => setComparePicking(true)}>
-                            Compare with another animal
-                          </button>
-                        </div>
-                      )}
                       {comparePicking && (
-                        <div style={{ background: 'rgba(134,239,172,0.05)', border: '1px solid rgba(134,239,172,0.2)', borderRadius: 10, padding: '14px 16px', marginBottom: 16 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                            <span style={{ fontSize: 13, color: '#86efac' }}>Select an animal to compare with <strong style={{ color: '#86efac' }}>{mammalSelectedAnimal}</strong></span>
-                            <button style={{ background: 'rgba(255,255,255,0.07)', border: 'none', color: '#888', padding: '4px 12px', borderRadius: 6, cursor: 'pointer', fontFamily: 'inherit', fontSize: 11 }} onClick={() => setComparePicking(false)}>Cancel</button>
+                        <div style={{ background: 'rgba(26,67,50,0.05)', border: '1px solid rgba(26,67,50,0.18)', borderRadius: 10, padding: '14px 16px', marginBottom: 16 }}>
+                          <div style={{ marginBottom: 10 }}>
+                            <span style={{ fontSize: 13, color: '#3A3028' }}>Pick an animal to compare with <strong style={{ color: GREEN }}>{mammalSelectedAnimal}</strong></span>
                           </div>
                           <div style={{ display: 'flex', gap: 4, overflowX: 'auto', marginBottom: 10, paddingBottom: 2 }}>
                             {['East','West','South','Midwest'].map(r => (
-                              <button key={r} style={{ background: mammalActiveRegion === r ? 'rgba(134,239,172,0.15)' : 'rgba(255,255,255,0.04)', border: `1px solid ${mammalActiveRegion === r ? 'rgba(134,239,172,0.4)' : 'rgba(255,255,255,0.08)'}`, color: mammalActiveRegion === r ? '#86efac' : '#888', padding: '5px 14px', borderRadius: 6, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, flexShrink: 0 }} onClick={() => setMammalActiveRegion(r)}>
+                              <button key={r} style={{ ...S.navBtn(mammalActiveRegion === r), borderBottom: mammalActiveRegion === r ? '2px solid #86efac' : '2px solid transparent', borderRadius: '6px 6px 0 0', padding: '6px 14px', fontSize: 12, flexShrink: 0 }} onClick={() => setMammalActiveRegion(r)}>
                                 {mammalRegionNames[r] || r}
                               </button>
                             ))}
@@ -2556,7 +2564,7 @@ if (game.winner?.name === clicked.name) {
                             {(mammalAnimalsByRegion[mammalActiveRegion] || []).filter(a => a.name !== mammalSelectedAnimal).map(a => {
                               const animalAObj = Object.values(mammalAnimalsByRegion).flat().find(x => x.name === mammalSelectedAnimal) || { name: mammalSelectedAnimal, seed: '?' };
                               return (
-                                <button key={a.name} style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', color: '#aaa', padding: '5px 12px', borderRadius: 6, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12 }}
+                                <button key={a.name} style={{ ...S.btn('rgba(26,67,50,0.08)', '#3A3028'), padding: '5px 12px', fontSize: 12 }}
                                   onClick={() => { setCompareModal({ teamA: animalAObj, teamB: a, cardA: mammalResearchData[mammalSelectedAnimal] ?? null, cardB: mammalResearchData[a.name] ?? null, isMammal: true }); setComparePicking(false); }}>
                                   #{a.seed} {a.name}
                                 </button>
@@ -2565,7 +2573,11 @@ if (game.winner?.name === clicked.name) {
                           </div>
                         </div>
                       )}
-                      {mammalSelectedAnimal && <MammalResearchCard animalName={mammalSelectedAnimal} card={mammalResearchData[mammalSelectedAnimal]} isAdmin={isAdmin} onFieldSave={handleMammalResearchFieldSave} generating={mammalGeneratingOne === mammalSelectedAnimal} onGenerate={handleGenerateOneMammal} />}
+                      {mammalSelectedAnimal && (
+                        <div style={{ borderTop: '2px solid rgba(26,67,50,0.15)', paddingTop: 28, marginTop: 8 }}>
+                          <MammalResearchCard animalName={mammalSelectedAnimal} card={mammalResearchData[mammalSelectedAnimal]} isAdmin={isAdmin} onFieldSave={handleMammalResearchFieldSave} generating={mammalGeneratingOne === mammalSelectedAnimal} onGenerate={handleGenerateOneMammal} />
+                        </div>
+                      )}
                     </>
                   )}
                 </>
