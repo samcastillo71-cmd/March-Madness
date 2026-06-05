@@ -714,6 +714,7 @@ function TeamEntryPanel({ onTeamsSaved, onRequestGenerateResearch, regionNames, 
   const [showCsv,       setShowCsv]      = useState(false);
   const [csvText,       setCsvText]      = useState('');
   const [csvErrors,     setCsvErrors]    = useState([]);
+  const [actionError,   setActionError]  = useState('');
 
   useEffect(() => {
     (async () => {
@@ -791,8 +792,8 @@ function TeamEntryPanel({ onTeamsSaved, onRequestGenerateResearch, regionNames, 
             <span style={{ fontSize: 12, color: '#888' }}>Year:</span>
             <input type="number" value={roster.year} onChange={e => { setRoster(p => ({ ...p, year: parseInt(e.target.value) })); setSaved(false); }} style={{ ...S.input, width: 82, padding: '6px 10px', fontSize: 13 }} />
           </div>
-          <button style={{ ...S.btn(saved ? MINT_FG : NAVY, '#fff'), padding: '8px 20px', fontSize: 13 }} onClick={async () => { setSaving(true); try { await setDoc(doc(db, 'admin', 'teamRoster'), { ...roster, _regionNames: regionNames, updatedAt: serverTimestamp() }); setSaved(true); } catch(e) { alert('Save failed: ' + e.message); } setSaving(false); }} disabled={saving}>{saving ? 'Saving...' : saved ? 'Roster Saved ✓' : 'Save Roster'}</button>
-          {saved && <button style={{ ...S.btn(applied ? '#22c55e' : '#f59e0b', '#000'), padding: '8px 20px', fontSize: 13 }} onClick={async () => { setApplying(true); try { const nb = buildInitialBracketFromTeams(roster); await saveOfficialBracket(nb); setApplied(true); onTeamsSaved(nb, roster); } catch(e) { alert('Apply failed: ' + e.message); } setApplying(false); }} disabled={applying}>{applying ? 'Applying...' : applied ? 'Applied! ✓' : 'Apply to Bracket'}</button>}
+          <button style={{ ...S.btn(saved ? MINT_FG : NAVY, '#fff'), padding: '8px 20px', fontSize: 13 }} onClick={async () => { setSaving(true); try { await setDoc(doc(db, 'admin', 'teamRoster'), { ...roster, _regionNames: regionNames, updatedAt: serverTimestamp() }); setSaved(true); setActionError(''); } catch(e) { setActionError('Save failed: ' + e.message); } setSaving(false); }} disabled={saving}>{saving ? 'Saving...' : saved ? 'Roster Saved ✓' : 'Save Roster'}</button>
+          {saved && <button style={{ ...S.btn(applied ? '#22c55e' : '#f59e0b', '#000'), padding: '8px 20px', fontSize: 13 }} onClick={async () => { setApplying(true); try { const nb = buildInitialBracketFromTeams(roster); await saveOfficialBracket(nb); setApplied(true); setActionError(''); onTeamsSaved(nb, roster); } catch(e) { setActionError('Apply failed: ' + e.message); } setApplying(false); }} disabled={applying}>{applying ? 'Applying...' : applied ? 'Applied! ✓' : 'Apply to Bracket'}</button>}
           {applied && (
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
               <span style={{ fontSize: 11, color: '#999', alignSelf: 'center' }}>Generate Research:</span>
@@ -803,6 +804,11 @@ function TeamEntryPanel({ onTeamsSaved, onRequestGenerateResearch, regionNames, 
           )}
         </div>
       </div>
+      {actionError && (
+        <div style={{ margin: '8px 0 0', padding: '8px 12px', borderRadius: 8, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', fontSize: 13, color: '#f87171', display: 'flex', alignItems: 'center', gap: 6 }}>
+          <AlertTriangle size={13} />{actionError}
+        </div>
+      )}
 
       {/* ── IMPORT OPTIONS ── */}
       <div style={{ ...S.card, marginBottom: 16, background: 'rgba(9,24,40,0.04)', borderColor: 'rgba(9,24,40,0.12)' }}>
@@ -968,6 +974,7 @@ function MammalEntryPanel({ onAnimalsSaved, onRequestGenerateMammalResearch, onR
   const [saving, setSaving] = useState(false); const [saved, setSaved] = useState(false);
   const [applying, setApplying] = useState(false); const [applied, setApplied] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [actionError, setActionError] = useState('');
   useEffect(() => {
     (async () => {
       try {
@@ -996,8 +1003,8 @@ function MammalEntryPanel({ onAnimalsSaved, onRequestGenerateMammalResearch, onR
           </div>
         </div>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          <button style={{ ...S.btn(saved ? MINT_FG : NAVY, '#fff'), padding: '8px 20px', fontSize: 13 }} onClick={async () => { setSaving(true); try { await saveMammalRoster({ ...roster, _regionNames: regionNames }); setSaved(true); } catch(e) { alert('Save failed: ' + e.message); } setSaving(false); }} disabled={saving}>{saving ? 'Saving...' : saved ? 'Saved' : 'Save Roster'}</button>
-          <button style={{ ...S.btn(applied ? '#22c55e' : '#f59e0b', '#000'), padding: '8px 20px', fontSize: 13 }} onClick={async () => { setApplying(true); try { const nb = buildInitialBracketFromTeams(roster); await saveMammalOfficialBracket(nb); setApplied(true); onAnimalsSaved(nb, roster); } catch(e) { alert('Apply failed: ' + e.message); } setApplying(false); }} disabled={applying}>{applying ? 'Applying...' : applied ? 'Applied!' : 'Apply to Bracket'}</button>
+          <button style={{ ...S.btn(saved ? MINT_FG : NAVY, '#fff'), padding: '8px 20px', fontSize: 13 }} onClick={async () => { setSaving(true); try { await saveMammalRoster({ ...roster, _regionNames: regionNames }); setSaved(true); setActionError(''); } catch(e) { setActionError('Save failed: ' + e.message); } setSaving(false); }} disabled={saving}>{saving ? 'Saving...' : saved ? 'Saved' : 'Save Roster'}</button>
+          <button style={{ ...S.btn(applied ? '#22c55e' : '#f59e0b', '#000'), padding: '8px 20px', fontSize: 13 }} onClick={async () => { setApplying(true); try { const nb = buildInitialBracketFromTeams(roster); await saveMammalOfficialBracket(nb); setApplied(true); setActionError(''); onAnimalsSaved(nb, roster); } catch(e) { setActionError('Apply failed: ' + e.message); } setApplying(false); }} disabled={applying}>{applying ? 'Applying...' : applied ? 'Applied!' : 'Apply to Bracket'}</button>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
               <span style={{ fontSize: 11, color: '#999', alignSelf: 'center', minWidth: 100 }}>Generate Facts:</span>
@@ -1014,6 +1021,11 @@ function MammalEntryPanel({ onAnimalsSaved, onRequestGenerateMammalResearch, onR
           </div>
         </div>
       </div>
+      {actionError && (
+        <div style={{ margin: '0 0 10px', padding: '8px 12px', borderRadius: 8, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', fontSize: 13, color: '#f87171', display: 'flex', alignItems: 'center', gap: 6 }}>
+          <AlertTriangle size={13} />{actionError}
+        </div>
+      )}
       <div style={{ display: 'flex', gap: 4, marginBottom: 16 }}>
         {['East','West','South','Midwest'].map(r => (
           <button key={r} style={{ ...S.navBtn(activeRegion === r), borderBottom: activeRegion === r ? `2px solid ${RC[r]}` : '2px solid transparent', borderRadius: '6px 6px 0 0', padding: '8px 18px' }} onClick={() => setActiveRegion(r)}>
@@ -1201,9 +1213,12 @@ export default function App() {
   const [firstFourPicks,   setFirstFourPicks]  = useState({});
   const [ffPlaceholders,   setFfPlaceholders]  = useState({});
   const [tournamentYear,   setTournamentYear]  = useState(CURRENT_YEAR);
-  const [yearDraft,        setYearDraft]       = useState(String(CURRENT_YEAR));
-  const [yearSaving,       setYearSaving]      = useState(false);
-  const [liveScores,       setLiveScores]      = useState({});
+  const [yearDraft,          setYearDraft]          = useState(String(CURRENT_YEAR));
+  const [yearSaving,         setYearSaving]         = useState(false);
+  const [yearSaveError,      setYearSaveError]      = useState('');
+  const [teacherRosterError, setTeacherRosterError] = useState('');
+  const [markTeacherMsg,     setMarkTeacherMsg]     = useState(null);
+  const [liveScores,         setLiveScores]         = useState({});
   const [activeTournament, setActiveTournament] = useState('basketball');
   const [confirmDialog,    setConfirmDialog]   = useState(null);
   const [bbRegionNames,    setBbRegionNames]   = useState({ East: 'East', West: 'West', South: 'South', Midwest: 'Midwest' });
@@ -1742,7 +1757,7 @@ if (game.winner?.name === clicked.name) {
     const yr = parseInt(yearDraft);
     if (!yr || yr < 2000 || yr > 2100) return;
     setYearSaving(true);
-    try { await setDoc(doc(db, 'tournament', 'config'), { year: yr }, { merge: true }); setTournamentYear(yr); } catch (e) { alert('Failed: ' + e.message); }
+    try { await setDoc(doc(db, 'tournament', 'config'), { year: yr }, { merge: true }); setTournamentYear(yr); setYearSaveError(''); } catch (e) { setYearSaveError(e.message); }
     setYearSaving(false);
   };
 
@@ -2785,6 +2800,11 @@ if (game.winner?.name === clicked.name) {
               {/* Student Roster */}
               {teacherActiveView === 'roster' && (
                 <div>
+                  {teacherRosterError && (
+                    <div style={{ marginBottom: 12, padding: '8px 12px', borderRadius: 8, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', fontSize: 13, color: '#f87171', display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <AlertTriangle size={13} />{teacherRosterError}
+                    </div>
+                  )}
                   {teacherRosterLoading
                     ? <div style={{ textAlign: 'center', color: '#7A7068', padding: 40 }}>Loading roster...</div>
                     : teacherRosterStudents.length === 0
@@ -2824,8 +2844,9 @@ if (game.winner?.name === clicked.name) {
                                   try {
                                     await callTeacherAction('editSchool', { school: newSchool });
                                     setTeacherRosterStudents(prev => prev.map(s => s.uid === student.uid ? { ...s, school: newSchool } : s));
+                                    setTeacherRosterError('');
                                   } catch (err) {
-                                    alert(`Could not update school: ${err.message}`);
+                                    setTeacherRosterError(`Could not update school: ${err.message}`);
                                     e.target.value = student.school;
                                   }
                                 }}
@@ -2836,8 +2857,8 @@ if (game.winner?.name === clicked.name) {
                               <button onClick={() => {
                                 if (!window.confirm(`Remove ${studentName}? This deletes their bracket and score.`)) return;
                                 callTeacherAction('removeStudent')
-                                  .then(() => setTeacherRosterStudents(prev => prev.filter(s => s.uid !== student.uid)))
-                                  .catch(err => alert(`Could not remove student: ${err.message}`));
+                                  .then(() => { setTeacherRosterStudents(prev => prev.filter(s => s.uid !== student.uid)); setTeacherRosterError(''); })
+                                  .catch(err => setTeacherRosterError(`Could not remove student: ${err.message}`));
                               }} style={{ ...S.btn('#c0392b'), padding: '4px 10px', fontSize: 11 }}>Remove</button>
                             </div>
                           );
@@ -2902,6 +2923,11 @@ if (game.winner?.name === clicked.name) {
                       <button style={{ ...S.btn(NAVY, '#fff'), padding: '8px 20px' }} onClick={handleSaveYear} disabled={yearSaving}>{yearSaving ? 'Saving...' : 'Update Year'}</button>
                       <span style={{ fontSize: 12, color: '#7A7068' }}>Currently: <strong style={{ color: NAVY }}>{tournamentYear}</strong></span>
                     </div>
+                    {yearSaveError && (
+                      <div style={{ marginTop: 8, padding: '8px 12px', borderRadius: 8, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', fontSize: 13, color: '#f87171', display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <AlertTriangle size={13} />Year update failed: {yearSaveError}
+                      </div>
+                    )}
                   </div>
                   <div style={{ ...S.card, borderColor: 'rgba(9,24,40,0.15)', marginBottom: 16 }}>
                     <p style={{ color: '#7A7068', fontSize: 13, margin: 0 }}>Admin access is now email-based. Manage admins and teachers in the <strong style={{ color: NAVY }}>People</strong> sub-tab.</p>
@@ -3051,12 +3077,17 @@ if (game.winner?.name === clicked.name) {
                         const name = document.getElementById('teacher-name').value.trim();
                         if (!name) return;
                         const match = leaderboard.find(e => e.displayName?.toLowerCase() === name.toLowerCase());
-                        if (!match) { alert('User not found on leaderboard.'); return; }
+                        if (!match) { setMarkTeacherMsg({ type: 'error', text: 'User not found on leaderboard.' }); return; }
                         await setDoc(doc(db, 'leaderboard', match.uid), { isTeacher: true }, { merge: true });
                         document.getElementById('teacher-name').value = '';
-                        alert(`${match.displayName} marked as Teacher.`);
+                        setMarkTeacherMsg({ type: 'success', text: `${match.displayName} marked as Teacher.` });
                       }}>Mark as Teacher</button>
                     </div>
+                    {markTeacherMsg && (
+                      <div style={{ marginTop: 8, padding: '8px 12px', borderRadius: 8, background: markTeacherMsg.type === 'error' ? 'rgba(239,68,68,0.1)' : 'rgba(34,197,94,0.1)', border: `1px solid ${markTeacherMsg.type === 'error' ? 'rgba(239,68,68,0.3)' : 'rgba(34,197,94,0.3)'}`, fontSize: 13, color: markTeacherMsg.type === 'error' ? '#f87171' : '#22c55e', display: 'flex', alignItems: 'center', gap: 6 }}>
+                        {markTeacherMsg.type === 'error' && <AlertTriangle size={13} />}{markTeacherMsg.text}
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
