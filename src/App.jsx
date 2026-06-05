@@ -26,7 +26,7 @@ import {
   getAllUsers, updateUserSchool,
 } from './firestoreService';
 import {
-  CURRENT_YEAR, buildInitialBracket, buildInitialBracketFromTeams, calcScore,
+  CURRENT_YEAR, buildInitialBracket, buildInitialBracketFromTeams, calcScore, R64_SEED_MATCHUPS,
 } from './bracketData';
 
 // ── THEME ─────────────────────────────────────────────────────────────────────
@@ -368,8 +368,19 @@ function ResearchCard({ teamName, card, isAdmin, onFieldSave }) {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 16 }}>
         <div style={S.card}>
           <h3 style={{ color: MINT_FG, marginBottom: 14, fontFamily: "'Libre Bodoni', serif" }}>Team Stats</h3>
+          <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 8 }}>
+            {[['Rank','rank'],['KenPom','kenpom'],['Offense','offense'],['Defense','defense'],['Pace','pace']].map(([label, key]) => (
+              <div key={key} style={{ background: 'rgba(9,24,40,0.06)', borderRadius: 8, padding: '8px 10px', flex: '1 1 52px', minWidth: 52 }}>
+                <div style={{ fontSize: 9, color: '#7A7068', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 4, fontWeight: 700 }}>{label}</div>
+                {isAdmin
+                  ? <EditableField value={card[key]} onSave={v => onFieldSave(teamName, key, v)} label={key} />
+                  : <div style={{ fontSize: 18, fontWeight: 700, color: '#1A1208', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>{card[key] || '-'}</div>
+                }
+              </div>
+            ))}
+          </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-            {[['Rank','rank'],['Coach','coach'],['Conference','conference'],['KenPom','kenpom'],['Offense','offense'],['Defense','defense'],['Pace','pace']].map(([label, key]) => (
+            {[['Coach','coach'],['Conference','conference']].map(([label, key]) => (
               <div key={key} style={{ background: 'rgba(9,24,40,0.04)', borderRadius: 6, padding: '8px 12px' }}>
                 <div style={S.tag('#555')}>{label}</div>
                 {field(key, card[key], { label })}
@@ -2439,16 +2450,43 @@ if (game.winner?.name === clicked.name) {
                           </button>
                         ))}
                       </div>
-                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', margin: '14px 0 24px' }}>
-                        {(bbTeamsByRegion[bbActiveRegion] || []).length === 0
-                          ? <div style={{ color: '#666', fontSize: 13, fontStyle: 'italic' }}>No teams in this region yet.</div>
-                          : (bbTeamsByRegion[bbActiveRegion] || []).map(t => (
-                              <button key={t.name} style={{ ...S.btn(selectedTeam === t.name ? NAVY : 'rgba(9,24,40,0.06)', selectedTeam === t.name ? '#fff' : '#7A7068'), padding: '7px 16px', fontSize: 13 }} onClick={() => { setSelectedTeam(t.name); setComparePicking(false); }}>
-                                #{t.seed} {t.name}
-                              </button>
-                            ))
-                        }
-                      </div>
+                      {(() => {
+                        const regionTeams = bbTeamsByRegion[bbActiveRegion] || [];
+                        if (regionTeams.length === 0) return (
+                          <div style={{ margin: '14px 0 24px', color: '#666', fontSize: 13, fontStyle: 'italic' }}>No teams in this region yet.</div>
+                        );
+                        const bySeed = {};
+                        regionTeams.forEach(t => { if (!bySeed[t.seed]) bySeed[t.seed] = []; bySeed[t.seed].push(t); });
+                        return (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, margin: '14px 0 24px' }}>
+                            {R64_SEED_MATCHUPS.map(([seedA, seedB]) => {
+                              const sideA = bySeed[seedA] || [];
+                              const sideB = bySeed[seedB] || [];
+                              return (
+                                <div key={`${seedA}v${seedB}`} style={{ display: 'grid', gridTemplateColumns: '1fr 28px 1fr', gap: 4, alignItems: 'center' }}>
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                                    {sideA.map(t => (
+                                      <button key={t.name} style={{ ...S.btn(selectedTeam === t.name ? NAVY : 'rgba(9,24,40,0.06)', selectedTeam === t.name ? '#fff' : '#7A7068'), padding: '6px 10px', fontSize: 12, textAlign: 'left', width: '100%', boxShadow: selectedTeam === t.name ? '2px 2px 6px rgba(9,24,40,0.20)' : 'none' }}
+                                        onClick={() => { setSelectedTeam(t.name); setComparePicking(false); }}>
+                                        <span style={{ fontWeight: 700, fontSize: 10, opacity: 0.65, marginRight: 5 }}>#{t.seed}</span>{t.name}
+                                      </button>
+                                    ))}
+                                  </div>
+                                  <div style={{ textAlign: 'center', fontSize: 9, color: '#7A7068', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', userSelect: 'none' }}>vs</div>
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                                    {sideB.map(t => (
+                                      <button key={t.name} style={{ ...S.btn(selectedTeam === t.name ? NAVY : 'rgba(9,24,40,0.06)', selectedTeam === t.name ? '#fff' : '#7A7068'), padding: '6px 10px', fontSize: 12, textAlign: 'left', width: '100%', boxShadow: selectedTeam === t.name ? '2px 2px 6px rgba(9,24,40,0.20)' : 'none' }}
+                                        onClick={() => { setSelectedTeam(t.name); setComparePicking(false); }}>
+                                        <span style={{ fontWeight: 700, fontSize: 10, opacity: 0.65, marginRight: 5 }}>#{t.seed}</span>{t.name}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      })()}
                       {comparePicking && (
                         <div style={{ background: 'rgba(9,24,40,0.04)', border: '1px solid rgba(9,24,40,0.14)', borderRadius: 10, padding: '14px 16px', marginBottom: 16 }}>
                           <div style={{ marginBottom: 10 }}>
@@ -2538,16 +2576,43 @@ if (game.winner?.name === clicked.name) {
                           </button>
                         ))}
                       </div>
-                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', margin: '14px 0 24px' }}>
-                        {(mammalAnimalsByRegion[mammalActiveRegion] || []).length === 0
-                          ? <div style={{ color: '#666', fontSize: 13, fontStyle: 'italic' }}>No animals in this region yet.</div>
-                          : (mammalAnimalsByRegion[mammalActiveRegion] || []).map(a => (
-                              <button key={a.name} style={{ ...S.btn(mammalSelectedAnimal === a.name ? GREEN : 'rgba(9,24,40,0.06)', mammalSelectedAnimal === a.name ? '#fff' : '#7A7068'), padding: '7px 16px', fontSize: 13 }} onClick={() => { setMammalSelectedAnimal(a.name); setComparePicking(false); }}>
-                                #{a.seed} {a.name}
-                              </button>
-                            ))
-                        }
-                      </div>
+                      {(() => {
+                        const regionAnimals = mammalAnimalsByRegion[mammalActiveRegion] || [];
+                        if (regionAnimals.length === 0) return (
+                          <div style={{ margin: '14px 0 24px', color: '#666', fontSize: 13, fontStyle: 'italic' }}>No animals in this region yet.</div>
+                        );
+                        const bySeed = {};
+                        regionAnimals.forEach(a => { if (!bySeed[a.seed]) bySeed[a.seed] = []; bySeed[a.seed].push(a); });
+                        return (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, margin: '14px 0 24px' }}>
+                            {R64_SEED_MATCHUPS.map(([seedA, seedB]) => {
+                              const sideA = bySeed[seedA] || [];
+                              const sideB = bySeed[seedB] || [];
+                              return (
+                                <div key={`${seedA}v${seedB}`} style={{ display: 'grid', gridTemplateColumns: '1fr 28px 1fr', gap: 4, alignItems: 'center' }}>
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                                    {sideA.map(a => (
+                                      <button key={a.name} style={{ ...S.btn(mammalSelectedAnimal === a.name ? GREEN : 'rgba(9,24,40,0.06)', mammalSelectedAnimal === a.name ? '#fff' : '#7A7068'), padding: '6px 10px', fontSize: 12, textAlign: 'left', width: '100%', boxShadow: mammalSelectedAnimal === a.name ? '2px 2px 6px rgba(26,67,50,0.22)' : 'none' }}
+                                        onClick={() => { setMammalSelectedAnimal(a.name); setComparePicking(false); }}>
+                                        <span style={{ fontWeight: 700, fontSize: 10, opacity: 0.65, marginRight: 5 }}>#{a.seed}</span>{a.name}
+                                      </button>
+                                    ))}
+                                  </div>
+                                  <div style={{ textAlign: 'center', fontSize: 9, color: '#7A7068', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', userSelect: 'none' }}>vs</div>
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                                    {sideB.map(a => (
+                                      <button key={a.name} style={{ ...S.btn(mammalSelectedAnimal === a.name ? GREEN : 'rgba(9,24,40,0.06)', mammalSelectedAnimal === a.name ? '#fff' : '#7A7068'), padding: '6px 10px', fontSize: 12, textAlign: 'left', width: '100%', boxShadow: mammalSelectedAnimal === a.name ? '2px 2px 6px rgba(26,67,50,0.22)' : 'none' }}
+                                        onClick={() => { setMammalSelectedAnimal(a.name); setComparePicking(false); }}>
+                                        <span style={{ fontWeight: 700, fontSize: 10, opacity: 0.65, marginRight: 5 }}>#{a.seed}</span>{a.name}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      })()}
                       {comparePicking && (
                         <div style={{ background: 'rgba(26,67,50,0.05)', border: '1px solid rgba(26,67,50,0.18)', borderRadius: 10, padding: '14px 16px', marginBottom: 16 }}>
                           <div style={{ marginBottom: 10 }}>

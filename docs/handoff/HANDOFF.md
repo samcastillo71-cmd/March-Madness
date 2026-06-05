@@ -2,6 +2,39 @@
 
 ---
 
+## Handoff: 2026-06-04 (evening) — RESEARCH TAB ITEMS 4 + 6
+
+### Current State
+**All changes committed on `ui-audit-polish` branch (building on commit 9ec2547). NOT pushed, NOT deployed.**
+
+### What Was Done This Session
+
+| Item | Status |
+|---|---|
+| Item 4 — Seed-matchup picker (basketball): 16-button blob replaced with 8 paired `1fr/vs/1fr` grid rows (1v16, 8v9, 5v12, 4v13, 6v11, 3v14, 7v10, 2v15) | ✅ |
+| Item 4 — Seed-matchup picker (mammal): same matchup-row layout for all 4 mammal regions | ✅ |
+| Item 4 — First Four handling: seeds with 2 teams render as stacked buttons within their matchup slot | ✅ |
+| Item 6 — ResearchCard Team Stats: 7-item 2-col grid replaced with numeric stat chips (Rank, KenPom, Offense, Defense, Pace) + Coach/Conference text row | ✅ |
+| `R64_SEED_MATCHUPS` imported into App.jsx from bracketData.js | ✅ |
+
+### Architecture Notes
+
+**Matchup picker structure:** Both basketball and mammal pickers are now IIFE blocks that build a `bySeed` map from `bbTeamsByRegion`/`mammalAnimalsByRegion`, then iterate `R64_SEED_MATCHUPS` to render 8 rows. Each row is a `gridTemplateColumns: '1fr 28px 1fr'` grid with the home team column, a "vs" label, and the away team column. First Four seeds with 2 teams at the same seed render as stacked buttons (`flexDirection: column, gap: 3`) in their slot. Selected button gets navy/green fill; unselected gets the subtle `rgba(9,24,40,0.06)` fill.
+
+**ResearchCard stats layout:** Numeric stats (Rank, KenPom, Offense, Defense, Pace) are now `flex: '1 1 52px'` chip tiles with `fontSize: 18` bold value display and `fontVariantNumeric: 'tabular-nums'`. Admin mode renders `EditableField` in place of the value div. Coach and Conference remain as the original `1fr 1fr` grid below the chips, using the existing `field()` helper. Zero orphaned cells.
+
+### Build Status
+- `npm run build` — PASSES clean (pre-existing chunk size warning only)
+- Branch: `ui-audit-polish`
+- NOT pushed. NOT deployed. Push and merge PR #2 to deploy.
+
+### Remaining Deferred Items
+- `alert()` → inline errors in admin panels (8 occurrences: lines ~783, 784, 988, 989, 1734, 2751, 2763, 2977, 2980)
+- Mobile header collapse (not urgent)
+- Icon library: Lucide → Phosphor (non-trivial swap, low urgency)
+
+---
+
 ## Handoff: 2026-06-04 — UI AUDIT PASS 2: BANNER FIXES, BRACKET SPACING, RESEARCH TAB POLISH
 
 ### Current State
