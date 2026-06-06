@@ -2,6 +2,37 @@
 
 ---
 
+## Handoff: 2026-06-05 — UI AUDIT COMPLETE + DEPLOYED
+
+### Current State
+**All changes merged to `main` and live on production (`march-madness-ruby.vercel.app`).** PR #2 merged (commit `8d34bfb`). `ui-audit-polish` branch deleted.
+
+### What Was Done This Session (Jun 4–5)
+
+| Item | Status |
+|---|---|
+| Seed-matchup picker (basketball): 16-button blob → 8 paired `1fr/vs/1fr` matchup rows (1v16, 8v9, 5v12, 4v13, 6v11, 3v14, 7v10, 2v15) | ✅ |
+| Seed-matchup picker (mammal): same layout for all 4 regions | ✅ |
+| First Four handling in picker: seeds with 2 teams render as stacked button pairs | ✅ |
+| ResearchCard Team Stats: 7-item orphaned grid → numeric chips (Rank, KenPom, Offense, Defense, Pace) + Coach/Conference text row | ✅ |
+| `alert()` → inline errors: all 9 blocking dialogs replaced across TeamEntryPanel, MammalEntryPanel, admin year update, teacher roster, mark-as-teacher | ✅ |
+| PR #2 merged to `main`, deployed to production | ✅ |
+
+### Architecture Notes
+
+**Matchup picker:** Both pickers are IIFE blocks that build a `bySeed` map, then iterate `R64_SEED_MATCHUPS` (imported from `bracketData.js`) to render 8 rows. Each row: `gridTemplateColumns: '1fr 28px 1fr'`. First Four seeds with 2 teams render as stacked buttons (`flexDirection: column, gap: 3`). Selected button gets navy/green fill; unselected gets `rgba(9,24,40,0.06)`.
+
+**ResearchCard stats:** 5 numeric chips (`flex: '1 1 52px'`, `fontSize: 18`, `fontVariantNumeric: 'tabular-nums'`) above a 2-col grid for Coach/Conference. Admin mode renders `EditableField` in chip slots.
+
+**Inline errors:** Each location has its own state variable. Error clears on next successful action. Pattern: `padding: '8px 12px', borderRadius: 8, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: '#f87171'` + `<AlertTriangle size={13} />`. Mark-as-Teacher also has a green success variant.
+
+### Remaining Deferred Items
+- `window.confirm()` in teacher remove-student (line ~2840) — could be upgraded to the existing `ConfirmDialog` component
+- Mobile header collapse (not urgent — students use Chromebooks)
+- Icon library: Lucide → Phosphor (non-trivial swap, low urgency)
+
+---
+
 ## Handoff: 2026-06-04 (evening) — RESEARCH TAB ITEMS 4 + 6
 
 ### Current State
