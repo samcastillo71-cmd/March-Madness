@@ -431,7 +431,7 @@ function ResearchCard({ teamName, card, isAdmin, onFieldSave }) {
           <h3 style={{ color: MINT_FG, marginBottom: 10, fontFamily: "'Libre Bodoni', serif" }}>Championship Odds</h3>
           {field('odds', card.odds, { color: '#22c55e', large: true, label: 'odds' })}
           <div style={{ fontSize: 13, color: '#777', marginBottom: 16, marginTop: 6 }}>Consensus sportsbook odds to win it all</div>
-          <div style={{ padding: 12, background: 'rgba(22,163,74,0.07)', borderRadius: 8, border: '1px solid rgba(22,163,74,0.18)', fontSize: 13, color: '#7A7068', lineHeight: 1.5 }}>Bracket tip: Advancing this team deep rewards strong point upside relative to their championship probability.</div>
+          <div style={{ padding: 12, background: 'rgba(30,107,71,0.07)', borderRadius: 8, border: '1px solid rgba(30,107,71,0.18)', fontSize: 13, color: '#7A7068', lineHeight: 1.5 }}>Bracket tip: Advancing this team deep rewards strong point upside relative to their championship probability.</div>
         </div>
       </div>
     </div>
@@ -463,7 +463,7 @@ function MammalResearchCard({ animalName, card, isAdmin, onFieldSave, onGenerate
             <h2 style={{ fontFamily: "'Libre Bodoni', serif", color: '#fff', margin: 0, fontSize: 26, textShadow: '0 2px 8px rgba(0,0,0,0.8)', lineHeight: 1.1 }}>{animalName}</h2>
             {card?.latinName && <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.65)', fontStyle: 'italic', marginTop: 3 }}>{card.latinName}</div>}
           </div>
-          {isAdmin && <button onClick={() => onGenerate(animalName)} disabled={generating} style={{ ...S.btn('#6366f1', '#fff'), padding: '7px 16px', fontSize: 12, flexShrink: 0 }}>{generating ? 'Generating...' : 'Regenerate'}</button>}
+          {isAdmin && <button onClick={() => onGenerate(animalName)} disabled={generating} style={{ ...S.btn(GREEN, '#fff'), padding: '7px 16px', fontSize: 12, flexShrink: 0 }}>{generating ? 'Generating...' : 'Regenerate'}</button>}
         </div>
       </div>
       {empty ? (
@@ -2039,7 +2039,7 @@ if (game.winner?.name === clicked.name) {
           {[0,1,2,3].map(rIdx => <RoundCol key={rIdx} region="East" rIdx={rIdx} flip={false} dir="top" />)}
           <div style={{ width: CW * 3, flexShrink: 0, height: TOP_H, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'center', paddingBottom: FF_GAP }}>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-              <div style={{ fontSize: 13, fontWeight: 800, color: '#34d399', letterSpacing: 1.5, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{ff0Label}</div>
+              <div style={{ fontSize: 13, fontWeight: 800, color: MINT_FG, letterSpacing: 1.5, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{ff0Label}</div>
               <ScaledGame><GameSlot game={activeBracket.finalFour?.[0]} onPick={s => onFFPick(0, s)} locked={isLocked && !isAdmin} roundIdx={4} liveScores={isMammal ? {} : liveScores} onCompare={onCompareGame} isMammal={isMammal} mammalResearchData={isMammal ? mammalResearchData : {}} /></ScaledGame>
             </div>
           </div>
@@ -2084,7 +2084,7 @@ if (game.winner?.name === clicked.name) {
           <div style={{ width: CW * 3, flexShrink: 0, height: TOP_H, display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'center', paddingTop: FF_GAP }}>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
               <ScaledGame><GameSlot game={activeBracket.finalFour?.[1]} onPick={s => onFFPick(1, s)} locked={isLocked && !isAdmin} roundIdx={4} liveScores={isMammal ? {} : liveScores} onCompare={onCompareGame} isMammal={isMammal} mammalResearchData={isMammal ? mammalResearchData : {}} /></ScaledGame>
-              <div style={{ fontSize: 13, fontWeight: 800, color: '#34d399', letterSpacing: 1.5, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{ff1Label}</div>
+              <div style={{ fontSize: 13, fontWeight: 800, color: MINT_FG, letterSpacing: 1.5, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{ff1Label}</div>
             </div>
           </div>
           {[3,2,1,0].map(rIdx => <RoundCol key={rIdx} region="Midwest" rIdx={rIdx} flip={true} dir="bot" />)}
@@ -2516,9 +2516,9 @@ if (game.winner?.name === clicked.name) {
                     </div>
                   ) : (
                     <>
-                      <div style={{ display: 'flex', gap: 4, overflowX: 'auto', marginBottom: 0, paddingBottom: 4, borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                      <div style={{ display: 'flex', gap: 4, overflowX: 'auto', marginBottom: 0, paddingBottom: 4, borderBottom: '1px solid rgba(9,24,40,0.12)' }}>
                         {['East','West','South','Midwest'].map(r => (
-                          <button key={r} style={{ ...S.navBtn(bbActiveRegion === r), borderBottom: bbActiveRegion === r ? `2px solid ${RC[r]}` : '2px solid transparent', borderRadius: '6px 6px 0 0', padding: '8px 18px', flexShrink: 0 }} onClick={() => setBbActiveRegion(r)}>
+                          <button key={r} style={{ ...S.navBtn(bbActiveRegion === r), borderBottom: bbActiveRegion === r ? `2px solid ${RC[r]}` : '2px solid transparent', borderRadius: '6px 6px 0 0', padding: '8px 18px', flexShrink: 0, color: bbActiveRegion === r ? '#fff' : '#1A1208' }} onClick={() => setBbActiveRegion(r)}>
                             {bbRegionNames[r] || r}
                           </button>
                         ))}
@@ -2567,7 +2567,7 @@ if (game.winner?.name === clicked.name) {
                           </div>
                           <div style={{ display: 'flex', gap: 4, overflowX: 'auto', marginBottom: 10, paddingBottom: 2 }}>
                             {['East','West','South','Midwest'].map(r => (
-                              <button key={r} style={{ ...S.navBtn(bbActiveRegion === r), borderBottom: bbActiveRegion === r ? `2px solid ${RC[r]}` : '2px solid transparent', borderRadius: '6px 6px 0 0', padding: '6px 14px', fontSize: 12, flexShrink: 0 }} onClick={() => setBbActiveRegion(r)}>
+                              <button key={r} style={{ ...S.navBtn(bbActiveRegion === r), borderBottom: bbActiveRegion === r ? `2px solid ${RC[r]}` : '2px solid transparent', borderRadius: '6px 6px 0 0', padding: '6px 14px', fontSize: 12, flexShrink: 0, color: bbActiveRegion === r ? '#fff' : '#1A1208' }} onClick={() => setBbActiveRegion(r)}>
                                 {bbRegionNames[r] || r}
                               </button>
                             ))}
@@ -2642,9 +2642,9 @@ if (game.winner?.name === clicked.name) {
                     <div style={{ ...S.card, textAlign: 'center', padding: 48, color: '#777', borderColor: 'rgba(134,239,172,0.15)' }}><Search size={40} color="#C8BFB0" style={{ marginBottom: 16 }} /><div style={{ fontSize: 16, marginBottom: 8 }}>No animal data yet</div><div style={{ fontSize: 13 }}>{isAdmin ? 'Go to Admin → Mammal Madness → Generate Facts' : 'Check back after the admin sets up the animals'}</div></div>
                   ) : (
                     <>
-                      <div style={{ display: 'flex', gap: 4, overflowX: 'auto', marginBottom: 0, paddingBottom: 4, borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                      <div style={{ display: 'flex', gap: 4, overflowX: 'auto', marginBottom: 0, paddingBottom: 4, borderBottom: '1px solid rgba(9,24,40,0.12)' }}>
                         {['East','West','South','Midwest'].map(r => (
-                          <button key={r} style={{ ...S.navBtn(mammalActiveRegion === r), borderBottom: mammalActiveRegion === r ? '2px solid #86efac' : '2px solid transparent', borderRadius: '6px 6px 0 0', padding: '8px 18px', flexShrink: 0 }} onClick={() => setMammalActiveRegion(r)}>
+                          <button key={r} style={{ ...S.navBtn(mammalActiveRegion === r), borderBottom: mammalActiveRegion === r ? '2px solid #86efac' : '2px solid transparent', borderRadius: '6px 6px 0 0', padding: '8px 18px', flexShrink: 0, color: mammalActiveRegion === r ? '#fff' : '#1A1208' }} onClick={() => setMammalActiveRegion(r)}>
                             {mammalRegionNames[r] || r}
                           </button>
                         ))}
