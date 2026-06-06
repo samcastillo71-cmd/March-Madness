@@ -50,7 +50,7 @@ const S = {
   logo:   { fontFamily: "'Libre Bodoni', serif", fontSize: 19, fontWeight: 700, color: '#B8CBE8', letterSpacing: 1 },
   card:   { background: '#F4EFE6', border: '2px solid rgba(9,24,40,0.20)', borderRadius: 18, padding: 20, boxShadow: '4px 6px 14px rgba(9,24,40,0.10), inset -1px -1px 4px rgba(255,255,255,0.8)' },
   btn:    (bg = NAVY, fg = '#fff') => ({ padding: '10px 22px', borderRadius: 12, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, fontWeight: 700, background: bg, color: fg, letterSpacing: 0.3, boxShadow: '3px 4px 10px rgba(9,24,40,0.15)', transition: 'transform 200ms ease-out, box-shadow 200ms ease-out' }),
-  navBtn: a => ({ padding: '7px 15px', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 600, background: a ? '#1C3558' : 'transparent', color: a ? '#fff' : '#B8CBE8', transition: 'all .15s' }),
+  navBtn: a => ({ padding: '7px 15px', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 600, background: a ? '#1C3558' : 'transparent', color: a ? '#fff' : '#B8CBE8', transition: 'background 150ms, color 150ms' }),
   input:  { background: 'rgba(255,255,255,0.7)', border: '1px solid #C8BFB0', borderRadius: 10, color: '#1A1208', padding: '10px 14px', fontSize: 14, fontFamily: 'inherit', outline: 'none', width: '100%' },
   tag:    (color) => ({ fontSize: 10, color, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4, fontWeight: 700 }),
 };
@@ -173,14 +173,17 @@ const TeamLogo = memo(function TeamLogo({ espnId, name, size = 22 }) {
 
 // ── CONFIRM DIALOG ────────────────────────────────────────────────────────────
 function ConfirmDialog({ message, onConfirm, onCancel }) {
+  const cancelRef = useRef(null);
+  useEffect(() => { cancelRef.current?.focus(); }, []);
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ ...S.card, maxWidth: 360, textAlign: 'center', padding: 32 }}>
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+      onKeyDown={e => { if (e.key === 'Escape') onCancel(); }}>
+      <div role="dialog" aria-modal="true" aria-label={message} style={{ ...S.card, maxWidth: 360, textAlign: 'center', padding: 32 }}>
         <AlertTriangle size={28} color="#c0392b" style={{ marginBottom: 12 }} />
         <div style={{ fontSize: 15, color: '#1A1208', marginBottom: 24, lineHeight: 1.6 }}>{message}</div>
         <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
           <button style={S.btn('#c0392b')} onClick={onConfirm}>Confirm</button>
-          <button style={S.btn('#C8BFB0', '#1A1208')} onClick={onCancel}>Cancel</button>
+          <button ref={cancelRef} style={S.btn('#C8BFB0', '#1A1208')} onClick={onCancel}>Cancel</button>
         </div>
       </div>
     </div>
@@ -234,6 +237,9 @@ const GameSlot = memo(function GameSlot({ game, onPick, locked, isChampionship, 
     const isLiveWinning = hasLive && live && live.score > (side === 'top' ? bottomLive?.score : topLive?.score);
     if (isHorizontal) return (
       <div onClick={() => !locked && !isFF && onPick?.(side)}
+        role={!locked && !isFF ? 'button' : undefined}
+        tabIndex={!locked && !isFF ? 0 : -1}
+        onKeyDown={e => { if (!locked && !isFF && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onPick?.(side); } }}
         className={!locked && !isFF ? (isW ? 'mm-tile mm-tile-win' : 'mm-tile') : ''}
         style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, padding: '10px 14px', background: isW ? MINT_BG : '#F4EFE6', cursor: locked || isFF ? 'default' : 'pointer', borderRadius: 6, opacity: isL ? 0.4 : 1, transition: 'background .12s', minWidth: 100, border: isW ? `1px solid ${MINT_FG}` : '1px solid #C8BFB0' }}>
         <TeamLogo espnId={team.espnId} name={team.name} size={36} />
@@ -245,8 +251,11 @@ const GameSlot = memo(function GameSlot({ game, onPick, locked, isChampionship, 
     );
     return (
       <div onClick={() => !locked && !isFF && onPick?.(side)}
+        role={!locked && !isFF ? 'button' : undefined}
+        tabIndex={!locked && !isFF ? 0 : -1}
+        onKeyDown={e => { if (!locked && !isFF && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onPick?.(side); } }}
         className={!locked && !isFF ? (isW ? 'mm-tile mm-tile-win' : 'mm-tile') : ''}
-        style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 8px', minHeight: 44, boxSizing: 'border-box', flexDirection: flipped ? 'row-reverse' : 'row', background: isW ? MINT_BG : '#F4EFE6', cursor: locked || isFF ? 'default' : 'pointer', borderRadius: 4, opacity: isL ? 0.4 : 1, transition: 'background .12s', borderLeft: isW ? `3px solid ${MINT_FG}` : 'none' }}>
+        style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 8px', minHeight: 44, boxSizing: 'border-box', flexDirection: flipped ? 'row-reverse' : 'row', background: isW ? MINT_BG : '#F4EFE6', cursor: locked || isFF ? 'default' : 'pointer', borderRadius: 4, opacity: isL ? 0.4 : 1, transition: 'background .12s', boxShadow: isW ? `inset 3px 0 0 ${MINT_FG}` : 'inset 3px 0 0 transparent' }}>
         <TeamLogo espnId={team.espnId} name={team.name} size={20} />
         <span style={{ fontSize: 10, color: isW ? MINT_FG : '#7A7068', fontWeight: 700, minWidth: 14, textDecoration: isL ? 'line-through' : 'none' }}>{team.seed}</span>
         <span style={{ fontSize: team.name?.length > 18 ? 11 : team.name?.length > 13 ? 13 : 14, fontWeight: isW ? 700 : 500, color: isW ? MINT_FG : isL ? '#C8BFB0' : '#1A1208', textDecoration: isL ? 'line-through' : 'none', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: hasLive ? 80 : 140, flex: 1 }}>
@@ -389,7 +398,7 @@ function ResearchCard({ teamName, card, isAdmin, onFieldSave }) {
           </div>
         </div>
         <div style={S.card}>
-          <h3 style={{ color: MINT_FG, marginBottom: 12 }}>Key Players</h3>
+          <h3 style={{ color: MINT_FG, marginBottom: 12, fontFamily: "'Libre Bodoni', serif" }}>Key Players</h3>
           {(card.keyPlayers || []).map((p, i) => (
             <div key={i} style={{ background: 'rgba(9,24,40,0.04)', borderRadius: 6, padding: '10px 12px', marginBottom: 8 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
@@ -406,7 +415,7 @@ function ResearchCard({ teamName, card, isAdmin, onFieldSave }) {
           </div>
         </div>
         <div style={S.card}>
-          <h3 style={{ color: MINT_FG, marginBottom: 12 }}>Scouting Report</h3>
+          <h3 style={{ color: MINT_FG, marginBottom: 12, fontFamily: "'Libre Bodoni', serif" }}>Scouting Report</h3>
           {[['Strengths','#22c55e','strengths'],['Weaknesses','#e74c3c','weaknesses'],['Analyst Note',MINT_FG,'analystNote']].map(([label, color, key]) => (
             <div key={key} style={{ marginBottom: 14 }}>
               <div style={S.tag(color)}>{label}</div>
@@ -415,7 +424,7 @@ function ResearchCard({ teamName, card, isAdmin, onFieldSave }) {
           ))}
         </div>
         <div style={S.card}>
-          <h3 style={{ color: MINT_FG, marginBottom: 10 }}>Championship Odds</h3>
+          <h3 style={{ color: MINT_FG, marginBottom: 10, fontFamily: "'Libre Bodoni', serif" }}>Championship Odds</h3>
           {field('odds', card.odds, { color: '#22c55e', large: true, label: 'odds' })}
           <div style={{ fontSize: 13, color: '#777', marginBottom: 16, marginTop: 6 }}>Consensus sportsbook odds to win it all</div>
           <div style={{ padding: 12, background: 'rgba(22,163,74,0.07)', borderRadius: 8, border: '1px solid rgba(22,163,74,0.18)', fontSize: 13, color: '#7A7068', lineHeight: 1.5 }}>Bracket tip: Advancing this team deep rewards strong point upside relative to their championship probability.</div>
@@ -481,7 +490,7 @@ function MammalResearchCard({ animalName, card, isAdmin, onFieldSave, onGenerate
               <div onClick={() => setLightbox(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'zoom-out', padding: 20 }}>
                 <div onClick={e => e.stopPropagation()} style={{ position: 'relative', maxWidth: '90vw', maxHeight: '90vh' }}>
                   <img src={lightbox.url} alt={lightbox.name} style={{ maxWidth: '90vw', maxHeight: '85vh', objectFit: 'contain', borderRadius: 8, display: 'block' }} />
-                  <button onClick={() => setLightbox(null)} style={{ position: 'absolute', top: -12, right: -12, background: 'rgba(0,0,0,0.7)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '50%', width: 28, height: 28, color: '#fff', fontSize: 16, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
+                  <button onClick={() => setLightbox(null)} aria-label="Close lightbox" style={{ position: 'absolute', top: -12, right: -12, background: 'rgba(0,0,0,0.7)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '50%', width: 28, height: 28, color: '#fff', fontSize: 16, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
                 </div>
               </div>
             )}
@@ -526,7 +535,7 @@ function CompareModal({ teamA, teamB, cardA, cardB, isMammal, onClose }) {
   const accent = isMammal ? '#86efac' : '#4ade80';
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.88)', zIndex: 2000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: 20, overflowY: 'auto' }}>
-      <div onClick={e => e.stopPropagation()} style={{ background: 'rgba(22,163,74,0.10)', border: '1px solid rgba(22,163,74,0.30)', borderRadius: 12, padding: 20, maxWidth: 700, width: '100%', marginTop: 20 }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: isMammal ? 'rgba(22,163,74,0.10)' : 'rgba(9,24,40,0.10)', border: `1px solid ${isMammal ? 'rgba(22,163,74,0.30)' : 'rgba(9,24,40,0.25)'}`, borderRadius: 12, padding: 20, maxWidth: 700, width: '100%', marginTop: 20 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
           <h2 style={{ fontFamily: "'Libre Bodoni', serif", color: accent, margin: 0, fontSize: 20 }}>Head-to-Head</h2>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#888', fontSize: 22, cursor: 'pointer' }}>×</button>
@@ -547,7 +556,7 @@ function CompareModal({ teamA, teamB, cardA, cardB, isMammal, onClose }) {
           </div>
         </div>
         {stats.map(([label, key]) => (
-          <div key={key} style={{ display: 'flex', alignItems: 'flex-start', borderTop: '1px solid rgba(255,255,255,0.06)', padding: '10px 0', gap: 8 }}>
+          <div key={key} style={{ display: 'flex', alignItems: 'flex-start', borderTop: '1px solid rgba(0,0,0,0.10)', padding: '10px 0', gap: 8 }}>
             <div style={{ flex: 1, textAlign: 'right', fontSize: 13, color: '#ccc', lineHeight: 1.5 }}>
               {cardA ? (cardA[key] || <span style={{ color: '#333' }}>—</span>) : <span style={{ color: '#555', fontStyle: 'italic', fontSize: 12 }}>No data</span>}
             </div>
@@ -2039,7 +2048,8 @@ if (game.winner?.name === clicked.name) {
           <SpineCell label="Sweet 16" sub='"Sweet Sixteen"' color={ROUND_BORDER_COLORS[2]} />
           <SpineCell label="Elite Eight" sub='"Elite Eight"' color={ROUND_BORDER_COLORS[3]} />
           <div style={{ width: CW * 3, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '8px 12px', borderLeft: '1px solid rgba(255,255,255,0.08)' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '10px 16px', background: champBg, border: `2px solid ${champColor}`, borderRadius: 12, animation: 'champGlow 3s ease-in-out infinite', minWidth: FF_W + 24 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '10px 16px', background: champBg, border: `2px solid ${champColor}`, borderRadius: 12, position: 'relative', minWidth: FF_W + 24 }}>
+              <div style={{ position: 'absolute', inset: -2, borderRadius: 12, border: `2px solid ${champColor}`, animation: 'champGlow 3s ease-in-out infinite', pointerEvents: 'none' }} />
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <Trophy size={16} color={champGold} />
                 <span style={{ fontSize: 16, fontWeight: 800, color: champGold, letterSpacing: 1, fontFamily: "'Libre Bodoni', serif", whiteSpace: 'nowrap' }}>Championship</span>
@@ -2088,30 +2098,30 @@ if (game.winner?.name === clicked.name) {
     const isLocked = (isMammal ? mammalLocked : locked) && !isAdmin;
     if (!activeFF.length) return null;
     return (
-      <div style={{ marginBottom: 20, padding: '16px 18px', background: 'rgba(99,102,241,0.07)', border: '1px solid rgba(99,102,241,0.25)', borderRadius: 12 }}>
-        <div style={{ fontSize: 12, fontWeight: 700, color: '#818cf8', letterSpacing: 2, marginBottom: 2 }}>FIRST FOUR — PLAY-IN GAMES</div>
-        <div style={{ fontSize: 11, color: '#777', marginBottom: 14 }}>Pick who wins each play-in game and advances into the main bracket</div>
+      <div style={{ marginBottom: 20, padding: '16px 18px', background: 'rgba(9,24,40,0.07)', border: '1px solid rgba(9,24,40,0.22)', borderRadius: 12 }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: '#B8CBE8', letterSpacing: 2, marginBottom: 2 }}>FIRST FOUR — PLAY-IN GAMES</div>
+        <div style={{ fontSize: 11, color: '#7A7068', marginBottom: 14 }}>Pick who wins each play-in game and advances into the main bracket</div>
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
           {activeFF.map(({ region, seed, ffTeams, key }) => {
             const pick = activePicks[key];
             return (
-              <div key={key} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: 10, padding: '12px 14px', minWidth: 210 }}>
+              <div key={key} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(9,24,40,0.18)', borderRadius: 10, padding: '12px 14px', minWidth: 210 }}>
                 <div style={{ fontSize: 10, color: RC[region], fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 8 }}>{rNames[region] || region} — #{seed} seed play-in</div>
                 {(ffTeams || []).map(team => {
                   const isPick = pick === team.name;
                   const isLoser = pick && pick !== team.name;
                   return (
                     <div key={team.name} onClick={() => !isLocked && onPick(key, team, region, seed)}
-                      style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', borderRadius: 7, marginBottom: 5, cursor: isLocked ? 'default' : 'pointer', background: isPick ? 'rgba(99,102,241,0.2)' : 'rgba(255,255,255,0.03)', border: isPick ? '1px solid rgba(99,102,241,0.5)' : '1px solid rgba(255,255,255,0.07)', transition: 'all .12s', opacity: isLoser ? 0.35 : 1 }}>
+                      style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', borderRadius: 7, marginBottom: 5, cursor: isLocked ? 'default' : 'pointer', background: isPick ? 'rgba(9,24,40,0.18)' : 'rgba(255,255,255,0.03)', border: isPick ? '1px solid rgba(9,24,40,0.45)' : '1px solid rgba(9,24,40,0.10)', transition: 'background 150ms, border-color 150ms', opacity: isLoser ? 0.35 : 1 }}>
                       <TeamLogo espnId={team.espnId} name={team.name} size={20} />
-                      <span style={{ fontSize: 10, color: '#777', fontWeight: 700, minWidth: 14 }}>{team.seed}</span>
-                      <span style={{ fontSize: 12, fontWeight: isPick ? 700 : 400, color: isPick ? '#a5b4fc' : '#bbb', flex: 1 }}>{team.name}</span>
-                      {isPick && <span style={{ color: '#818cf8', fontSize: 13 }}>✓</span>}
+                      <span style={{ fontSize: 10, color: '#7A7068', fontWeight: 700, minWidth: 14 }}>{team.seed}</span>
+                      <span style={{ fontSize: 12, fontWeight: isPick ? 700 : 400, color: isPick ? '#B8CBE8' : '#7A7068', flex: 1 }}>{team.name}</span>
+                      {isPick && <Check size={13} color={MINT_FG} />}
                     </div>
                   );
                 })}
-                {pick ? <div style={{ fontSize: 10, color: '#777', textAlign: 'center', marginTop: 4 }}>{pick} advances as #{seed} seed</div>
-                      : <div style={{ fontSize: 10, color: '#888', textAlign: 'center', marginTop: 4 }}>pick a winner</div>}
+                {pick ? <div style={{ fontSize: 10, color: MINT_FG, textAlign: 'center', marginTop: 4 }}>{pick} advances as #{seed} seed</div>
+                      : <div style={{ fontSize: 10, color: '#7A7068', textAlign: 'center', marginTop: 4 }}>pick a winner</div>}
               </div>
             );
           })}
@@ -2162,8 +2172,7 @@ if (game.winner?.name === clicked.name) {
             <div style={{ fontSize: 34, fontWeight: 700, color, fontFamily: "'Libre Bodoni', serif", lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>{rank > 0 ? `#${rank}` : '-'}</div>
             <div style={{ fontSize: 11, color: '#888' }}>of {board.length || '-'} entries</div>
           </div>
-          <button style={{ ...S.btn('#C8BFB0', '#1A1208'), padding: '5px 14px', fontSize: 11 }} onClick={() => handleClearPicks(isMammal)}>Clear Picks</button>
-          {saving && !isMammal ? <span style={{ fontSize: 11, color: '#7A7068' }}>Saving...</span> : (isMammal ? mammalLastSaved : lastSaved) ? <span style={{ fontSize: 11, color: MINT_FG }}>Saved</span> : null}
+          <button style={{ ...S.btn('transparent', '#8B3A3A'), border: '1.5px solid rgba(139,58,58,0.35)', boxShadow: 'none', padding: '5px 14px', fontSize: 11 }} onClick={() => handleClearPicks(isMammal)}>Clear Picks</button>
         </div>
       </div>
     );
@@ -2302,7 +2311,8 @@ if (game.winner?.name === clicked.name) {
           .bscroll::-webkit-scrollbar-track { background: rgba(200,191,176,0.3); border-radius: 5px; }
           .bscroll::-webkit-scrollbar-thumb { background: rgba(9,24,40,0.4); border-radius: 5px; }
           .bscroll::-webkit-scrollbar-thumb:hover { background: rgba(9,24,40,0.7); }
-          @keyframes champGlow { 0%,100%{box-shadow:0 0 24px rgba(196,149,42,0.3)} 50%{box-shadow:0 0 40px rgba(196,149,42,0.6)} }
+          @keyframes champGlow { 0%,100%{opacity:0.4} 50%{opacity:1} }
+          @keyframes fadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
           @keyframes livePulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
           .compare-zone { position:relative; height:34px; cursor:pointer; overflow:hidden; user-select:none; }
           .cz-fill-top { position:absolute; top:0; left:0; right:0; height:0; background:var(--cz-top,#040C15); transition:height .24s ease-out; }
@@ -2384,8 +2394,8 @@ if (game.winner?.name === clicked.name) {
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <Avatar name={displayName} size={28} />
             <span style={{ fontSize: 13, color: '#888' }}>{formatName(displayName)}</span>
-            {isTeacher && <span style={{ fontSize: 10, background: 'rgba(196,149,42,0.2)', color: '#C4952A', border: '1px solid rgba(196,149,42,0.4)', borderRadius: 4, padding: '2px 6px', fontWeight: 700 }}>TEACHER</span>}
-            {isAdmin && <span style={{ fontSize: 10, background: 'rgba(192,57,43,0.2)', color: '#e74c3c', border: '1px solid rgba(192,57,43,0.4)', borderRadius: 4, padding: '2px 6px', fontWeight: 700 }}>ADMIN</span>}
+            {isTeacher && <span style={{ fontSize: 10, background: 'rgba(196,149,42,0.2)', color: '#C4952A', border: '1px solid rgba(196,149,42,0.4)', borderRadius: 8, padding: '2px 6px', fontWeight: 700 }}>TEACHER</span>}
+            {isAdmin && <span style={{ fontSize: 10, background: 'rgba(192,57,43,0.2)', color: '#e74c3c', border: '1px solid rgba(192,57,43,0.4)', borderRadius: 8, padding: '2px 6px', fontWeight: 700 }}>ADMIN</span>}
             {saving && <span style={{ fontSize: 11, color: '#B8CBE8' }}>Saving...</span>}
             {!saving && lastSaved && <span style={{ fontSize: 11, color: MINT_BG, display: 'inline-flex', alignItems: 'center', gap: 3 }}><Check size={11} />Saved</span>}
             <button onClick={handleSignOut} style={{ background: 'none', border: 'none', color: '#B8CBE8', cursor: 'pointer', fontSize: 12, fontFamily: 'inherit' }}>Exit</button>
@@ -2396,18 +2406,20 @@ if (game.winner?.name === clicked.name) {
 
           {/* ══ BRACKET TAB ══ */}
           {tab === 'bracket' && (
-            <div style={{ padding: 20 }}>
-              <TournamentSelector />
+            <div style={{ padding: 20, animation: 'fadeIn 200ms ease-out' }}>
+              <div style={{ maxWidth: 900, margin: '0 auto' }}>
+                <TournamentSelector />
+              </div>
               {activeTournament === 'basketball' && (
                 <>
-                  {renderScoreBar(false)}
+                  <div style={{ maxWidth: 900, margin: '0 auto' }}>{renderScoreBar(false)}</div>
                   {renderScrollBracket(false, 'bscroll-bb')}
-                  {renderFirstFourPanel(false)}
+                  <div style={{ maxWidth: 900, margin: '0 auto' }}>{renderFirstFourPanel(false)}</div>
                 </>
               )}
               {activeTournament === 'mammals' && (
                 <>
-                  {renderScoreBar(true)}
+                  <div style={{ maxWidth: 900, margin: '0 auto' }}>{renderScoreBar(true)}</div>
                   {mammalGenerating && (
                     <div style={{ ...S.card, marginBottom: 16, borderColor: 'rgba(134,239,172,0.3)' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
@@ -2419,7 +2431,7 @@ if (game.winner?.name === clicked.name) {
                     </div>
                   )}
                   {renderScrollBracket(true, 'bscroll-mm')}
-                  {renderFirstFourPanel(true)}
+                  <div style={{ maxWidth: 900, margin: '0 auto' }}>{renderFirstFourPanel(true)}</div>
                 </>
               )}
             </div>
@@ -2427,7 +2439,7 @@ if (game.winner?.name === clicked.name) {
 
           {/* ══ RESEARCH TAB ══ */}
           {tab === 'research' && (
-            <div style={{ padding: 24, maxWidth: 1200, margin: '0 auto' }}>
+            <div style={{ padding: 24, maxWidth: 1200, margin: '0 auto', animation: 'fadeIn 200ms ease-out' }}>
               <TournamentSelector />
               {activeTournament === 'basketball' && (
                 <>
@@ -2667,7 +2679,7 @@ if (game.winner?.name === clicked.name) {
 
           {/* ══ LEADERBOARD TAB ══ */}
           {tab === 'leaderboard' && (
-            <div style={{ padding: 24, maxWidth: 800, margin: '0 auto' }}>
+            <div style={{ padding: 24, maxWidth: 800, margin: '0 auto', animation: 'fadeIn 200ms ease-out' }}>
               <TournamentSelector />
               {(() => {
                 const lb = activeTournament === 'basketball' ? leaderboard : mammalLeaderboard;
@@ -2685,7 +2697,7 @@ if (game.winner?.name === clicked.name) {
                     <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
                       {['all','Hart','Van Hoosen','Reuther','West'].map(f => (
                         <button key={f} onClick={() => setSchoolFilter(f)}
-                          style={{ ...S.btn(schoolFilter === f ? accentColor : 'rgba(9,24,40,0.06)', schoolFilter === f ? '#fff' : '#7A7068'), padding: '6px 14px', fontSize: 12 }}>
+                          style={{ ...S.btn(schoolFilter === f ? accentColor : 'rgba(9,24,40,0.06)', schoolFilter === f ? '#fff' : '#5C5248'), padding: '6px 14px', fontSize: 12 }}>
                           {f === 'all' ? 'All Schools' : f}
                         </button>
                       ))}
@@ -2756,7 +2768,7 @@ if (game.winner?.name === clicked.name) {
 
           {/* ══ TEACHER TAB ══ */}
           {tab === 'teacher' && (isTeacher || isAdmin) && (
-            <div style={{ padding: 24, maxWidth: 900, margin: '0 auto' }}>
+            <div style={{ padding: 24, maxWidth: 900, margin: '0 auto', animation: 'fadeIn 200ms ease-out' }}>
               <h2 style={{ fontFamily: "'Libre Bodoni', serif", color: NAVY, marginBottom: 4, fontSize: 24 }}>
                 {teacherSchool || school} — Your Class
               </h2>
@@ -2902,7 +2914,7 @@ if (game.winner?.name === clicked.name) {
 
           {/* ══ ADMIN TAB ══ */}
           {tab === 'admin' && isAdmin && (
-            <div style={{ padding: 24, maxWidth: 960, margin: '0 auto' }}>
+            <div style={{ padding: 24, maxWidth: 960, margin: '0 auto', animation: 'fadeIn 200ms ease-out' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
                 <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#e74c3c', boxShadow: '0 0 6px #e74c3c' }} />
                 <h2 style={{ fontFamily: "'Libre Bodoni', serif", color: '#c0392b', margin: 0 }}>Admin Panel</h2>
