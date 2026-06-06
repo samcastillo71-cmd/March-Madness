@@ -2,6 +2,143 @@
 
 ---
 
+## Handoff: 2026-06-04 (evening) — RESEARCH TAB ITEMS 4 + 6
+
+### Current State
+**All changes committed on `ui-audit-polish` branch (building on commit 9ec2547). NOT pushed, NOT deployed.**
+
+### What Was Done This Session
+
+| Item | Status |
+|---|---|
+| Item 4 — Seed-matchup picker (basketball): 16-button blob replaced with 8 paired `1fr/vs/1fr` grid rows (1v16, 8v9, 5v12, 4v13, 6v11, 3v14, 7v10, 2v15) | ✅ |
+| Item 4 — Seed-matchup picker (mammal): same matchup-row layout for all 4 mammal regions | ✅ |
+| Item 4 — First Four handling: seeds with 2 teams render as stacked buttons within their matchup slot | ✅ |
+| Item 6 — ResearchCard Team Stats: 7-item 2-col grid replaced with numeric stat chips (Rank, KenPom, Offense, Defense, Pace) + Coach/Conference text row | ✅ |
+| `R64_SEED_MATCHUPS` imported into App.jsx from bracketData.js | ✅ |
+
+### Architecture Notes
+
+**Matchup picker structure:** Both basketball and mammal pickers are now IIFE blocks that build a `bySeed` map from `bbTeamsByRegion`/`mammalAnimalsByRegion`, then iterate `R64_SEED_MATCHUPS` to render 8 rows. Each row is a `gridTemplateColumns: '1fr 28px 1fr'` grid with the home team column, a "vs" label, and the away team column. First Four seeds with 2 teams at the same seed render as stacked buttons (`flexDirection: column, gap: 3`) in their slot. Selected button gets navy/green fill; unselected gets the subtle `rgba(9,24,40,0.06)` fill.
+
+**ResearchCard stats layout:** Numeric stats (Rank, KenPom, Offense, Defense, Pace) are now `flex: '1 1 52px'` chip tiles with `fontSize: 18` bold value display and `fontVariantNumeric: 'tabular-nums'`. Admin mode renders `EditableField` in place of the value div. Coach and Conference remain as the original `1fr 1fr` grid below the chips, using the existing `field()` helper. Zero orphaned cells.
+
+### Build Status
+- `npm run build` — PASSES clean (pre-existing chunk size warning only)
+- Branch: `ui-audit-polish`
+- NOT pushed. NOT deployed. Push and merge PR #2 to deploy.
+
+### Remaining Deferred Items
+- `alert()` → inline errors in admin panels (8 occurrences: lines ~783, 784, 988, 989, 1734, 2751, 2763, 2977, 2980)
+- Mobile header collapse (not urgent)
+- Icon library: Lucide → Phosphor (non-trivial swap, low urgency)
+
+---
+
+## Handoff: 2026-06-04 — UI AUDIT PASS 2: BANNER FIXES, BRACKET SPACING, RESEARCH TAB POLISH
+
+### Current State
+**All changes committed on `ui-audit-polish` branch (commit 9ec2547). NOT pushed, NOT deployed.** Build passes clean. PR #2 is still open — this session's commit is on top of it. Push and merge when ready to deploy.
+
+### What Was Done This Session
+
+| Item | Status |
+|---|---|
+| Bracket tile gap: SH 120→136, ROUND_ABS recalculated — 10px gap between tiles | ✅ |
+| Basketball ResearchCard banner: swap blurry ESPN crop URL for crisp square logo, right-side positioned at 85% opacity with text-protective gradient | ✅ |
+| MammalResearchCard banner: wiki photo moved to right half (42% opacity), phylopic silhouette boosted to 48%, gradient updated | ✅ |
+| `100vh` → `100dvh` across all 7 full-height containers | ✅ |
+| `aria-label="Main navigation"` on `<nav>` | ✅ |
+| Research tab compare: promoted to persistent header button on both hubs; old buried ghost button removed | ✅ |
+| Research tab: all dark-mode color tokens purged from compare picker panels, progress bars, mammal animal buttons | ✅ |
+| Mammal hub h2: `#86efac` (low-contrast) → `GREEN` (`#1A4332`) | ✅ |
+| Mammal animal picker buttons: `#16a34a` → `GREEN`, `#aaa` → `#7A7068` | ✅ |
+| Battle videos: single-column stack → `auto-fill minmax(440px, 1fr)` 2-per-row grid | ✅ |
+| Visual separator (2px hairline + 28px padding) between picker zone and research card on both tabs | ✅ |
+
+### Architecture Notes
+
+**Bracket spacing math:** Tile render height is ~126px (44px top team + 34px compare zone + 44px bottom team + 4px border). With SH=136, gap = 136−126 = 10px. All ROUND_ABS values, TOP_H, FF_H, FF_GAP, CHAMP_BOX_H derive from SH automatically. GAME_MID_OFFSET unchanged at 50.
+
+**Compare flow (research tab):** Compare button lives in the hub h2 flex row. Disabled (opacity 0.35) until a team/animal is selected. Clicking toggles `comparePicking` — header label flips to "Cancel Compare". The old two-step buried ghost button is gone. `comparePicking` resets on tournament switch (TournamentSelector already calls `setComparePicking(false)`).
+
+**ESPN banner URL:** Changed from the combiner crop URL (`w=900&h=225&scale=crop`) to the plain square PNG (`/ncaa/500/{espnId}.png`). Logo is 108×108px, right-side positioned, `objectFit: contain`, with `drop-shadow` and a left-heavy gradient overlay.
+
+### Build Status
+- `npm run build` — PASSES clean (pre-existing chunk size warning only)
+- Branch: `ui-audit-polish`, commit `9ec2547`
+- NOT pushed. NOT deployed. Run `git push` then merge PR #2.
+
+### NEXT SESSION: Research Tab Items 4 + 6 (deferred this session)
+
+The audit identified two further research tab improvements that were not implemented:
+
+**Item 4 — Seed-matchup picker:**
+Replace the wrapping blob of 16 team/animal buttons with 8 paired rows organized by bracket matchup (1v16, 8v9, 5v12, 4v13, 6v11, 3v14, 7v10, 2v15). Each row shows both competitors side by side with a "vs" separator. Need to read `bbTeamsByRegion` / `mammalAnimalsByRegion` structure and handle First Four (two teams at same seed) before implementing. Check `bracketData.js` for `R64_SEED_MATCHUPS`.
+
+**Item 6 — ResearchCard stats layout:**
+Current 2-column grid has 7 items (orphaned last cell). Numeric stats (Rank, KenPom, Offense, Defense, Pace) and text fields (Coach, Conference) have different visual weight and shouldn't share the same box treatment. Separate into: compact numeric stat chips + text fields in their own row.
+
+### Other Deferred Items (lower priority)
+- `alert()` → inline errors in admin panels (8 occurrences: lines ~783, 784, 988, 989, 1734, 2751, 2763, 2977, 2980)
+- Mobile header collapse (not urgent — students use Chromebooks)
+- Icon library: Lucide → Phosphor (non-trivial swap, low urgency)
+
+---
+
+## Handoff: 2026-06-03 — UI AUDIT PASS 1: CONTRAST, EMOJIS, NAV, POLISH
+
+### Current State
+**PR open at `ui-audit-polish` branch.** All changes are committed and pushed. Build passes clean. Production (`march-madness-ruby.vercel.app`) is still on `main` — merge the PR to deploy.
+
+### What Was Done This Session
+
+| Item | Status |
+|---|---|
+| Full UI audit using `design-taste-frontend`, `high-end-visual-design`, `ui-ux-pro-max`, `redesign-existing-projects` skills | ✅ |
+| Critical WCAG fix: `ResearchCard` text (`#ccc`/`#bbb`/`#999`) on cream background — all values now dark palette tokens | ✅ |
+| Critical WCAG fix: `MammalResearchCard` facts, fun facts, size/lifespan/speed — same contrast fix | ✅ |
+| Inner cell backgrounds/borders in both research cards — switched from invisible white-on-white to navy-tinted | ✅ |
+| Active nav tab fix — active background was NAVY on equally-dark header (invisible); changed to `#1C3558` | ✅ |
+| All emojis removed — Championship spine uses `Trophy` icon, errors use `AlertTriangle`, animal empty state uses `Search` | ✅ |
+| `loading="lazy"` on `TeamLogo` `<img>` — defers up to 128 ESPN requests on bracket mount | ✅ |
+| `font-variant-numeric: tabular-nums` on all score displays (score bar, rank, leaderboard, podium, teacher tab) | ✅ |
+| Em-dash in Final Four labels replaced with colon | ✅ |
+| `text-wrap: balance` on sign-in and onboarding `h1` | ✅ |
+| Committed, pushed, PR #2 open | ✅ |
+
+### Architecture Notes
+
+**No behavior changes.** This is a pure visual/polish pass — no logic, no Firestore, no API changes. All icons used (`Trophy`, `AlertTriangle`, `Search`) were already imported from `lucide-react`.
+
+**Canonical palette unchanged.** All new text colors (`#1A1208`, `#3A3028`, `#7A7068`) are existing palette tokens from CLAUDE.md. No new colors introduced.
+
+**Research card context:** Both `ResearchCard` (basketball) and `MammalResearchCard` were built against a dark-theme assumption, then the app switched to warm cream. The inner cells used `rgba(255,255,255,0.03–0.04)` backgrounds and `#ccc`/`#bbb` text — invisible on cream. Now use `rgba(9,24,40,0.03–0.04)` backgrounds and dark text.
+
+### Build Status
+- `npm run build` — PASSES clean (pre-existing chunk size warning only)
+- Branch: `ui-audit-polish`, PR #2
+- Production: still on `main` — merge PR to deploy
+
+### What Still Needs Smoke Testing
+Sam should merge PR and verify:
+- Research cards (both basketball and mammal) show readable dark text on cream cards
+- Active nav tab is visibly distinct on the dark header
+- No emoji visible anywhere in the app
+- Championship spine shows Trophy icons
+
+### NEXT SESSION: UI Audit Pass 2 (Images + Remaining Items)
+The audit identified one deferred item the user wants to address separately:
+
+- **Images in research cards**: the basketball `ResearchCard` banner uses a blurred ESPN logo as a low-contrast background image (opacity 0.4 on a dark gradient). The mammal card uses Wikipedia thumbnail similarly. Discuss whether to improve these or introduce real hero imagery for the cards.
+
+Other potential next UI work (from the audit, lower priority):
+- `alert()` in admin panels → inline error messages (admin-only, low impact)
+- Icon library: currently Lucide (functional but default AI choice). Phosphor would differentiate but is a non-trivial swap.
+- Mobile header overflow: logo + nav + user info at narrow widths — no responsive collapse exists yet.
+
+---
+
 ## Handoff: 2026-06-03 — ESPN IMPORT + CSV IMPORT + TEAM COLORS, FULLY DEPLOYED
 
 ### Current State
