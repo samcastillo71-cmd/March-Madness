@@ -1894,7 +1894,7 @@ if (game.winner?.name === clicked.name) {
 
   // ── BRACKET RENDER ────────────────────────────────────────────────────────
   const renderBracket = (isMammal) => {
-    const CW = 240, SH = 136, FF_SCALE = 1.25;
+    const CW = 210, SH = 116, FF_SCALE = 1.25;
     const FF_W = Math.round(CW * FF_SCALE), FF_H = Math.round(SH * FF_SCALE);
     const CHAMP_BOX_H = 30 + Math.round(FF_H * 0.75) + 32 + 20;
     const SPINE_H = CHAMP_BOX_H + 16;
@@ -1915,10 +1915,10 @@ if (game.winner?.name === clicked.name) {
     const champGold     = isMammal ? '#86efac' : '#C4952A';
 
     const ROUND_ABS = [
-      [0,136,272,408,544,680,816,952],
-      [68,340,612,884],
-      [204,748],
-      [476],
+      [0, 116, 232, 348, 464, 580, 696, 812],
+      [58, 290, 522, 754],
+      [174, 638],
+      [406],
     ];
 
     // Completion bar
@@ -2324,7 +2324,7 @@ if (game.winner?.name === clicked.name) {
           @keyframes champGlow { 0%,100%{opacity:0.4} 50%{opacity:1} }
           @keyframes fadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
           @keyframes livePulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
-          .compare-zone { position:relative; height:34px; cursor:pointer; overflow:hidden; user-select:none; }
+          .compare-zone { position:relative; height:22px; cursor:pointer; overflow:hidden; user-select:none; }
           .cz-fill-top { position:absolute; top:0; left:0; right:0; height:0; background:var(--cz-top,#040C15); transition:height .24s ease-out; }
           .cz-fill-bot { position:absolute; bottom:0; left:0; right:0; height:0; background:var(--cz-bot,#1E4A88); transition:height .24s ease-out; }
           .cz-divider  { position:absolute; top:50%; left:0; right:0; height:1px; background:#C8BFB0; transform:translateY(-50%); pointer-events:none; }
