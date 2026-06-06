@@ -295,7 +295,11 @@ const GameSlot = memo(function GameSlot({ game, onPick, locked, isChampionship, 
       {canCompare ? (
         <div
           className="compare-zone"
+          role="button"
+          tabIndex={0}
           onClick={() => onCompare(top, bottom)}
+          onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onCompare(top, bottom); } }}
+          aria-label={`Compare ${top?.name} vs ${bottom?.name}`}
           style={{ '--cz-top': compareColors.top, '--cz-bot': compareColors.bottom }}
         >
           <div className="cz-fill-top" />
@@ -469,7 +473,7 @@ function MammalResearchCard({ animalName, card, isAdmin, onFieldSave, onGenerate
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
             {[['Habitat','habitat'],['Diet & Hunting','diet'],['Superpower','superpower'],['Battle Strength','battleStrength']].map(([label, fld]) => (
               <div key={fld} style={{ background: 'rgba(9,24,40,0.03)', borderRadius: 8, padding: 14, border: '1px solid rgba(9,24,40,0.08)' }}>
-                <div style={{ fontSize: 11, color: bgLight, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 6, fontWeight: 700 }}>{label}</div>
+                <div style={{ fontSize: 11, color: bgLight, marginBottom: 6, fontWeight: 700 }}>{label}</div>
                 {isAdmin && onFieldSave ? <EditableField value={card[fld]} label={fld} onSave={v => onFieldSave(animalName, fld, v)} color="#3A3028" multiline /> : <div style={{ fontSize: 14, color: '#3A3028', lineHeight: 1.6 }}>{card[fld] || '-'}</div>}
               </div>
             ))}
@@ -508,7 +512,7 @@ function MammalResearchCard({ animalName, card, isAdmin, onFieldSave, onGenerate
             <div style={{ display: 'flex', gap: 12, gridColumn: '1 / -1', flexWrap: 'wrap' }}>
               {[['Size', card.size], ['Lifespan', card.lifespan], ['Speed', card.speed]].map(([label, val]) => val && (
                 <div key={label} style={{ background: `${bgLight}15`, borderRadius: 8, padding: '10px 16px', border: `1px solid ${bgLight}33`, flex: 1, minWidth: 100 }}>
-                  <div style={{ fontSize: 11, color: bgLight, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4, fontWeight: 700 }}>{label}</div>
+                  <div style={{ fontSize: 11, color: bgLight, marginBottom: 4, fontWeight: 700 }}>{label}</div>
                   <div style={{ fontSize: 14, color: '#3A3028' }}>{val}</div>
                 </div>
               ))}
@@ -538,7 +542,7 @@ function CompareModal({ teamA, teamB, cardA, cardB, isMammal, onClose }) {
       <div onClick={e => e.stopPropagation()} style={{ background: isMammal ? 'rgba(22,163,74,0.10)' : 'rgba(9,24,40,0.10)', border: `1px solid ${isMammal ? 'rgba(22,163,74,0.30)' : 'rgba(9,24,40,0.25)'}`, borderRadius: 12, padding: 20, maxWidth: 700, width: '100%', marginTop: 20 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
           <h2 style={{ fontFamily: "'Libre Bodoni', serif", color: accent, margin: 0, fontSize: 20 }}>Head-to-Head</h2>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#888', fontSize: 22, cursor: 'pointer' }}>×</button>
+          <button onClick={onClose} aria-label="Close" style={{ background: 'none', border: 'none', color: '#888', fontSize: 22, cursor: 'pointer' }}>×</button>
         </div>
         <div style={{ display: 'flex', alignItems: 'flex-end', marginBottom: 20, gap: 8 }}>
           <div style={{ flex: 1, textAlign: 'right', paddingRight: 12 }}>
@@ -584,7 +588,7 @@ function ViewBracketModal({ data, onClose }) {
       <div style={{ ...S.card, maxWidth: 700, width: '100%', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
           <h2 style={{ fontFamily: "'Libre Bodoni', serif", color: isMammal ? '#86efac' : MINT_FG, margin: 0 }}>{displayName}'s Bracket</h2>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#888', fontSize: 20, cursor: 'pointer' }}>×</button>
+          <button onClick={onClose} aria-label="Close" style={{ background: 'none', border: 'none', color: '#888', fontSize: 20, cursor: 'pointer' }}>×</button>
         </div>
         <div style={{ overflowY: 'auto', flex: 1 }}>
           {regions.map(region => (
@@ -2338,6 +2342,7 @@ if (game.winner?.name === clicked.name) {
           button:active { transform: scale(0.96); }
           button:hover:not(:disabled) { filter: brightness(1.08); }
           button:focus-visible { outline: 2px solid #1E6B47; outline-offset: 3px; border-radius: 8px; }
+          button:disabled { cursor: not-allowed; }
           select:focus-visible, input:focus-visible { outline: 2px solid #1E6B47; outline-offset: 2px; }
           .spring-pick { animation: springBounce 250ms cubic-bezier(0.34,1.56,0.64,1) forwards; }
           @keyframes springBounce { 0%{transform:scale(1)} 40%{transform:scale(0.97)} 70%{transform:scale(1.02)} 100%{transform:scale(1)} }
@@ -2695,7 +2700,7 @@ if (game.winner?.name === clicked.name) {
                   <>
                     {/* School filter pills */}
                     <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
-                      {['all','Hart','Van Hoosen','Reuther','West'].map(f => (
+                      {['all', ...SCHOOLS].map(f => (
                         <button key={f} onClick={() => setSchoolFilter(f)}
                           style={{ ...S.btn(schoolFilter === f ? accentColor : 'rgba(9,24,40,0.06)', schoolFilter === f ? '#fff' : '#5C5248'), padding: '6px 14px', fontSize: 12 }}>
                           {f === 'all' ? 'All Schools' : f}
@@ -2864,7 +2869,7 @@ if (game.winner?.name === clicked.name) {
                                 }}
                                 style={{ ...S.input, width: 'auto', padding: '4px 8px', fontSize: 12 }}
                               >
-                                {['Hart','Van Hoosen','Reuther','West'].map(s => <option key={s} value={s}>{s}</option>)}
+                                {SCHOOLS.map(s => <option key={s} value={s}>{s}</option>)}
                               </select>
                               <button onClick={() => {
                                 if (!window.confirm(`Remove ${studentName}? This deletes their bracket and score.`)) return;
@@ -3156,7 +3161,7 @@ if (game.winner?.name === clicked.name) {
                           <div style={{ display: 'flex', gap: 8, marginTop: 16, flexWrap: 'wrap' }}>
                             <input placeholder="Teacher email" value={adminNewTeacherEmail} onChange={e => setAdminNewTeacherEmail(e.target.value)} style={{ ...S.input, flex: 2, minWidth: 200 }} />
                             <select value={adminNewTeacherSchool} onChange={e => setAdminNewTeacherSchool(e.target.value)} style={{ ...S.input, flex: 1, minWidth: 120 }}>
-                              {['Hart','Van Hoosen','Reuther','West'].map(s => <option key={s} value={s}>{s}</option>)}
+                              {SCHOOLS.map(s => <option key={s} value={s}>{s}</option>)}
                             </select>
                             <button onClick={() => {
                               const email = adminNewTeacherEmail.trim().toLowerCase();
