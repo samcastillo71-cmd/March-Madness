@@ -5,7 +5,7 @@ import { Component } from 'react';
 import { doc, setDoc, getDoc, deleteDoc, getDocs, collection, serverTimestamp } from 'firebase/firestore';
 import { signInWithPopup, onAuthStateChanged, signOut } from 'firebase/auth';
 import { db, auth, googleProvider } from './firebase';
-import { LogIn, Lock, Check, Settings, AlertTriangle, Trophy, School, Search } from 'lucide-react';
+import { LogIn, Lock, Check, Settings, AlertTriangle, Trophy, School, Search, Menu, X } from 'lucide-react';
 import {
   saveBracket, loadBracket,
   saveOfficialBracket, subscribeToOfficialBracket,
@@ -1208,6 +1208,7 @@ export default function App() {
 
   // ── APP STATE ─────────────────────────────────────────────────────────────
   const [tab,              setTab]             = useState('bracket');
+  const [menuOpen,         setMenuOpen]        = useState(false);
   const [bracket,          setBracket]         = useState(() => buildInitialBracket());
   const [officialBracket,  setOfficialBracket] = useState(null);
   const [locked,           setLocked]          = useState(false);
@@ -2343,6 +2344,8 @@ if (game.winner?.name === clicked.name) {
           button:hover:not(:disabled) { filter: brightness(1.08); }
           button:focus-visible { outline: 2px solid #1E6B47; outline-offset: 3px; border-radius: 8px; }
           button:disabled { cursor: not-allowed; }
+          @media (min-width: 640px) { .mm-hamburger { display: none !important; } .mm-mobile-nav { display: none !important; } }
+          @media (max-width: 639px) { .mm-desktop-nav { display: none !important; } .mm-user-label { display: none !important; } }
           select:focus-visible, input:focus-visible { outline: 2px solid #1E6B47; outline-offset: 2px; }
           .spring-pick { animation: springBounce 250ms cubic-bezier(0.34,1.56,0.64,1) forwards; }
           @keyframes springBounce { 0%{transform:scale(1)} 40%{transform:scale(0.97)} 70%{transform:scale(1.02)} 100%{transform:scale(1)} }
@@ -2393,19 +2396,52 @@ if (game.winner?.name === clicked.name) {
 
         <header style={S.header}>
           <div style={S.logo}>MARCH MADNESS {tournamentYear}</div>
-          <nav aria-label="Main navigation" style={{ display: 'flex', gap: 4 }}>
+          <nav aria-label="Main navigation" className="mm-desktop-nav" style={{ display: 'flex', gap: 4 }}>
             {tabs.map(t => <button key={t.id} style={S.navBtn(tab === t.id)} onClick={() => setTab(t.id)}>{t.label}</button>)}
           </nav>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <Avatar name={displayName} size={28} />
-            <span style={{ fontSize: 13, color: '#888' }}>{formatName(displayName)}</span>
-            {isTeacher && <span style={{ fontSize: 10, background: 'rgba(196,149,42,0.2)', color: '#C4952A', border: '1px solid rgba(196,149,42,0.4)', borderRadius: 8, padding: '2px 6px', fontWeight: 700 }}>TEACHER</span>}
-            {isAdmin && <span style={{ fontSize: 10, background: 'rgba(192,57,43,0.2)', color: '#e74c3c', border: '1px solid rgba(192,57,43,0.4)', borderRadius: 8, padding: '2px 6px', fontWeight: 700 }}>ADMIN</span>}
-            {saving && <span style={{ fontSize: 11, color: '#B8CBE8' }}>Saving...</span>}
-            {!saving && lastSaved && <span style={{ fontSize: 11, color: MINT_BG, display: 'inline-flex', alignItems: 'center', gap: 3 }}><Check size={11} />Saved</span>}
-            <button onClick={handleSignOut} style={{ background: 'none', border: 'none', color: '#B8CBE8', cursor: 'pointer', fontSize: 12, fontFamily: 'inherit' }}>Exit</button>
+            <span className="mm-user-label" style={{ display: 'inline-flex' }}><Avatar name={displayName} size={28} /></span>
+            <span className="mm-user-label" style={{ fontSize: 13, color: '#888' }}>{formatName(displayName)}</span>
+            {isTeacher && <span className="mm-user-label" style={{ fontSize: 10, background: 'rgba(196,149,42,0.2)', color: '#C4952A', border: '1px solid rgba(196,149,42,0.4)', borderRadius: 8, padding: '2px 6px', fontWeight: 700 }}>TEACHER</span>}
+            {isAdmin && <span className="mm-user-label" style={{ fontSize: 10, background: 'rgba(192,57,43,0.2)', color: '#e74c3c', border: '1px solid rgba(192,57,43,0.4)', borderRadius: 8, padding: '2px 6px', fontWeight: 700 }}>ADMIN</span>}
+            {saving && <span className="mm-user-label" style={{ fontSize: 11, color: '#B8CBE8' }}>Saving...</span>}
+            {!saving && lastSaved && <span className="mm-user-label" style={{ fontSize: 11, color: MINT_BG, display: 'inline-flex', alignItems: 'center', gap: 3 }}><Check size={11} />Saved</span>}
+            <button className="mm-user-label" onClick={handleSignOut} style={{ background: 'none', border: 'none', color: '#B8CBE8', cursor: 'pointer', fontSize: 12, fontFamily: 'inherit' }}>Exit</button>
+            <button
+              className="mm-hamburger"
+              onClick={() => setMenuOpen(o => !o)}
+              aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+              aria-expanded={menuOpen}
+              style={{ display: 'none', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', cursor: 'pointer', padding: 6, borderRadius: 8 }}
+            >
+              {menuOpen ? <X size={22} color="#B8CBE8" /> : <Menu size={22} color="#B8CBE8" />}
+            </button>
           </div>
         </header>
+
+        {menuOpen && (
+          <nav
+            className="mm-mobile-nav"
+            aria-label="Mobile navigation"
+            onKeyDown={e => { if (e.key === 'Escape') setMenuOpen(false); }}
+            style={{ display: 'none', position: 'fixed', top: 60, left: 0, right: 0, zIndex: 199, background: 'rgba(9,24,40,0.97)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(28,53,88,0.6)', padding: '8px 12px 14px', flexDirection: 'column', gap: 2 }}
+          >
+            {tabs.map(t => (
+              <button key={t.id}
+                style={{ ...S.navBtn(tab === t.id), textAlign: 'left', padding: '12px 14px', borderRadius: 10, fontSize: 14, width: '100%', boxSizing: 'border-box' }}
+                onClick={() => { setTab(t.id); setMenuOpen(false); }}>
+                {t.label}
+              </button>
+            ))}
+            <div style={{ marginTop: 8, paddingTop: 10, borderTop: '1px solid rgba(28,53,88,0.4)', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Avatar name={displayName} size={24} />
+              <span style={{ fontSize: 13, color: '#B8CBE8', flex: 1 }}>{formatName(displayName)}</span>
+              {isTeacher && <span style={{ fontSize: 10, background: 'rgba(196,149,42,0.2)', color: '#C4952A', border: '1px solid rgba(196,149,42,0.4)', borderRadius: 8, padding: '2px 6px', fontWeight: 700 }}>TEACHER</span>}
+              {isAdmin && <span style={{ fontSize: 10, background: 'rgba(192,57,43,0.2)', color: '#e74c3c', border: '1px solid rgba(192,57,43,0.4)', borderRadius: 8, padding: '2px 6px', fontWeight: 700 }}>ADMIN</span>}
+              <button onClick={() => { handleSignOut(); setMenuOpen(false); }} style={{ background: 'none', border: 'none', color: '#B8CBE8', cursor: 'pointer', fontSize: 12, fontFamily: 'inherit' }}>Exit</button>
+            </div>
+          </nav>
+        )}
 
         <main style={{ paddingBottom: 60 }}>
 
