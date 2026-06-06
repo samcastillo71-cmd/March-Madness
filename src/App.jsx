@@ -2441,13 +2441,14 @@ if (game.winner?.name === clicked.name) {
               {activeTournament === 'basketball' && (
                 <>
                   <div style={{ maxWidth: 900, margin: '0 auto' }}>{renderScoreBar(false)}</div>
-                  {renderScrollBracket(false, 'bscroll-bb')}
                   <div style={{ maxWidth: 900, margin: '0 auto' }}>{renderFirstFourPanel(false)}</div>
+                  {renderScrollBracket(false, 'bscroll-bb')}
                 </>
               )}
               {activeTournament === 'mammals' && (
                 <>
                   <div style={{ maxWidth: 900, margin: '0 auto' }}>{renderScoreBar(true)}</div>
+                  <div style={{ maxWidth: 900, margin: '0 auto' }}>{renderFirstFourPanel(true)}</div>
                   {mammalGenerating && (
                     <div style={{ ...S.card, marginBottom: 16, borderColor: 'rgba(134,239,172,0.3)' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
@@ -2459,7 +2460,6 @@ if (game.winner?.name === clicked.name) {
                     </div>
                   )}
                   {renderScrollBracket(true, 'bscroll-mm')}
-                  <div style={{ maxWidth: 900, margin: '0 auto' }}>{renderFirstFourPanel(true)}</div>
                 </>
               )}
             </div>
