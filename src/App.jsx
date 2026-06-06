@@ -1897,7 +1897,7 @@ if (game.winner?.name === clicked.name) {
     const CW = 210, SH = 116, FF_SCALE = 1.25;
     const FF_W = Math.round(CW * FF_SCALE), FF_H = Math.round(SH * FF_SCALE);
     const CHAMP_BOX_H = 30 + Math.round(FF_H * 0.75) + 32 + 20;
-    const SPINE_H = CHAMP_BOX_H + 16;
+
     const FF_GAP = Math.round(SH / 2);
     const TOP_H = 8 * SH;
     const STUB = CW * 0.45;
@@ -1964,14 +1964,6 @@ if (game.winner?.name === clicked.name) {
       );
     };
 
-    const SpineCell = ({ label, sub, color, borderLeft = true }) => (
-      <div style={{ width: CW, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderLeft: borderLeft ? '1px solid rgba(255,255,255,0.08)' : 'none', background: 'rgba(255,255,255,0.04)' }}>
-        <div style={{ height: SPINE_H, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ fontSize: 30, fontWeight: 800, color, letterSpacing: 1, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{label}</div>
-          {sub && <div style={{ fontSize: 15, color: '#777', fontStyle: 'italic', marginTop: 3 }}>{sub}</div>}
-        </div>
-      </div>
-    );
 
     const LINE_COLORS = ['#60a5fa','#a78bfa','#fbbf24','#ef4444'];
     const TOTAL_W = CW * 11;
@@ -2046,35 +2038,25 @@ if (game.winner?.name === clicked.name) {
           {[3,2,1,0].map(rIdx => <RoundCol key={rIdx} region="West" rIdx={rIdx} flip={true} dir="top" />)}
         </div>
 
-        {/* SPINE */}
-        <div style={{ display: 'flex', alignItems: 'stretch', borderTop: '2px solid rgba(255,255,255,0.15)', borderBottom: '2px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.03)' }}>
-          <SpineCell label="Round of 64" sub='"First Round"' color={ROUND_BORDER_COLORS[0]} borderLeft={false} />
-          <SpineCell label="Round of 32" sub='"Second Round"' color={ROUND_BORDER_COLORS[1]} />
-          <SpineCell label="Sweet 16" sub='"Sweet Sixteen"' color={ROUND_BORDER_COLORS[2]} />
-          <SpineCell label="Elite Eight" sub='"Elite Eight"' color={ROUND_BORDER_COLORS[3]} />
-          <div style={{ width: CW * 3, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '8px 12px', borderLeft: '1px solid rgba(255,255,255,0.08)' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '10px 16px', background: champBg, border: `2px solid ${champColor}`, borderRadius: 12, position: 'relative', minWidth: FF_W + 24 }}>
-              <div style={{ position: 'absolute', inset: -2, borderRadius: 12, border: `2px solid ${champColor}`, animation: 'champGlow 3s ease-in-out infinite', pointerEvents: 'none' }} />
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <Trophy size={16} color={champGold} />
-                <span style={{ fontSize: 16, fontWeight: 800, color: champGold, letterSpacing: 1, fontFamily: "'Libre Bodoni', serif", whiteSpace: 'nowrap' }}>Championship</span>
-                <Trophy size={16} color={champGold} />
-              </div>
-              <ScaledGame isHoriz>
-                <GameSlot game={activeBracket.championship} onPick={onChampPick} locked={isLocked && !isAdmin} isChampionship isHorizontal onScoreChange={isMammal ? undefined : handleChampScore} roundIdx={-1} liveScores={isMammal ? {} : liveScores} onCompare={onCompareGame} isMammal={isMammal} mammalResearchData={isMammal ? mammalResearchData : {}} />
-              </ScaledGame>
-              {activeBracket.championship?.winner && (
-                <div style={{ textAlign: 'center', padding: '4px 14px', background: isMammal ? 'rgba(134,239,172,0.15)' : 'rgba(245,158,11,0.18)', borderRadius: 6, border: `1px solid ${isMammal ? 'rgba(134,239,172,0.4)' : 'rgba(245,158,11,0.5)'}` }}>
-                  <div style={{ fontSize: 10, color: champGold, letterSpacing: 1.5 }}>CHAMPION</div>
-                  <div style={{ fontSize: 15, fontWeight: 700, color: '#fff', fontFamily: "'Libre Bodoni', serif" }}>{activeBracket.championship.winner.name}</div>
-                </div>
-              )}
+        {/* CHAMPIONSHIP */}
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '16px 0', borderTop: '1px solid rgba(9,24,40,0.12)', borderBottom: '1px solid rgba(9,24,40,0.12)', background: 'rgba(255,255,255,0.02)', marginTop: 4, marginBottom: 4 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '10px 16px', background: champBg, border: `2px solid ${champColor}`, borderRadius: 12, position: 'relative', minWidth: FF_W + 24 }}>
+            <div style={{ position: 'absolute', inset: -2, borderRadius: 12, border: `2px solid ${champColor}`, animation: 'champGlow 3s ease-in-out infinite', pointerEvents: 'none' }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Trophy size={16} color={champGold} />
+              <span style={{ fontSize: 16, fontWeight: 800, color: champGold, letterSpacing: 1, fontFamily: "'Libre Bodoni', serif", whiteSpace: 'nowrap' }}>Championship</span>
+              <Trophy size={16} color={champGold} />
             </div>
+            <ScaledGame isHoriz>
+              <GameSlot game={activeBracket.championship} onPick={onChampPick} locked={isLocked && !isAdmin} isChampionship isHorizontal onScoreChange={isMammal ? undefined : handleChampScore} roundIdx={-1} liveScores={isMammal ? {} : liveScores} onCompare={onCompareGame} isMammal={isMammal} mammalResearchData={isMammal ? mammalResearchData : {}} />
+            </ScaledGame>
+            {activeBracket.championship?.winner && (
+              <div style={{ textAlign: 'center', padding: '4px 14px', background: isMammal ? 'rgba(134,239,172,0.15)' : 'rgba(245,158,11,0.18)', borderRadius: 6, border: `1px solid ${isMammal ? 'rgba(134,239,172,0.4)' : 'rgba(245,158,11,0.5)'}` }}>
+                <div style={{ fontSize: 10, color: champGold, letterSpacing: 1.5 }}>CHAMPION</div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: '#fff', fontFamily: "'Libre Bodoni', serif" }}>{activeBracket.championship.winner.name}</div>
+              </div>
+            )}
           </div>
-          <SpineCell label="Elite Eight" sub='"Elite Eight"' color={ROUND_BORDER_COLORS[3]} />
-          <SpineCell label="Sweet 16" sub='"Sweet Sixteen"' color={ROUND_BORDER_COLORS[2]} />
-          <SpineCell label="Round of 32" sub='"Second Round"' color={ROUND_BORDER_COLORS[1]} />
-          <SpineCell label="Round of 64" sub='"First Round"' color={ROUND_BORDER_COLORS[0]} />
         </div>
 
         {/* BOTTOM HALF */}
