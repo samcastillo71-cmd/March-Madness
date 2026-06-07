@@ -1900,7 +1900,7 @@ if (game.winner?.name === clicked.name) {
 
     const FF_GAP = Math.round(SH / 2);
     const TOP_H = 8 * SH;
-    const STUB = CW * 0.45;
+    const STUB = 8;
 
     const activeBracket = isMammal ? (isAdmin ? (mammalOfficialBracket || mammalBracket) : mammalBracket) : bracket;
     const regionNames   = isMammal ? mammalRegionNames : bbRegionNames;
@@ -1951,7 +1951,7 @@ if (game.winner?.name === clicked.name) {
       const games = activeBracket[region]?.rounds[rIdx] || [];
       const positions = ROUND_ABS[rIdx];
       return (
-        <div style={{ width: CW, flexShrink: 0, height: TOP_H, position: 'relative' }}>
+        <div style={{ width: CW, flexShrink: 0, height: TOP_H, position: 'relative', marginRight: GUTTER }}>
           {games.map((game, gIdx) => {
             const pos = positions[gIdx] ?? gIdx * SH;
             return (
@@ -1965,8 +1965,15 @@ if (game.winner?.name === clicked.name) {
     };
 
 
+    const GUTTER = 20;
+    const ROUND_LABELS = ['Round of 64', 'Round of 32', 'Sweet 16', 'Elite 8'];
+    const RoundHeader = ({ rIdx }) => (
+      <div style={{ width: CW, flexShrink: 0, marginRight: GUTTER, textAlign: 'center', fontSize: 9, fontWeight: 700, color: '#7A7068', textTransform: 'uppercase', letterSpacing: 1, paddingBottom: 6 }}>
+        {ROUND_LABELS[rIdx]}
+      </div>
+    );
     const LINE_COLORS = ['#60a5fa','#a78bfa','#fbbf24','#ef4444'];
-    const TOTAL_W = CW * 11;
+    const TOTAL_W = CW * 11 + GUTTER * 10;
     const GAME_MID_OFFSET = 50, GAME_MID_OFFSET_BOT = 39;
 
     const BracketConnectors = ({ dir }) => {
@@ -1978,9 +1985,10 @@ if (game.winner?.name === clicked.name) {
         for (let rIdx = 0; rIdx < 3; rIdx++) {
           const color = LINE_COLORS[rIdx];
           const fromPositions = ROUND_ABS[rIdx], toPositions = ROUND_ABS[rIdx + 1];
-          const xFrom = xBase + (flip ? (3 - rIdx) * CW : (rIdx + 1) * CW);
+          const COL = CW + GUTTER;
+          const xFrom = xBase + (flip ? (3 - rIdx) * COL : (rIdx + 1) * COL) - (flip ? 0 : GUTTER);
           const xStub = flip ? xFrom - STUB : xFrom + STUB;
-          const xParent = flip ? xFrom - CW + STUB : xFrom + CW - STUB;
+          const xParent = flip ? xFrom - COL + STUB : xFrom + COL - STUB;
           toPositions.forEach((toPos, tIdx) => {
             const c1 = fromPositions[tIdx * 2], c2 = fromPositions[tIdx * 2 + 1];
             if (c1 == null || c2 == null) return;
@@ -1990,16 +1998,16 @@ if (game.winner?.name === clicked.name) {
         }
       };
 
-      const ffLeftEdge = CW * 4 + (CW * 3 - FF_W) / 2, ffRightEdge = ffLeftEdge + FF_W;
+      const ffLeftEdge = CW * 4 + GUTTER * 4 + (CW * 3 + GUTTER * 2 - FF_W) / 2, ffRightEdge = ffLeftEdge + FF_W;
       const ffTopY = dir === 'top' ? TOP_H - FF_GAP - FF_H : FF_GAP;
       const ffMidY = ffTopY + GAME_MID_OFFSET;
       const e8Pos = ROUND_ABS[3][0], e8MidY = getMid(e8Pos), e8Color = LINE_COLORS[3];
-      const eastE8Right = CW * 4, eastStubX = eastE8Right + STUB;
+      const eastE8Right = CW * 4 + GUTTER * 3, eastStubX = eastE8Right + STUB;
       lines.push(<g key="e8-ff-east" stroke={e8Color} strokeWidth="3" strokeLinecap="round" fill="none"><line x1={eastE8Right} y1={e8MidY} x2={eastStubX} y2={e8MidY} /><line x1={eastStubX} y1={e8MidY} x2={eastStubX} y2={ffMidY} /><line x1={eastStubX} y1={ffMidY} x2={ffLeftEdge} y2={ffMidY} /></g>);
-      const westE8Left = CW * 7, westStubX = westE8Left - STUB;
+      const westE8Left = CW * 7 + GUTTER * 6, westStubX = westE8Left - STUB;
       lines.push(<g key="e8-ff-west" stroke={e8Color} strokeWidth="3" strokeLinecap="round" fill="none"><line x1={westE8Left} y1={e8MidY} x2={westStubX} y2={e8MidY} /><line x1={westStubX} y1={e8MidY} x2={westStubX} y2={ffMidY} /><line x1={westStubX} y1={ffMidY} x2={ffRightEdge} y2={ffMidY} /></g>);
-      addRegionLines(0, false); addRegionLines(CW * 7, true);
-      return <svg width={TOTAL_W} height={H} style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none', zIndex: -1 }}>{lines}</svg>;
+      addRegionLines(0, false); addRegionLines(CW * 7 + GUTTER * 6, true);
+      return <svg width={TOTAL_W} height={H} style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none', zIndex: 1 }}>{lines}</svg>;
     };
 
     const ff0Label = `Final Four: ${regionNames.East || 'East'} vs. ${regionNames.West || 'West'}`;
@@ -2025,11 +2033,17 @@ if (game.winner?.name === clicked.name) {
         </div>
       )}
       <div style={{ width: TOTAL_W }}>
+        {/* ROUND HEADERS */}
+        <div style={{ display: 'flex', width: TOTAL_W, paddingTop: 4 }}>
+          {[0,1,2,3].map(rIdx => <RoundHeader key={`hdr-east-${rIdx}`} rIdx={rIdx} />)}
+          <div style={{ width: CW * 3 + GUTTER * 2, flexShrink: 0, textAlign: 'center', fontSize: 9, fontWeight: 700, color: '#7A7068', textTransform: 'uppercase', letterSpacing: 1, paddingBottom: 6 }}>Final Four / Championship</div>
+          {[3,2,1,0].map(rIdx => <RoundHeader key={`hdr-west-${rIdx}`} rIdx={rIdx} />)}
+        </div>
         {/* TOP HALF */}
         <div style={{ display: 'flex', alignItems: 'flex-end', position: 'relative', height: TOP_H }}>
           <BracketConnectors dir="top" />
           {[0,1,2,3].map(rIdx => <RoundCol key={rIdx} region="East" rIdx={rIdx} flip={false} dir="top" />)}
-          <div style={{ width: CW * 3, flexShrink: 0, height: TOP_H, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'center', paddingBottom: FF_GAP }}>
+          <div style={{ width: CW * 3 + GUTTER * 2, flexShrink: 0, height: TOP_H, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'center', paddingBottom: FF_GAP }}>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
               <div style={{ fontSize: 13, fontWeight: 800, color: MINT_FG, letterSpacing: 1.5, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{ff0Label}</div>
               <ScaledGame><GameSlot game={activeBracket.finalFour?.[0]} onPick={s => onFFPick(0, s)} locked={isLocked && !isAdmin} roundIdx={4} liveScores={isMammal ? {} : liveScores} onCompare={onCompareGame} isMammal={isMammal} mammalResearchData={isMammal ? mammalResearchData : {}} /></ScaledGame>
@@ -2063,7 +2077,7 @@ if (game.winner?.name === clicked.name) {
         <div style={{ display: 'flex', alignItems: 'flex-start', position: 'relative', height: TOP_H }}>
           <BracketConnectors dir="bot" />
           {[0,1,2,3].map(rIdx => <RoundCol key={rIdx} region="South" rIdx={rIdx} flip={false} dir="bot" />)}
-          <div style={{ width: CW * 3, flexShrink: 0, height: TOP_H, display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'center', paddingTop: FF_GAP }}>
+          <div style={{ width: CW * 3 + GUTTER * 2, flexShrink: 0, height: TOP_H, display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'center', paddingTop: FF_GAP }}>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
               <ScaledGame><GameSlot game={activeBracket.finalFour?.[1]} onPick={s => onFFPick(1, s)} locked={isLocked && !isAdmin} roundIdx={4} liveScores={isMammal ? {} : liveScores} onCompare={onCompareGame} isMammal={isMammal} mammalResearchData={isMammal ? mammalResearchData : {}} /></ScaledGame>
               <div style={{ fontSize: 13, fontWeight: 800, color: MINT_FG, letterSpacing: 1.5, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{ff1Label}</div>
