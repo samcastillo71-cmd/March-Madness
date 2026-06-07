@@ -1303,6 +1303,8 @@ export default function App() {
   const [bbScrollPos, setBbScrollPos] = useState({ atStart: true, atEnd: false });
   const [mmScrollPos, setMmScrollPos] = useState({ atStart: true, atEnd: false });
   const getScrollPos = (el) => ({ atStart: el.scrollLeft <= 4, atEnd: el.scrollLeft >= el.scrollWidth - el.clientWidth - 4 });
+  const bracketCompleteRef = useRef(false);
+  const mammalCompleteRef = useRef(false);
   const [yearDraft,          setYearDraft]          = useState(String(CURRENT_YEAR));
   const [yearSaving,         setYearSaving]         = useState(false);
   const [yearSaveError,      setYearSaveError]      = useState('');
@@ -2011,6 +2013,14 @@ if (game.winner?.name === clicked.name) {
     const totalPicks = isAdmin ? 0 : countPicks(activeBracket);
     const pickPct = Math.min(100, (totalPicks / 63) * 100);
     const isComplete = totalPicks >= 63;
+
+    const completeRef = isMammal ? mammalCompleteRef : bracketCompleteRef;
+    if (!isComplete) {
+      completeRef.current = false;
+    } else if (!completeRef.current && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      completeRef.current = true;
+      setTimeout(() => confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 }, colors: ['#C4952A', '#1E6B47', '#B8CBE8', '#091828'] }), 0);
+    }
 
     const ScaledGame = ({ children, isHoriz }) => {
       const wrapH = isHoriz ? Math.round(FF_H * 0.72) : FF_H;
