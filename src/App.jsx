@@ -320,7 +320,9 @@ const GameSlot = memo(function GameSlot({ game, onPick, locked, isChampionship, 
           <div className="cz-label">COMPARE</div>
         </div>
       ) : (
-        <div style={{ height: 1, background: '#C8BFB0' }} />
+        <div style={{ height: 22, display: 'flex', alignItems: 'center' }}>
+          <div style={{ height: 1, background: '#C8BFB0', width: '100%' }} />
+        </div>
       )}
       <Team team={bottom} side="bottom" />
       {(() => {
@@ -2121,7 +2123,7 @@ if (game.winner?.name === clicked.name) {
           {[3,2,1,0].map(rIdx => <RoundHeader key={`hdr-west-${rIdx}`} rIdx={rIdx} />)}
         </div>
         {/* TOP HALF */}
-        <div style={{ display: 'flex', alignItems: 'flex-end', position: 'relative', height: TOP_H }}>
+        <div style={{ display: 'flex', alignItems: 'flex-end', position: 'relative', height: TOP_H, isolation: 'isolate' }}>
           <BracketConnectors dir="top" />
           {[0,1,2,3].map(rIdx => <RoundCol key={rIdx} region="East" rIdx={rIdx} flip={false} dir="top" />)}
           <div style={{ width: CW * 3 + GUTTER * 2, flexShrink: 0, height: TOP_H, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'center', paddingBottom: FF_GAP, position: 'relative', zIndex: 2 }}>
@@ -2155,7 +2157,7 @@ if (game.winner?.name === clicked.name) {
         </div>
 
         {/* BOTTOM HALF */}
-        <div style={{ display: 'flex', alignItems: 'flex-start', position: 'relative', height: TOP_H }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', position: 'relative', height: TOP_H, isolation: 'isolate' }}>
           <BracketConnectors dir="bot" />
           {[0,1,2,3].map(rIdx => <RoundCol key={rIdx} region="South" rIdx={rIdx} flip={false} dir="bot" />)}
           <div style={{ width: CW * 3 + GUTTER * 2, flexShrink: 0, height: TOP_H, display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'center', paddingTop: FF_GAP, position: 'relative', zIndex: 2 }}>
