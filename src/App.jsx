@@ -227,7 +227,7 @@ const GameSlot = memo(function GameSlot({ game, onPick, locked, isChampionship, 
 
   const Team = ({ team, side }) => {
     if (!team) return (
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '3px 8px', height: 36, color: '#888', fontSize: 11, fontStyle: 'italic', flexDirection: flipped ? 'row-reverse' : 'row' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 8px', minHeight: 44, boxSizing: 'border-box', color: '#888', fontSize: 11, fontStyle: 'italic', flexDirection: flipped ? 'row-reverse' : 'row' }}>
         <div style={{ width: 20, height: 20, borderRadius: '50%', background: '#111', flexShrink: 0 }} />TBD
       </div>
     );
@@ -2055,7 +2055,7 @@ if (game.winner?.name === clicked.name) {
     );
     const LINE_COLORS = ['#60a5fa','#a78bfa','#fbbf24','#ef4444'];
     const TOTAL_W = CW * 11 + GUTTER * 10;
-    const GAME_MID_OFFSET = 50, GAME_MID_OFFSET_BOT = 39;
+    const GAME_MID_OFFSET = 55, GAME_MID_OFFSET_BOT = 55;
 
     const BracketConnectors = ({ dir }) => {
       const H = TOP_H;
@@ -2081,7 +2081,7 @@ if (game.winner?.name === clicked.name) {
 
       const ffLeftEdge = CW * 4 + GUTTER * 4 + (CW * 3 + GUTTER * 2 - FF_W) / 2, ffRightEdge = ffLeftEdge + FF_W;
       const ffTopY = dir === 'top' ? TOP_H - FF_GAP - FF_H : FF_GAP;
-      const ffMidY = ffTopY + GAME_MID_OFFSET;
+      const ffMidY = ffTopY + Math.round(GAME_MID_OFFSET * FF_SCALE);
       const e8Pos = ROUND_ABS[3][0], e8MidY = getMid(e8Pos), e8Color = LINE_COLORS[3];
       const eastE8Right = CW * 4 + GUTTER * 3, eastStubX = eastE8Right + STUB;
       lines.push(<g key="e8-ff-east" stroke={e8Color} strokeWidth="3" strokeLinecap="round" fill="none"><line x1={eastE8Right} y1={e8MidY} x2={eastStubX} y2={e8MidY} /><line x1={eastStubX} y1={e8MidY} x2={eastStubX} y2={ffMidY} /><line x1={eastStubX} y1={ffMidY} x2={ffLeftEdge} y2={ffMidY} /></g>);
