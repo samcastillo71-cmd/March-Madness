@@ -1227,6 +1227,14 @@ export default function App() {
   const [firstFourPicks,   setFirstFourPicks]  = useState({});
   const [ffPlaceholders,   setFfPlaceholders]  = useState({});
   const [tournamentYear,   setTournamentYear]  = useState(CURRENT_YEAR);
+  const [bracketZoomed, setBracketZoomed] = useState(() => {
+    try { return localStorage.getItem('mm-bracket-zoom') === 'out'; } catch { return false; }
+  });
+  const bbScrollRef = useRef(null);
+  const mmScrollRef = useRef(null);
+  const [bbScrollPos, setBbScrollPos] = useState({ atStart: true, atEnd: false });
+  const [mmScrollPos, setMmScrollPos] = useState({ atStart: true, atEnd: false });
+  const getScrollPos = (el) => ({ atStart: el.scrollLeft <= 4, atEnd: el.scrollLeft >= el.scrollWidth - el.clientWidth - 4 });
   const [yearDraft,          setYearDraft]          = useState(String(CURRENT_YEAR));
   const [yearSaving,         setYearSaving]         = useState(false);
   const [yearSaveError,      setYearSaveError]      = useState('');
@@ -2132,18 +2140,50 @@ if (game.winner?.name === clicked.name) {
   };
 
   // ── SCROLL BRACKET WRAPPER ────────────────────────────────────────────────
-  const renderScrollBracket = (isMammal, scrollClass) => (
-    <div className={`${scrollClass} bscroll`} style={{ overflowX: 'auto', overflowY: 'visible', paddingBottom: 4, cursor: 'grab', WebkitOverflowScrolling: 'touch' }}
-      onMouseDown={e => {
-        const el = e.currentTarget; el.style.cursor = 'grabbing';
-        const startX = e.pageX - el.offsetLeft, startScroll = el.scrollLeft;
-        const onMove = mv => { el.scrollLeft = startScroll - (mv.pageX - el.offsetLeft - startX); };
-        const onUp = () => { el.style.cursor = 'grab'; window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
-        window.addEventListener('mousemove', onMove); window.addEventListener('mouseup', onUp);
-      }}>
-      <div style={{ display: 'inline-block', paddingBottom: 8 }}>{renderBracket(isMammal)}</div>
-    </div>
-  );
+  const renderScrollBracket = (isMammal, scrollClass) => {
+    const scrollRef = isMammal ? mmScrollRef : bbScrollRef;
+    const scrollPos = isMammal ? mmScrollPos : bbScrollPos;
+    const setScrollPos = isMammal ? setMmScrollPos : setBbScrollPos;
+    return (
+      <div style={{ position: 'relative' }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 6 }}>
+          <button
+            onClick={() => setBracketZoomed(z => {
+              const next = !z;
+              try { localStorage.setItem('mm-bracket-zoom', next ? 'out' : 'in'); } catch {}
+              return next;
+            })}
+            style={{ ...S.btn('rgba(9,24,40,0.08)', '#7A7068'), padding: '4px 12px', fontSize: 11, boxShadow: 'none', border: '1px solid rgba(9,24,40,0.15)' }}
+          >
+            {bracketZoomed ? 'Zoom in' : 'Zoom out'}
+          </button>
+        </div>
+        {!scrollPos.atStart && (
+          <div style={{ position: 'absolute', left: 0, top: 30, bottom: 0, width: 40, background: 'linear-gradient(to right, #E8E2D8, transparent)', pointerEvents: 'none', zIndex: 10 }} />
+        )}
+        {!scrollPos.atEnd && (
+          <div style={{ position: 'absolute', right: 0, top: 30, bottom: 0, width: 40, background: 'linear-gradient(to left, #E8E2D8, transparent)', pointerEvents: 'none', zIndex: 10 }} />
+        )}
+        <div
+          ref={scrollRef}
+          className={`${scrollClass} bscroll`}
+          style={{ overflowX: 'auto', overflowY: 'visible', paddingBottom: 4, cursor: 'grab', WebkitOverflowScrolling: 'touch' }}
+          onScroll={e => setScrollPos(getScrollPos(e.currentTarget))}
+          onMouseDown={e => {
+            const el = e.currentTarget; el.style.cursor = 'grabbing';
+            const startX = e.pageX - el.offsetLeft, startScroll = el.scrollLeft;
+            const onMove = mv => { el.scrollLeft = startScroll - (mv.pageX - el.offsetLeft - startX); };
+            const onUp = () => { el.style.cursor = 'grab'; window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
+            window.addEventListener('mousemove', onMove); window.addEventListener('mouseup', onUp);
+          }}
+        >
+          <div style={{ display: 'inline-block', paddingBottom: 8, transform: bracketZoomed ? 'scale(0.72)' : 'scale(1)', transformOrigin: 'top left', transition: 'transform 200ms ease-out' }}>
+            {renderBracket(isMammal)}
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   // ── SCORE BAR ─────────────────────────────────────────────────────────────
   const renderScoreBar = (isMammal) => {
