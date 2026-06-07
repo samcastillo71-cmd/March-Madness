@@ -203,7 +203,8 @@ function findLiveScore(liveScores, teamName) {
   return sub ? sub[1] : null;
 }
 
-const GameSlot = memo(function GameSlot({ game, onPick, locked, isChampionship, onScoreChange, flipped, roundIdx = 0, liveScores = {}, isHorizontal = false, onCompare, isMammal = false, mammalResearchData = {} }) {
+const GameSlot = memo(function GameSlot({ game, onPick, locked, isChampionship, onScoreChange, flipped, roundIdx = 0, liveScores = {}, isHorizontal = false, onCompare, isMammal = false, mammalResearchData = {}, researchData = {} }) {
+  const [pulseSide, setPulseSide] = useState(null);
   if (!game) return null;
   const { top, bottom, winner } = game;
   const slotBg     = isChampionship ? 'rgba(196,149,42,0.08)' : ROUND_COLORS[roundIdx] || ROUND_COLORS[0];
@@ -250,17 +251,24 @@ const GameSlot = memo(function GameSlot({ game, onPick, locked, isChampionship, 
       </div>
     );
     return (
-      <div onClick={() => !locked && !isFF && onPick?.(side)}
+      <div onClick={() => { if (!locked && !isFF) { onPick?.(side); setPulseSide(side); setTimeout(() => setPulseSide(null), 200); } }}
         role={!locked && !isFF ? 'button' : undefined}
         tabIndex={!locked && !isFF ? 0 : -1}
-        onKeyDown={e => { if (!locked && !isFF && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onPick?.(side); } }}
-        className={!locked && !isFF ? (isW ? 'mm-tile mm-tile-win' : 'mm-tile') : ''}
-        style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 8px', minHeight: 44, boxSizing: 'border-box', flexDirection: flipped ? 'row-reverse' : 'row', background: isW ? MINT_BG : '#F4EFE6', cursor: locked || isFF ? 'default' : 'pointer', borderRadius: 4, opacity: isL ? 0.4 : 1, transition: 'background .12s', boxShadow: isW ? `inset 3px 0 0 ${MINT_FG}` : 'inset 3px 0 0 transparent' }}>
+        onKeyDown={e => { if (!locked && !isFF && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onPick?.(side); setPulseSide(side); setTimeout(() => setPulseSide(null), 200); } }}
+        className={!locked && !isFF ? (isW ? 'mm-tile mm-tile-win' : 'mm-tile') + (pulseSide === side ? ' mm-tile-picked' : '') : ''}
+        style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 8px', minHeight: 44, boxSizing: 'border-box', flexDirection: flipped ? 'row-reverse' : 'row', background: isW ? MINT_BG : '#F4EFE6', cursor: locked || isFF ? 'default' : 'pointer', borderRadius: 4, opacity: isL ? 0.4 : 1, transition: 'background .12s', boxShadow: isW ? `inset 3px 0 0 ${isMammal ? MINT_FG : (team.color ? `#${team.color}` : MINT_FG)}` : 'inset 3px 0 0 transparent' }}>
         <TeamLogo espnId={team.espnId} name={team.name} size={20} />
         <span style={{ fontSize: 10, color: isW ? MINT_FG : '#7A7068', fontWeight: 700, minWidth: 14, textDecoration: isL ? 'line-through' : 'none' }}>{team.seed}</span>
         <span style={{ fontSize: team.name?.length > 18 ? 11 : team.name?.length > 13 ? 13 : 14, fontWeight: isW ? 700 : 500, color: isW ? MINT_FG : isL ? '#C8BFB0' : '#1A1208', textDecoration: isL ? 'line-through' : 'none', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: hasLive ? 80 : 140, flex: 1 }}>
           {isFF ? 'First Four Winner' : team.name}
         </span>
+        {isW && !isMammal && (() => {
+          const opponent = side === 'top' ? bottom : top;
+          if (team?.seed && opponent?.seed && Number(team.seed) > Number(opponent.seed)) {
+            return <span style={{ fontSize: 8, fontWeight: 800, color: '#C4952A', background: 'rgba(196,149,42,0.12)', border: '1px solid rgba(196,149,42,0.35)', borderRadius: 3, padding: '1px 4px', flexShrink: 0 }}>UPSET</span>;
+          }
+          return null;
+        })()}
         {hasLive && live && <span style={{ fontSize: 13, fontWeight: 800, color: isFinal && live.winner ? MINT_FG : isLiveGame && isLiveWinning ? '#C4952A' : '#7A7068', minWidth: 24, textAlign: 'right', flexShrink: 0 }}>{live.score}</span>}
         {isW && !hasLive && <Check size={13} color={MINT_FG} style={{ marginLeft: flipped ? 0 : 'auto', marginRight: flipped ? 'auto' : 0, flexShrink: 0 }} />}
       </div>
@@ -315,6 +323,17 @@ const GameSlot = memo(function GameSlot({ game, onPick, locked, isChampionship, 
         <div style={{ height: 1, background: '#C8BFB0' }} />
       )}
       <Team team={bottom} side="bottom" />
+      {roundIdx === 0 && top && bottom && !top.isFFPlaceholder && !bottom.isFFPlaceholder && (
+        <div style={{ textAlign: 'center', fontSize: 9, color: '#7A7068', paddingBottom: 3, letterSpacing: 0.5 }}>
+          {`#${top.seed} vs #${bottom.seed}`}
+        </div>
+      )}
+      {(() => {
+        const hasResearchTop = isMammal ? !!mammalResearchData[top?.name] : !!researchData[top?.name];
+        const hasResearchBot = isMammal ? !!mammalResearchData[bottom?.name] : !!researchData[bottom?.name];
+        if (!hasResearchTop && !hasResearchBot) return null;
+        return <div style={{ position: 'absolute', top: 4, right: 4, width: 5, height: 5, borderRadius: '50%', background: MINT_FG, opacity: 0.7 }} title="Research available" />;
+      })()}
       {isLiveGame && <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, padding: '2px 8px', background: 'rgba(239,68,68,0.10)', borderTop: '1px solid rgba(239,68,68,0.2)' }}><span style={{ width: 6, height: 6, borderRadius: '50%', background: '#ef4444', display: 'inline-block', animation: 'livePulse 1.2s ease-in-out infinite' }} /><span style={{ fontSize: 10, color: '#e74c3c', fontWeight: 700 }}>LIVE</span></div>}
       {isFinal && <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2px 8px', background: 'rgba(200,191,176,0.3)', borderTop: '1px solid #C8BFB0' }}><span style={{ fontSize: 10, color: '#7A7068', fontWeight: 700 }}>FINAL</span></div>}
       {isChampionship && (
@@ -1964,7 +1983,7 @@ if (game.winner?.name === clicked.name) {
             const pos = positions[gIdx] ?? gIdx * SH;
             return (
               <div key={gIdx} style={{ position: 'absolute', left: 0, right: 0, ...(dir === 'top' ? { top: pos } : { bottom: pos }) }}>
-                <GameSlot game={game} locked={isLocked && !isAdmin} flipped={flip} roundIdx={rIdx} liveScores={isMammal ? {} : liveScores} onPick={side => onPick(region, rIdx, gIdx, side)} onCompare={onCompareGame} isMammal={isMammal} mammalResearchData={isMammal ? mammalResearchData : {}} />
+                <GameSlot game={game} locked={isLocked && !isAdmin} flipped={flip} roundIdx={rIdx} liveScores={isMammal ? {} : liveScores} onPick={side => onPick(region, rIdx, gIdx, side)} onCompare={onCompareGame} isMammal={isMammal} mammalResearchData={isMammal ? mammalResearchData : {}} researchData={isMammal ? {} : researchData} />
               </div>
             );
           })}
@@ -2054,7 +2073,7 @@ if (game.winner?.name === clicked.name) {
           <div style={{ width: CW * 3 + GUTTER * 2, flexShrink: 0, height: TOP_H, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'center', paddingBottom: FF_GAP }}>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
               <div style={{ fontSize: 13, fontWeight: 800, color: MINT_FG, letterSpacing: 1.5, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{ff0Label}</div>
-              <ScaledGame><GameSlot game={activeBracket.finalFour?.[0]} onPick={s => onFFPick(0, s)} locked={isLocked && !isAdmin} roundIdx={4} liveScores={isMammal ? {} : liveScores} onCompare={onCompareGame} isMammal={isMammal} mammalResearchData={isMammal ? mammalResearchData : {}} /></ScaledGame>
+              <ScaledGame><GameSlot game={activeBracket.finalFour?.[0]} onPick={s => onFFPick(0, s)} locked={isLocked && !isAdmin} roundIdx={4} liveScores={isMammal ? {} : liveScores} onCompare={onCompareGame} isMammal={isMammal} mammalResearchData={isMammal ? mammalResearchData : {}} researchData={isMammal ? {} : researchData} /></ScaledGame>
             </div>
           </div>
           {[3,2,1,0].map(rIdx => <RoundCol key={rIdx} region="West" rIdx={rIdx} flip={true} dir="top" />)}
@@ -2070,7 +2089,7 @@ if (game.winner?.name === clicked.name) {
               <Trophy size={16} color={champGold} />
             </div>
             <ScaledGame isHoriz>
-              <GameSlot game={activeBracket.championship} onPick={onChampPick} locked={isLocked && !isAdmin} isChampionship isHorizontal onScoreChange={isMammal ? undefined : handleChampScore} roundIdx={-1} liveScores={isMammal ? {} : liveScores} onCompare={onCompareGame} isMammal={isMammal} mammalResearchData={isMammal ? mammalResearchData : {}} />
+              <GameSlot game={activeBracket.championship} onPick={onChampPick} locked={isLocked && !isAdmin} isChampionship isHorizontal onScoreChange={isMammal ? undefined : handleChampScore} roundIdx={-1} liveScores={isMammal ? {} : liveScores} onCompare={onCompareGame} isMammal={isMammal} mammalResearchData={isMammal ? mammalResearchData : {}} researchData={isMammal ? {} : researchData} />
             </ScaledGame>
             {activeBracket.championship?.winner && (
               <div style={{ textAlign: 'center', padding: '4px 14px', background: isMammal ? 'rgba(134,239,172,0.15)' : 'rgba(245,158,11,0.18)', borderRadius: 6, border: `1px solid ${isMammal ? 'rgba(134,239,172,0.4)' : 'rgba(245,158,11,0.5)'}` }}>
@@ -2087,7 +2106,7 @@ if (game.winner?.name === clicked.name) {
           {[0,1,2,3].map(rIdx => <RoundCol key={rIdx} region="South" rIdx={rIdx} flip={false} dir="bot" />)}
           <div style={{ width: CW * 3 + GUTTER * 2, flexShrink: 0, height: TOP_H, display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'center', paddingTop: FF_GAP }}>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-              <ScaledGame><GameSlot game={activeBracket.finalFour?.[1]} onPick={s => onFFPick(1, s)} locked={isLocked && !isAdmin} roundIdx={4} liveScores={isMammal ? {} : liveScores} onCompare={onCompareGame} isMammal={isMammal} mammalResearchData={isMammal ? mammalResearchData : {}} /></ScaledGame>
+              <ScaledGame><GameSlot game={activeBracket.finalFour?.[1]} onPick={s => onFFPick(1, s)} locked={isLocked && !isAdmin} roundIdx={4} liveScores={isMammal ? {} : liveScores} onCompare={onCompareGame} isMammal={isMammal} mammalResearchData={isMammal ? mammalResearchData : {}} researchData={isMammal ? {} : researchData} /></ScaledGame>
               <div style={{ fontSize: 13, fontWeight: 800, color: MINT_FG, letterSpacing: 1.5, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{ff1Label}</div>
             </div>
           </div>
@@ -2359,6 +2378,8 @@ if (game.winner?.name === clicked.name) {
           .bscroll::-webkit-scrollbar-thumb:hover { background: rgba(9,24,40,0.7); }
           @keyframes champGlow { 0%,100%{opacity:0.4} 50%{opacity:1} }
           @keyframes fadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+          @keyframes pickPulse { 0%{transform:scale(1)} 40%{transform:scale(1.05)} 100%{transform:scale(1)} }
+          .mm-tile-picked { animation: pickPulse 180ms ease-out; }
           @keyframes livePulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
           .compare-zone { position:relative; height:22px; cursor:pointer; overflow:hidden; user-select:none; }
           .cz-fill-top { position:absolute; top:0; left:0; right:0; height:0; background:var(--cz-top,#040C15); transition:height .24s ease-out; }
