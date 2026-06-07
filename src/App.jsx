@@ -323,11 +323,6 @@ const GameSlot = memo(function GameSlot({ game, onPick, locked, isChampionship, 
         <div style={{ height: 1, background: '#C8BFB0' }} />
       )}
       <Team team={bottom} side="bottom" />
-      {roundIdx === 0 && top && bottom && !top.isFFPlaceholder && !bottom.isFFPlaceholder && (
-        <div style={{ textAlign: 'center', fontSize: 9, color: '#7A7068', paddingBottom: 3, letterSpacing: 0.5 }}>
-          {`#${top.seed} vs #${bottom.seed}`}
-        </div>
-      )}
       {(() => {
         const hasResearchTop = isMammal ? !!mammalResearchData[top?.name] : !!researchData[top?.name];
         const hasResearchBot = isMammal ? !!mammalResearchData[bottom?.name] : !!researchData[bottom?.name];
@@ -2037,7 +2032,7 @@ if (game.winner?.name === clicked.name) {
       const games = activeBracket[region]?.rounds[rIdx] || [];
       const positions = ROUND_ABS[rIdx];
       return (
-        <div style={{ width: CW, flexShrink: 0, height: TOP_H, position: 'relative', marginRight: GUTTER }}>
+        <div style={{ width: CW, flexShrink: 0, height: TOP_H, position: 'relative', marginRight: GUTTER, zIndex: 2 }}>
           {games.map((game, gIdx) => {
             const pos = positions[gIdx] ?? gIdx * SH;
             return (
@@ -2129,7 +2124,7 @@ if (game.winner?.name === clicked.name) {
         <div style={{ display: 'flex', alignItems: 'flex-end', position: 'relative', height: TOP_H }}>
           <BracketConnectors dir="top" />
           {[0,1,2,3].map(rIdx => <RoundCol key={rIdx} region="East" rIdx={rIdx} flip={false} dir="top" />)}
-          <div style={{ width: CW * 3 + GUTTER * 2, flexShrink: 0, height: TOP_H, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'center', paddingBottom: FF_GAP }}>
+          <div style={{ width: CW * 3 + GUTTER * 2, flexShrink: 0, height: TOP_H, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'center', paddingBottom: FF_GAP, position: 'relative', zIndex: 2 }}>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
               <div style={{ fontSize: 13, fontWeight: 800, color: MINT_FG, letterSpacing: 1.5, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{ff0Label}</div>
               <ScaledGame><GameSlot game={activeBracket.finalFour?.[0]} onPick={s => onFFPick(0, s)} locked={isLocked && !isAdmin} roundIdx={4} liveScores={isMammal ? {} : liveScores} onCompare={onCompareGame} isMammal={isMammal} mammalResearchData={isMammal ? mammalResearchData : {}} researchData={isMammal ? {} : researchData} /></ScaledGame>
@@ -2163,7 +2158,7 @@ if (game.winner?.name === clicked.name) {
         <div style={{ display: 'flex', alignItems: 'flex-start', position: 'relative', height: TOP_H }}>
           <BracketConnectors dir="bot" />
           {[0,1,2,3].map(rIdx => <RoundCol key={rIdx} region="South" rIdx={rIdx} flip={false} dir="bot" />)}
-          <div style={{ width: CW * 3 + GUTTER * 2, flexShrink: 0, height: TOP_H, display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'center', paddingTop: FF_GAP }}>
+          <div style={{ width: CW * 3 + GUTTER * 2, flexShrink: 0, height: TOP_H, display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'center', paddingTop: FF_GAP, position: 'relative', zIndex: 2 }}>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
               <ScaledGame><GameSlot game={activeBracket.finalFour?.[1]} onPick={s => onFFPick(1, s)} locked={isLocked && !isAdmin} roundIdx={4} liveScores={isMammal ? {} : liveScores} onCompare={onCompareGame} isMammal={isMammal} mammalResearchData={isMammal ? mammalResearchData : {}} researchData={isMammal ? {} : researchData} /></ScaledGame>
               <div style={{ fontSize: 13, fontWeight: 800, color: MINT_FG, letterSpacing: 1.5, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{ff1Label}</div>
