@@ -544,53 +544,102 @@ function MammalResearchCard({ animalName, card, isAdmin, onFieldSave, onGenerate
 }
 
 // ── COMPARE MODAL ─────────────────────────────────────────────────────────────
-function CompareModal({ teamA, teamB, cardA, cardB, isMammal, onClose }) {
-  const bbStats = [
-    ['Rank', 'rank'], ['Conference', 'conference'], ['Record', 'record'],
-    ['KenPom', 'kenpom'], ['Offense', 'offense'], ['Defense', 'defense'],
-    ['Pace', 'pace'], ['Odds', 'odds'], ['Strengths', 'strengths'], ['Weaknesses', 'weaknesses'],
-  ];
-  const mammalStats = [
-    ['Habitat', 'habitat'], ['Diet', 'diet'], ['Superpower', 'superpower'],
-    ['Battle Strength', 'battleStrength'], ['Size', 'size'], ['Speed', 'speed'], ['Lifespan', 'lifespan'],
-  ];
-  const stats = isMammal ? mammalStats : bbStats;
-  const accent = isMammal ? '#86efac' : '#4ade80';
+function CompareModal({ teamA, teamB, cardA, cardB, isMammal, onClose, onPick, isLocked }) {
+  const NUMERIC_STATS = isMammal
+    ? [['Size', 'size'], ['Speed', 'speed'], ['Lifespan', 'lifespan']]
+    : [['KenPom', 'kenpom'], ['Offense', 'offense'], ['Defense', 'defense'], ['Pace', 'pace']];
+  const PERF_STATS = isMammal
+    ? [['Habitat', 'habitat'], ['Diet', 'diet']]
+    : [['Rank', 'rank'], ['Conference', 'conference'], ['Record', 'record']];
+  const SCOUT_STATS = isMammal
+    ? [['Battle Strength', 'battleStrength'], ['Superpower', 'superpower']]
+    : [['Odds', 'odds'], ['Strengths', 'strengths'], ['Weaknesses', 'weaknesses']];
+
+  const parseNum = (v) => { if (!v) return null; const n = parseFloat(String(v).replace(/[^0-9.-]/g, '')); return isNaN(n) ? null : n; };
+
+  const StatBar = ({ label, keyName }) => {
+    const vA = cardA?.[keyName], vB = cardB?.[keyName];
+    const nA = parseNum(vA), nB = parseNum(vB);
+    const hasBar = nA !== null && nB !== null;
+    const aWins = hasBar && (keyName === 'rank' ? nA < nB : nA > nB);
+    const bWins = hasBar && !aWins;
+    const total = hasBar ? nA + nB : 1;
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 0', borderTop: '1px solid rgba(255,255,255,0.07)' }}>
+        <div style={{ flex: 1, textAlign: 'right' }}>
+          {hasBar && <div style={{ height: 4, borderRadius: 2, background: aWins ? MINT_FG : 'rgba(255,255,255,0.12)', marginBottom: 4, width: `${(nA / total) * 100}%`, marginLeft: 'auto' }} />}
+          <span style={{ fontSize: 12, color: aWins ? '#fff' : 'rgba(255,255,255,0.38)', fontWeight: aWins ? 700 : 400 }}>{vA || '—'}</span>
+        </div>
+        <div style={{ width: 90, textAlign: 'center', fontSize: 9, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: 1, fontWeight: 700, flexShrink: 0 }}>{label}</div>
+        <div style={{ flex: 1, textAlign: 'left' }}>
+          <span style={{ fontSize: 12, color: bWins ? '#fff' : 'rgba(255,255,255,0.38)', fontWeight: bWins ? 700 : 400 }}>{vB || '—'}</span>
+          {hasBar && <div style={{ height: 4, borderRadius: 2, background: bWins ? MINT_FG : 'rgba(255,255,255,0.12)', marginTop: 4, width: `${(nB / total) * 100}%` }} />}
+        </div>
+      </div>
+    );
+  };
+
+  const TextStat = ({ label, keyName }) => {
+    const vA = cardA?.[keyName], vB = cardB?.[keyName];
+    return (
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '7px 0', borderTop: '1px solid rgba(255,255,255,0.07)' }}>
+        <div style={{ flex: 1, textAlign: 'right', fontSize: 12, color: 'rgba(255,255,255,0.65)', lineHeight: 1.5 }}>{vA || '—'}</div>
+        <div style={{ width: 90, textAlign: 'center', fontSize: 9, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: 1, fontWeight: 700, flexShrink: 0, paddingTop: 2 }}>{label}</div>
+        <div style={{ flex: 1, textAlign: 'left', fontSize: 12, color: 'rgba(255,255,255,0.65)', lineHeight: 1.5 }}>{vB || '—'}</div>
+      </div>
+    );
+  };
+
+  const SectionLabel = ({ label }) => (
+    <div style={{ fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: 2, marginTop: 14, marginBottom: 2 }}>{label}</div>
+  );
+
+  const accentA = isMammal ? MINT_FG : (teamA?.color ? `#${teamA.color}` : MINT_FG);
+  const accentB = isMammal ? MINT_FG : (teamB?.color ? `#${teamB.color}` : MINT_FG);
+
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.88)', zIndex: 2000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: 20, overflowY: 'auto' }}>
-      <div onClick={e => e.stopPropagation()} style={{ background: isMammal ? 'rgba(22,163,74,0.10)' : 'rgba(9,24,40,0.10)', border: `1px solid ${isMammal ? 'rgba(22,163,74,0.30)' : 'rgba(9,24,40,0.25)'}`, borderRadius: 12, padding: 20, maxWidth: 700, width: '100%', marginTop: 20 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-          <h2 style={{ fontFamily: "'Libre Bodoni', serif", color: accent, margin: 0, fontSize: 20 }}>Head-to-Head</h2>
-          <button onClick={onClose} aria-label="Close" style={{ background: 'none', border: 'none', color: '#888', fontSize: 22, cursor: 'pointer' }}>×</button>
+      <div onClick={e => e.stopPropagation()} style={{ background: '#0D1B2A', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 16, maxWidth: 520, width: '100%', marginTop: 20, animation: 'modalSlideUp 240ms cubic-bezier(0.32,0.72,0,1) both', overflow: 'hidden' }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '10px 12px 0' }}>
+          <button onClick={onClose} aria-label="Close" style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(255,255,255,0.08)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <X size={14} color="rgba(255,255,255,0.6)" />
+          </button>
         </div>
-        <div style={{ display: 'flex', alignItems: 'flex-end', marginBottom: 20, gap: 8 }}>
-          <div style={{ flex: 1, textAlign: 'right', paddingRight: 12 }}>
-            {!isMammal && <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 6 }}><TeamLogo espnId={teamA.espnId} name={teamA.name} size={44} /></div>}
-            {isMammal && cardA?.wikiImageUrl && <img src={cardA.wikiImageUrl} alt={teamA.name} style={{ width: 60, height: 60, objectFit: 'cover', borderRadius: 8, display: 'block', marginLeft: 'auto', marginBottom: 6 }} />}
-            <div style={{ fontSize: 11, color: accent }}>#{teamA.seed}</div>
-            <div style={{ fontFamily: "'Libre Bodoni', serif", fontSize: 18, fontWeight: 700, color: '#fff' }}>{teamA.name}</div>
+        <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.08)', padding: '0 0 16px' }}>
+          <div style={{ flex: 1, textAlign: 'right', padding: '8px 16px 0', borderTop: `3px solid ${accentA}` }}>
+            {!isMammal && teamA?.espnId && <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}><TeamLogo espnId={teamA.espnId} name={teamA.name} size={64} /></div>}
+            {isMammal && cardA?.wikiImageUrl && <img src={cardA.wikiImageUrl} alt={teamA.name} style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 8, display: 'block', marginLeft: 'auto', marginBottom: 8 }} />}
+            <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)', letterSpacing: 1, marginBottom: 2 }}>#{teamA?.seed}</div>
+            <div style={{ fontFamily: "'Libre Bodoni', serif", fontSize: 18, fontWeight: 700, color: '#fff', lineHeight: 1.2 }}>{teamA?.name}</div>
           </div>
-          <div style={{ fontSize: 13, color: '#444', fontWeight: 700, flexShrink: 0, paddingBottom: 4 }}>VS</div>
-          <div style={{ flex: 1, textAlign: 'left', paddingLeft: 12 }}>
-            {!isMammal && <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: 6 }}><TeamLogo espnId={teamB.espnId} name={teamB.name} size={44} /></div>}
-            {isMammal && cardB?.wikiImageUrl && <img src={cardB.wikiImageUrl} alt={teamB.name} style={{ width: 60, height: 60, objectFit: 'cover', borderRadius: 8, display: 'block', marginBottom: 6 }} />}
-            <div style={{ fontSize: 11, color: accent }}>#{teamB.seed}</div>
-            <div style={{ fontFamily: "'Libre Bodoni', serif", fontSize: 18, fontWeight: 700, color: '#fff' }}>{teamB.name}</div>
+          <div style={{ width: 56, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 4, flexShrink: 0 }}>
+            <div style={{ width: 1, flex: 1, background: 'rgba(255,255,255,0.08)' }} />
+            <span style={{ fontSize: 20, fontWeight: 900, color: 'rgba(255,255,255,0.2)', letterSpacing: 1 }}>VS</span>
+            <div style={{ width: 1, flex: 1, background: 'rgba(255,255,255,0.08)' }} />
+          </div>
+          <div style={{ flex: 1, textAlign: 'left', padding: '8px 16px 0', borderTop: `3px solid ${accentB}` }}>
+            {!isMammal && teamB?.espnId && <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: 8 }}><TeamLogo espnId={teamB.espnId} name={teamB.name} size={64} /></div>}
+            {isMammal && cardB?.wikiImageUrl && <img src={cardB.wikiImageUrl} alt={teamB.name} style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 8, display: 'block', marginBottom: 8 }} />}
+            <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)', letterSpacing: 1, marginBottom: 2 }}>#{teamB?.seed}</div>
+            <div style={{ fontFamily: "'Libre Bodoni', serif", fontSize: 18, fontWeight: 700, color: '#fff', lineHeight: 1.2 }}>{teamB?.name}</div>
           </div>
         </div>
-        {stats.map(([label, key]) => (
-          <div key={key} style={{ display: 'flex', alignItems: 'flex-start', borderTop: '1px solid rgba(0,0,0,0.10)', padding: '10px 0', gap: 8 }}>
-            <div style={{ flex: 1, textAlign: 'right', fontSize: 13, color: '#ccc', lineHeight: 1.5 }}>
-              {cardA ? (cardA[key] || <span style={{ color: '#333' }}>—</span>) : <span style={{ color: '#555', fontStyle: 'italic', fontSize: 12 }}>No data</span>}
+        <div style={{ padding: '0 20px 8px' }}>
+          <SectionLabel label={isMammal ? 'Profile' : 'Performance'} />
+          {PERF_STATS.map(([label, key]) => <TextStat key={key} label={label} keyName={key} />)}
+          <SectionLabel label={isMammal ? 'Stats' : 'Analytics'} />
+          {NUMERIC_STATS.map(([label, key]) => <StatBar key={key} label={label} keyName={key} />)}
+          <SectionLabel label="Scouting" />
+          {SCOUT_STATS.map(([label, key]) => <TextStat key={key} label={label} keyName={key} />)}
+        </div>
+        <div style={{ padding: '12px 20px 16px', borderTop: '1px solid rgba(255,255,255,0.07)' }}>
+          {!isLocked && onPick && (
+            <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+              <button onClick={() => { onPick('top'); onClose(); }} style={{ flex: 1, padding: '11px 8px', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', transition: 'background 150ms' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.13)'} onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.07)'}>{teamA?.name} wins</button>
+              <button onClick={() => { onPick('bottom'); onClose(); }} style={{ flex: 1, padding: '11px 8px', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', transition: 'background 150ms' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.13)'} onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.07)'}>{teamB?.name} wins</button>
             </div>
-            <div style={{ width: 120, textAlign: 'center', fontSize: 10, color: '#555', textTransform: 'uppercase', letterSpacing: 1, fontWeight: 700, paddingTop: 2, flexShrink: 0 }}>{label}</div>
-            <div style={{ flex: 1, textAlign: 'left', fontSize: 13, color: '#ccc', lineHeight: 1.5 }}>
-              {cardB ? (cardB[key] || <span style={{ color: '#333' }}>—</span>) : <span style={{ color: '#555', fontStyle: 'italic', fontSize: 12 }}>No data</span>}
-            </div>
-          </div>
-        ))}
-        <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 16, marginTop: 8, textAlign: 'right' }}>
-          <button style={{ background: 'rgba(255,255,255,0.07)', border: 'none', color: '#888', padding: '7px 20px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit', fontSize: 14 }} onClick={onClose}>Close</button>
+          )}
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.35)', cursor: 'pointer', fontSize: 12, fontFamily: 'inherit' }}>Close</button>
         </div>
       </div>
     </div>
@@ -2380,6 +2429,7 @@ if (game.winner?.name === clicked.name) {
           @keyframes fadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
           @keyframes pickPulse { 0%{transform:scale(1)} 40%{transform:scale(1.05)} 100%{transform:scale(1)} }
           .mm-tile-picked { animation: pickPulse 180ms ease-out; }
+          @keyframes modalSlideUp { from{opacity:0;transform:translateY(40px)} to{opacity:1;transform:translateY(0)} }
           @keyframes livePulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
           .compare-zone { position:relative; height:22px; cursor:pointer; overflow:hidden; user-select:none; }
           .cz-fill-top { position:absolute; top:0; left:0; right:0; height:0; background:var(--cz-top,#040C15); transition:height .24s ease-out; }
@@ -2454,7 +2504,7 @@ if (game.winner?.name === clicked.name) {
         <OfflineBar />
         {confirmDialog && <ConfirmDialog message={confirmDialog.message} onConfirm={confirmDialog.onConfirm} onCancel={() => setConfirmDialog(null)} />}
         {viewingBracket && <ViewBracketModal data={viewingBracket} onClose={() => setViewingBracket(null)} />}
-        {compareModal && <CompareModal {...compareModal} onClose={() => { setCompareModal(null); setComparePicking(false); }} />}
+        {compareModal && <CompareModal {...compareModal} onClose={() => { setCompareModal(null); setComparePicking(false); }} onPick={null} isLocked={compareModal.isMammal ? mammalLocked : locked} />}
 
         <header style={S.header}>
           <div style={S.logo}>MARCH MADNESS {tournamentYear}</div>
