@@ -242,10 +242,10 @@ const GameSlot = memo(function GameSlot({ game, onPick, locked, isChampionship, 
         tabIndex={!locked && !isFF ? 0 : -1}
         onKeyDown={e => { if (!locked && !isFF && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onPick?.(side); } }}
         className={!locked && !isFF ? (isW ? 'mm-tile mm-tile-win' : 'mm-tile') : ''}
-        style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, padding: '10px 14px', background: isW ? MINT_BG : '#F4EFE6', cursor: locked || isFF ? 'default' : 'pointer', borderRadius: 6, opacity: isL ? 0.4 : 1, transition: 'background .12s', minWidth: 100, border: isW ? `1px solid ${MINT_FG}` : '1px solid #C8BFB0' }}>
+        style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, padding: '10px 10px', background: isW ? MINT_BG : '#F4EFE6', cursor: locked || isFF ? 'default' : 'pointer', borderRadius: 6, opacity: isL ? 0.4 : 1, transition: 'background .12s', flex: 1, minWidth: 80, border: isW ? `1px solid ${MINT_FG}` : '1px solid #C8BFB0' }}>
         <TeamLogo espnId={team.espnId} name={team.name} size={36} />
         <span style={{ fontSize: 10, color: isW ? MINT_FG : '#7A7068', fontWeight: 700 }}>{team.seed}</span>
-        <span style={{ fontSize: 14, fontWeight: isW ? 700 : 500, color: isW ? MINT_FG : isL ? '#C8BFB0' : '#1A1208', textAlign: 'center', maxWidth: 120, lineHeight: 1.2 }}>{isFF ? 'TBD' : team.name}</span>
+        <span style={{ fontSize: 13, fontWeight: isW ? 700 : 500, color: isW ? MINT_FG : isL ? '#C8BFB0' : '#1A1208', textAlign: 'center', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.2 }}>{isFF ? 'TBD' : team.name}</span>
         {hasLive && live && <span style={{ fontSize: 18, fontWeight: 800, color: isFinal && live.winner ? MINT_FG : isLiveGame && isLiveWinning ? '#C4952A' : '#7A7068' }}>{live.score}</span>}
         {isW && <Check size={14} color={MINT_FG} />}
       </div>
@@ -279,15 +279,15 @@ const GameSlot = memo(function GameSlot({ game, onPick, locked, isChampionship, 
     <div style={{ border: `2px solid ${slotBorder}`, borderRadius: 10, overflow: 'hidden', background: slotBg }}>
       <div style={{ display: 'flex', alignItems: 'center' }}>
         <Team team={top} side="top" />
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '0 10px', gap: 4 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '0 6px', gap: 3, flexShrink: 0 }}>
           {isLiveGame && <><span style={{ width: 6, height: 6, borderRadius: '50%', background: '#ef4444', display: 'inline-block' }} /><span style={{ fontSize: 10, color: '#f87171', fontWeight: 700 }}>LIVE</span></>}
           {isFinal && <span style={{ fontSize: 10, color: '#777', fontWeight: 700 }}>FINAL</span>}
           <span style={{ fontSize: 18, fontWeight: 900, color: '#888' }}>VS</span>
           {isChampionship && (
-            <div style={{ display: 'flex', gap: 4, marginTop: 4 }}>
-              <input placeholder="–" value={game.scoreTop || ''} onChange={e => onScoreChange?.('scoreTop', e.target.value)} style={{ ...scoreInput, width: 44, textAlign: 'center' }} />
+            <div style={{ display: 'flex', gap: 3, marginTop: 4 }}>
+              <input placeholder="–" value={game.scoreTop || ''} onChange={e => onScoreChange?.('scoreTop', e.target.value)} style={{ ...scoreInput, width: 36, textAlign: 'center' }} />
               <span style={{ color: '#777', fontSize: 13, alignSelf: 'center' }}>-</span>
-              <input placeholder="–" value={game.scoreBottom || ''} onChange={e => onScoreChange?.('scoreBottom', e.target.value)} style={{ ...scoreInput, width: 44, textAlign: 'center' }} />
+              <input placeholder="–" value={game.scoreBottom || ''} onChange={e => onScoreChange?.('scoreBottom', e.target.value)} style={{ ...scoreInput, width: 36, textAlign: 'center' }} />
             </div>
           )}
         </div>
@@ -298,7 +298,7 @@ const GameSlot = memo(function GameSlot({ game, onPick, locked, isChampionship, 
 
   const canCompare = onCompare && top && bottom && !top.isFFPlaceholder && !bottom.isFFPlaceholder;
   return (
-    <div style={{ border: `2px solid ${slotBorder}`, borderRadius: 10, overflow: 'hidden', background: slotBg, minWidth: 178, boxShadow: '4px 6px 14px rgba(9,24,40,0.08), inset -1px -1px 3px rgba(255,255,255,0.6)', position: 'relative' }}>
+    <div style={{ border: `2px solid ${slotBorder}`, borderRadius: 14, overflow: 'hidden', background: slotBg, minWidth: 178, boxShadow: '4px 6px 14px rgba(9,24,40,0.08), inset -1px -1px 3px rgba(255,255,255,0.6)', position: 'relative' }}>
       <Team team={top} side="top" />
       {canCompare ? (
         <div
@@ -1447,13 +1447,18 @@ export default function App() {
   // ── LOAD BRACKET ONCE UID IS SET ──────────────────────────────────────────
   useEffect(() => {
     if (!uid) { setSchool(''); setProfileLoaded(false); return; }
+    let cancelled = false;
     (async () => {
       const profile = await getUserProfile(uid).catch(() => null);
+      if (cancelled) return;
       setSchool(profile?.school || '');
       setProfileLoaded(true);
+      // Admin always uses the official brackets (set via Firestore subscription).
+      // Skip loading their personal bracket to avoid overwriting official data.
+      if (isAdmin) return;
       try {
         const saved = await loadBracket(uid);
-        if (saved) {
+        if (saved && !cancelled) {
           if (saved._firstFourPicks) {
             const { _firstFourPicks, ...b } = saved;
             setFirstFourPicks(_firstFourPicks);
@@ -1463,7 +1468,7 @@ export default function App() {
       } catch (e) { console.warn('Failed to load bracket:', e); }
       try {
         const savedM = await loadMammalBracket(uid);
-        if (savedM) {
+        if (savedM && !cancelled) {
           if (savedM._firstFourPicks) {
             const { _firstFourPicks, ...b } = savedM;
             setMammalFirstFourPicks(_firstFourPicks);
@@ -1472,7 +1477,8 @@ export default function App() {
         }
       } catch (e) { console.warn('Failed to load mammal bracket:', e); }
     })();
-  }, [uid]);
+    return () => { cancelled = true; };
+  }, [uid, isAdmin]);
 
   // ── LIVE SUBSCRIPTIONS ────────────────────────────────────────────────────
   useEffect(() => {
@@ -1509,7 +1515,28 @@ export default function App() {
     });
     const u5 = subscribeToMammalOfficialBracket(b => {
       setMammalOfficialBracket(b);
-      if (isAdmin) setMammalBracket(b);
+      if (isAdmin) {
+        setMammalBracket(b);
+      } else {
+        // For non-admin users whose bracket still holds the basketball placeholder
+        // (no espnId means it's a mammal/animal team), seed R64 from the official
+        // bracket so they see the real animals instead of the 2000 NCAA teams.
+        setMammalBracket(prev => {
+          const hasAnimalTeams = ['East','West','South','Midwest'].some(r =>
+            prev?.[r]?.rounds?.[0]?.some(g => g.top && !g.top.espnId));
+          if (hasAnimalTeams) return prev;
+          const fresh = JSON.parse(JSON.stringify(b));
+          ['East','West','South','Midwest'].forEach(region => {
+            fresh[region].rounds.forEach((round, rIdx) => {
+              round.forEach(g => { g.winner = null; });
+              if (rIdx > 0) round.forEach(g => { g.top = null; g.bottom = null; });
+            });
+          });
+          fresh.finalFour = [{top:null,bottom:null,winner:null},{top:null,bottom:null,winner:null}];
+          fresh.championship = {top:null,bottom:null,winner:null,scoreTop:'',scoreBottom:''};
+          return fresh;
+        });
+      }
       setMammalFfPlaceholders(prev => Object.keys(prev).length > 0 ? prev : extractFFPlaceholders(b));
     });
     const u6 = subscribeToMammalConfig(cfg => setMammalLocked(cfg.locked ?? false));
@@ -1969,11 +1996,10 @@ if (game.winner?.name === clicked.name) {
 
   // ── BRACKET RENDER ────────────────────────────────────────────────────────
   const renderBracket = (isMammal) => {
-    const CW = 210, SH = 116, FF_SCALE = 1.25;
+    const CW = 210, SH = 126, FF_SCALE = 1.25;
     const FF_W = Math.round(CW * FF_SCALE), FF_H = Math.round(SH * FF_SCALE);
-    const CHAMP_BOX_H = 30 + Math.round(FF_H * 0.75) + 32 + 20;
 
-    const FF_GAP = Math.round(SH / 2);
+    const FF_GAP = Math.floor(SH / 2);
     const TOP_H = 8 * SH;
     const STUB = 8;
 
@@ -1990,10 +2016,10 @@ if (game.winner?.name === clicked.name) {
     const champGold     = isMammal ? '#86efac' : '#C4952A';
 
     const ROUND_ABS = [
-      [0, 116, 232, 348, 464, 580, 696, 812],
-      [58, 290, 522, 754],
-      [174, 638],
-      [406],
+      Array.from({length: 8}, (_, i) => i * SH),
+      Array.from({length: 4}, (_, i) => Math.floor(SH / 2) + i * 2 * SH),
+      Array.from({length: 2}, (_, i) => Math.floor(SH / 2) + SH + i * 4 * SH),
+      [Math.floor(SH / 2) + 3 * SH],
     ];
 
     // Completion bar
@@ -2019,11 +2045,11 @@ if (game.winner?.name === clicked.name) {
       setTimeout(() => confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 }, colors: ['#C4952A', '#1E6B47', '#B8CBE8', '#091828'] }), 0);
     }
 
-    const ScaledGame = ({ children, isHoriz }) => {
-      const wrapH = isHoriz ? Math.round(FF_H * 0.72) : FF_H;
+    const ScaledGame = ({ children, innerW }) => {
+      const iW = innerW || CW;
       return (
-        <div style={{ width: FF_W, height: wrapH, position: 'relative', overflow: 'visible' }}>
-          <div style={{ position: 'absolute', top: 0, left: 0, width: CW, transformOrigin: 'top left', transform: `scale(${FF_SCALE})` }}>{children}</div>
+        <div style={{ width: Math.round(iW * FF_SCALE), height: FF_H, position: 'relative', overflow: 'visible' }}>
+          <div style={{ position: 'absolute', top: 0, left: 0, width: iW, transformOrigin: 'top left', transform: `scale(${FF_SCALE})` }}>{children}</div>
         </div>
       );
     };
@@ -2038,7 +2064,7 @@ if (game.winner?.name === clicked.name) {
           {games.map((game, gIdx) => {
             const pos = positions[gIdx] ?? gIdx * SH;
             return (
-              <div key={gIdx} style={{ position: 'absolute', left: 0, right: 0, ...(dir === 'top' ? { top: pos } : { bottom: pos }) }}>
+              <div key={gIdx} style={{ position: 'absolute', left: 0, right: 0, background: '#E8E2D8', ...(dir === 'top' ? { top: pos } : { bottom: pos }) }}>
                 <GameSlot game={game} locked={isLocked && !isAdmin} flipped={flip} roundIdx={rIdx} liveScores={isMammal ? {} : liveScores} onPick={side => onPick(region, rIdx, gIdx, side)} onCompare={onCompareGame} isMammal={isMammal} mammalResearchData={isMammal ? mammalResearchData : {}} researchData={isMammal ? {} : researchData} />
               </div>
             );
@@ -2051,7 +2077,7 @@ if (game.winner?.name === clicked.name) {
     const GUTTER = 20;
     const ROUND_LABELS = ['Round of 64', 'Round of 32', 'Sweet 16', 'Elite 8'];
     const RoundHeader = ({ rIdx }) => (
-      <div style={{ width: CW, flexShrink: 0, marginRight: GUTTER, textAlign: 'center', fontSize: 9, fontWeight: 700, color: '#7A7068', textTransform: 'uppercase', letterSpacing: 1, paddingBottom: 6 }}>
+      <div style={{ width: CW, flexShrink: 0, marginRight: GUTTER, textAlign: 'center', fontSize: 9, fontWeight: 800, color: '#7A7068', textTransform: 'uppercase', letterSpacing: 1.5 }}>
         {ROUND_LABELS[rIdx]}
       </div>
     );
@@ -2064,6 +2090,7 @@ if (game.winner?.name === clicked.name) {
       const lines = [];
       const getMid = (pos) => dir === 'top' ? pos + GAME_MID_OFFSET : H - pos - GAME_MID_OFFSET_BOT;
 
+      const CR = 5;
       const addRegionLines = (xBase, flip) => {
         for (let rIdx = 0; rIdx < 3; rIdx++) {
           const color = LINE_COLORS[rIdx];
@@ -2072,11 +2099,15 @@ if (game.winner?.name === clicked.name) {
           const xFrom = xBase + (flip ? (3 - rIdx) * COL : (rIdx + 1) * COL) - (flip ? 0 : GUTTER);
           const xStub = flip ? xFrom - STUB : xFrom + STUB;
           const xParent = flip ? xFrom - COL + STUB : xFrom + COL - STUB;
+          const sdx = flip ? -1 : 1;
           toPositions.forEach((toPos, tIdx) => {
             const c1 = fromPositions[tIdx * 2], c2 = fromPositions[tIdx * 2 + 1];
             if (c1 == null || c2 == null) return;
             const y1 = getMid(c1), y2 = getMid(c2), yMid = getMid(toPos);
-            lines.push(<g key={`r-${xBase}-${rIdx}-${tIdx}`} stroke={color} strokeWidth="3" strokeLinecap="round" fill="none"><line x1={xFrom} y1={y1} x2={xStub} y2={y1} /><line x1={xFrom} y1={y2} x2={xStub} y2={y2} /><line x1={xStub} y1={y1} x2={xStub} y2={y2} /><line x1={xStub} y1={yMid} x2={xParent} y2={yMid} /></g>);
+            const s1 = yMid >= y1 ? 1 : -1, s2 = yMid <= y2 ? -1 : 1;
+            const topPath = `M${xFrom},${y1} H${xStub - sdx*CR} Q${xStub},${y1} ${xStub},${y1 + s1*CR} V${yMid - s1*CR} Q${xStub},${yMid} ${xStub + sdx*CR},${yMid} H${xParent}`;
+            const botPath = `M${xFrom},${y2} H${xStub - sdx*CR} Q${xStub},${y2} ${xStub},${y2 + s2*CR} V${yMid}`;
+            lines.push(<g key={`r-${xBase}-${rIdx}-${tIdx}`} stroke={color} strokeWidth="3" strokeLinecap="round" fill="none"><path d={topPath} /><path d={botPath} /></g>);
           });
         }
       };
@@ -2086,9 +2117,12 @@ if (game.winner?.name === clicked.name) {
       const ffMidY = ffTopY + Math.round(GAME_MID_OFFSET * FF_SCALE);
       const e8Pos = ROUND_ABS[3][0], e8MidY = getMid(e8Pos), e8Color = LINE_COLORS[3];
       const eastE8Right = CW * 4 + GUTTER * 3, eastStubX = eastE8Right + STUB;
-      lines.push(<g key="e8-ff-east" stroke={e8Color} strokeWidth="3" strokeLinecap="round" fill="none"><line x1={eastE8Right} y1={e8MidY} x2={eastStubX} y2={e8MidY} /><line x1={eastStubX} y1={e8MidY} x2={eastStubX} y2={ffMidY} /><line x1={eastStubX} y1={ffMidY} x2={ffLeftEdge} y2={ffMidY} /></g>);
       const westE8Left = CW * 7 + GUTTER * 6, westStubX = westE8Left - STUB;
-      lines.push(<g key="e8-ff-west" stroke={e8Color} strokeWidth="3" strokeLinecap="round" fill="none"><line x1={westE8Left} y1={e8MidY} x2={westStubX} y2={e8MidY} /><line x1={westStubX} y1={e8MidY} x2={westStubX} y2={ffMidY} /><line x1={westStubX} y1={ffMidY} x2={ffRightEdge} y2={ffMidY} /></g>);
+      const e8Dir = ffMidY > e8MidY ? 1 : -1;
+      const eastPath = `M${eastE8Right},${e8MidY} H${eastStubX - CR} Q${eastStubX},${e8MidY} ${eastStubX},${e8MidY + e8Dir*CR} V${ffMidY - e8Dir*CR} Q${eastStubX},${ffMidY} ${eastStubX + CR},${ffMidY} H${ffLeftEdge}`;
+      const westPath = `M${westE8Left},${e8MidY} H${westStubX + CR} Q${westStubX},${e8MidY} ${westStubX},${e8MidY + e8Dir*CR} V${ffMidY - e8Dir*CR} Q${westStubX},${ffMidY} ${westStubX - CR},${ffMidY} H${ffRightEdge}`;
+      lines.push(<path key="e8-ff-east" stroke={e8Color} strokeWidth="3" strokeLinecap="round" fill="none" d={eastPath} />);
+      lines.push(<path key="e8-ff-west" stroke={e8Color} strokeWidth="3" strokeLinecap="round" fill="none" d={westPath} />);
       addRegionLines(0, false); addRegionLines(CW * 7 + GUTTER * 6, true);
       return <svg width={TOTAL_W} height={H} style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none', zIndex: 1 }}>{lines}</svg>;
     };
@@ -2115,11 +2149,11 @@ if (game.winner?.name === clicked.name) {
           </div>
         </div>
       )}
-      <div style={{ width: TOTAL_W }}>
+      <div style={{ width: TOTAL_W, background: `radial-gradient(ellipse 1400px 800px at ${Math.round(TOTAL_W / 2)}px ${TOP_H + 48}px, rgba(196,149,42,0.08) 0%, transparent 70%)` }}>
         {/* ROUND HEADERS */}
-        <div style={{ display: 'flex', width: TOTAL_W, paddingTop: 4 }}>
+        <div style={{ display: 'flex', width: TOTAL_W, background: 'rgba(232,226,216,0.90)', borderRadius: 8, boxShadow: '0 2px 8px rgba(9,24,40,0.08)', padding: '6px 0', marginBottom: 6 }}>
           {[0,1,2,3].map(rIdx => <RoundHeader key={`hdr-east-${rIdx}`} rIdx={rIdx} />)}
-          <div style={{ width: CW * 3 + GUTTER * 2, flexShrink: 0, textAlign: 'center', fontSize: 9, fontWeight: 700, color: '#7A7068', textTransform: 'uppercase', letterSpacing: 1, paddingBottom: 6 }}>Final Four / Championship</div>
+          <div style={{ width: CW * 3 + GUTTER * 2, flexShrink: 0, textAlign: 'center', fontSize: 9, fontWeight: 800, color: '#7A7068', textTransform: 'uppercase', letterSpacing: 1.5 }}>Final Four / Championship</div>
           {[3,2,1,0].map(rIdx => <RoundHeader key={`hdr-west-${rIdx}`} rIdx={rIdx} />)}
         </div>
         {/* TOP HALF */}
@@ -2137,14 +2171,14 @@ if (game.winner?.name === clicked.name) {
 
         {/* CHAMPIONSHIP */}
         <div style={{ display: 'flex', justifyContent: 'center', padding: '16px 0', borderTop: '1px solid rgba(9,24,40,0.12)', borderBottom: '1px solid rgba(9,24,40,0.12)', background: 'rgba(255,255,255,0.02)', marginTop: 4, marginBottom: 4 }}>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '10px 16px', background: champBg, border: `2px solid ${champColor}`, borderRadius: 12, position: 'relative', minWidth: FF_W + 24 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '10px 16px', background: champBg, border: `2px solid ${champColor}`, borderRadius: 12, position: 'relative', minWidth: Math.round(300 * FF_SCALE) + 40 }}>
             <div style={{ position: 'absolute', inset: -2, borderRadius: 12, border: `2px solid ${champColor}`, animation: 'champGlow 3s ease-in-out infinite', pointerEvents: 'none' }} />
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <Trophy size={16} color={champGold} />
               <span style={{ fontSize: 16, fontWeight: 800, color: champGold, letterSpacing: 1, fontFamily: "'Libre Bodoni', serif", whiteSpace: 'nowrap' }}>Championship</span>
               <Trophy size={16} color={champGold} />
             </div>
-            <ScaledGame isHoriz>
+            <ScaledGame innerW={300}>
               <GameSlot game={activeBracket.championship} onPick={onChampPick} locked={isLocked && !isAdmin} isChampionship isHorizontal onScoreChange={isMammal ? undefined : handleChampScore} roundIdx={-1} liveScores={isMammal ? {} : liveScores} onCompare={onCompareGame} isMammal={isMammal} mammalResearchData={isMammal ? mammalResearchData : {}} researchData={isMammal ? {} : researchData} />
             </ScaledGame>
             {activeBracket.championship?.winner && (
