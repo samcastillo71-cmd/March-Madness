@@ -2,6 +2,59 @@
 
 ---
 
+## Handoff: 2026-06-07 — BRACKET VISUAL POLISH + MAMMAL BUG FIX
+
+### Current State
+**Committed and pushed to `main` (commit `ec23aa2`). Vercel deploy triggered. Live at `march-madness-ruby.vercel.app`.**
+
+### What Was Done This Session (Jun 7)
+
+| Item | Status |
+|---|---|
+| Connector lines showing through tiles: added `background: '#E8E2D8'` to game slot wrapper divs (opaque cover) | ✅ |
+| Mammal bracket picks filling in basketball teams: race condition between `loadMammalBracket` and `subscribeToMammalOfficialBracket`. Fixed with `cancelled` flag + `isAdmin` guard. Non-admin only gets basketball initial state cleared if they have no animal teams yet | ✅ |
+| Connector rounded joins: switched from `<polyline strokeLinejoin="round">` (invisible at 3px stroke width) to `<path>` with explicit quadratic bezier curves at 5px corner radius | ✅ |
+| Round header floating bar: removed broken `position: sticky` (was fighting scroll inside `transform: scale()` ancestor and covering R64 tiles). Header now scrolls with bracket. Kept glass/shadow visual. | ✅ |
+| R64 tile spacing: `SH` increased 116→126, giving 16px gap between tiles (was 6px). `ROUND_ABS` made dynamic from SH. | ✅ |
+| Championship tile too small: `ScaledGame` now accepts `innerW` prop. Championship uses `innerW={300}` (375px displayed at 1.25x). Horizontal Team gets `flex: 1` + name truncation. Score inputs 44→36px. | ✅ |
+| Championship glow effect: radial gold gradient (`rgba(196,149,42,0.08)`) on bracket container background, centered at championship position. Visible through column gutters. | ✅ |
+
+### Architecture Notes
+
+**Bracket layout constants (`renderBracket`):**
+- `SH = 126` (slot height, up from 116)
+- `TOP_H = 8 * SH = 1008`
+- `FF_GAP = Math.floor(SH / 2) = 63`
+- `FF_H = Math.round(SH * FF_SCALE) = 157`
+- `FF_W = Math.round(CW * FF_SCALE) = 263`
+- `ROUND_ABS` is now 4 arrays derived from SH at render time — do NOT hardcode these again
+
+**Connector geometry (`BracketConnectors`):**
+- `CR = 5` (corner radius constant, local to BracketConnectors)
+- Each bracket connector is a `<path>` with two quadratic beziers per connector arm
+- `topPath`: `M xFrom,y1 H xStub-sdx*CR Q xStub,y1 xStub,y1+s1*CR V yMid-s1*CR Q xStub,yMid xStub+sdx*CR,yMid H xParent`
+- `botPath`: `M xFrom,y2 H xStub-sdx*CR Q xStub,y2 xStub,y2+s2*CR V yMid`
+- E8→FF connectors use the same pattern (two elbows, one path each)
+
+**Championship sizing:**
+- `ScaledGame` component signature: `({ children, innerW })` — `innerW` defaults to `CW=210` if omitted
+- Championship passes `innerW={300}` → displayed width `Math.round(300 * 1.25) = 375px`
+- Championship card `minWidth: Math.round(300 * FF_SCALE) + 40`
+- Horizontal Team: `flex: 1`, `minWidth: 80`, `padding: '10px 10px'`; name span has `overflow: hidden, textOverflow: ellipsis, whiteSpace: nowrap`
+
+**Mammal bracket non-admin initialization (`subscribeToMammalOfficialBracket` callback):**
+- `isAdmin` receives official bracket directly (no check)
+- Non-admin: `setMammalBracket(prev => ...)` — only replaces prev if `!hasAnimalTeams` (no team without `espnId`). If they have animal picks already, prev is kept unchanged.
+- The `cancelled` flag in the `useEffect([uid, isAdmin])` prevents the Firestore `loadMammalBracket` read from overwriting state after subscription sets it.
+
+### Remaining Deferred Items
+- Inspect in browser whether all connector paths look geometrically correct at both bracket orientations (top/bottom halves have mirrored Y-axis via `getMid`)
+- Possible: region labels are still not visible (noted earlier, deprioritized) — check if they're present and just need a z-index bump
+- `window.confirm()` in teacher remove-student (~line 2840) — can upgrade to `ConfirmDialog`
+- Mobile header collapse (not urgent)
+
+---
+
 ## Handoff: 2026-06-05 — UI AUDIT COMPLETE + DEPLOYED
 
 ### Current State
